@@ -39,7 +39,15 @@ def setup_layer_blend():
     # Upper body (spine_01 and everything above it) from Other5's own animation, so aiming and holding the gun work
     # as usual; the legs from the ski stance. Mesh-space rotation keeps the chest facing where the camera aims even
     # though the crouched pelvis tilts forward.
-    node = unreal.load_object(None, FOLDER + "/ABP_Skier.ABP_Skier:AnimGraph.AnimGraphNode_LayeredBoneBlend_0")
+    # BuildAnimGraph.ps1 makes a new node each run, so its number changes: take the highest that exists.
+    node = None
+    for i in range(64):
+        found = unreal.find_object(None, FOLDER + "/ABP_Skier.ABP_Skier:AnimGraph.AnimGraphNode_LayeredBoneBlend_%d" % i)
+        if found:
+            node = found
+    if not node:
+        log("no layered blend node yet: run BuildAnimGraph.ps1 first")
+        return
     anim_node = node.get_editor_property("node")
     flt = unreal.BranchFilter()
     flt.set_editor_property("bone_name", "spine_01")

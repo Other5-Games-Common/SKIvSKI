@@ -304,3 +304,19 @@ function EditorExe() {
 	$dir = (Get-ItemProperty "HKLM:\SOFTWARE\EpicGames\Unreal Engine\$assoc").InstalledDirectory
 	return (Join-Path $dir 'Engine\Binaries\Win64\UnrealEditor.exe')
 }
+
+# Removes the selected event's inputs whose names start with $prefix (the row's remove button, after the type boxes).
+function RemoveParamsLike($w, $prefix) {
+	for ($n = 0; $n -lt 12; $n++) {
+		$s = Snap $w
+		$hit = $s | Select-String ('textbox "' + [regex]::Escape($prefix)) | Select-Object -First 1
+		if (-not $hit) { return "removed $n" }
+		$btn = $null
+		for ($k = $hit.LineNumber; $k -lt $hit.LineNumber + 16; $k++) {
+			if ($s[$k] -match '^\s*button \[pos' -and $s[$k - 1] -match 'image' -and $s[$k - 2] -match 'button \[pos' -and $s[$k - 3] -match 'combobox') { $btn = RefOf $s[$k]; break }
+		}
+		if (-not $btn) { return "no remove button" }
+		$null = UiClick $btn
+		Start-Sleep 1
+	}
+}
