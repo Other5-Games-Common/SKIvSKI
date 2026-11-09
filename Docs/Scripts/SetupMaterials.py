@@ -141,7 +141,7 @@ def splat():
 def main():
     snow()
     base = color_material()
-    instance("MI_SkiPineNeedles", base, unreal.LinearColor(0.02, 0.12, 0.05, 1), 0.85)
+    instance("MI_SkiPineNeedles", base, unreal.LinearColor(0.05, 0.22, 0.09, 1), 0.85)
     instance("MI_SkiPineBark", base, unreal.LinearColor(0.12, 0.07, 0.035, 1), 0.9)
     instance("MI_SkiTeamRed", base, unreal.LinearColor(0.9, 0.08, 0.03, 1), 0.4)
     instance("MI_SkiTeamBlue", base, unreal.LinearColor(0.03, 0.25, 0.95, 1), 0.4)

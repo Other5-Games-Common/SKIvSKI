@@ -56,6 +56,9 @@ def main():
         "use_separate_braking_friction": True,
         "braking_friction": 0.4,
     })
+    # The ski animation (legs in a ski stance, upper body aiming), instead of Other5's walking/running one.
+    if eal.does_asset_exist("/SKIvSKI/Animation/ABP_Skier"):
+        ch.get_editor_property("mesh").set_editor_property("anim_class", unreal.load_asset("/SKIvSKI/Animation/ABP_Skier").generated_class())
     eal.save_loaded_asset(bp, False)
     log("character defaults, max walk speed %.0f" % cmc.get_editor_property("max_walk_speed"))
 

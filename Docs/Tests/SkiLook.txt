@@ -1,0 +1,29 @@
+# Screenshots of the skier: standing in the lobby, aiming up and to the side, and on the slope at speed.
+#   UnrealEditor.exe Other5.uproject /SKIvSKI/Maps/L_SkiVSki -game -windowed -log -NoEOS -Other5TestScript=<this file>
+wait 4
+shot LookLobby
+wait 1
+call pawn DebugAim 15
+wait 0.5
+shot LookAimUp
+wait 1
+call pawn DebugFire
+wait 0.3
+call pawn DebugFire
+wait 0.2
+shot LookFire
+wait 1
+call pawn K2_TeleportTo (X=2000,Y=-3600,Z=-400) (Pitch=0,Yaw=0,Roll=0)
+call pawn DebugAim -10
+wait 4
+call pawn DebugReport
+shot LookSpeed
+wait 1
+key D
+keydown D
+wait 0.6
+keyup D
+wait 0.3
+shot LookTurn
+wait 1
+quit
