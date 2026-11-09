@@ -1,0 +1,41 @@
+# Ski movement on L_SkiTest (standalone; the start is on the 20 degree ramp, skis pointing downhill): run with
+#   UnrealEditor.exe Other5.uproject /SKIvSKI/Maps/L_SkiTest -game -windowed -log -NoEOS -Other5TestScript=<this file>
+# Each "call pawn DebugReport" logs "SKI| km/h ... skiYaw ... fallLine ... slope ... at ...".
+wait 4
+call pawn DebugReport
+log straight down, no keys: gravity alone
+wait 2
+call pawn DebugReport
+wait 2
+call pawn DebugReport
+log carve right with D for 0.6 s
+keydown D
+wait 0.6
+keyup D
+call pawn DebugReport
+wait 1
+call pawn DebugReport
+log hold S: across the slope, then a stop
+keydown S
+wait 1
+call pawn DebugReport
+wait 1.5
+call pawn DebugReport
+wait 1.5
+call pawn DebugReport
+log keep holding S: skis point uphill, slide backwards
+wait 2
+call pawn DebugReport
+keyup S
+wait 1
+call pawn DebugReport
+log W: back to the fall line
+keydown W
+wait 2
+keyup W
+call pawn DebugReport
+wait 2
+call pawn DebugReport
+shot SkiRamp
+wait 1
+quit
