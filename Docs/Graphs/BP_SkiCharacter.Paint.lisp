@@ -119,6 +119,7 @@
 
 ; A scoring paintball hit this skier (server): the director decides whether it counts.
 (fn PaintedBy (Shooter)
+  (Development|PrintString :InString (Utilities|String|Append "SKI| hit: " (Utilities|String|Append (Utilities|String|ToString(Object) self) (Utilities|String|Append " by " (Utilities|String|ToString(Object) Shooter)))) :bPrintToScreen false)
   (Class|BPSkiDirector|ScorePaintHit :self (Actor|GetActorOfClass :ActorClass "/SKIvSKI/Blueprints/BP_SkiDirector.BP_SkiDirector_C") :Shooter Shooter :Victim self))
 
 ; The director moves this skier (server): to the lobby, or behind the team's gate. PlaceId (RepNotify) tells the
@@ -149,3 +150,25 @@
   (CallFunction|TryFire)
   (bind balls (Actor|GetAllActorsOfClass :ActorClass "/SKIvSKI/Blueprints/BP_Paintball.BP_Paintball_C"))
   (Development|PrintString :InString (Utilities|String|Append "SKI| paintballs flying: " (Utilities|String|ToString(Integer) (Utilities|Array|Length balls))) :Duration 3.0))
+
+; For tests: log the round and the scores as this machine sees them ("call pawn DebugScore").
+(fn DebugScore ()
+  (bind director (Actor|GetActorOfClass :ActorClass "/SKIvSKI/Blueprints/BP_SkiDirector.BP_SkiDirector_C"))
+  (bind ski (CallFunction|GetSkiPlayerState))
+  (bind a (Utilities|String|Append "SKI| phase " (Utilities|String|ToString(Integer) (Class|BPSkiDirector|GetPhase :self director))))
+  (bind b (Utilities|String|Append a (Utilities|String|Append " red " (Utilities|String|ToString(Integer) (Class|BPSkiDirector|GetRedScore :self director)))))
+  (bind c (Utilities|String|Append b (Utilities|String|Append " blue " (Utilities|String|ToString(Integer) (Class|BPSkiDirector|GetBlueScore :self director)))))
+  (bind d (Utilities|String|Append c (Utilities|String|Append " myTeam " (Utilities|String|ToString(Integer) (Class|BPSkiPlayerState|GetTeam :self ski)))))
+  (bind e (Utilities|String|Append d (Utilities|String|Append " myHits " (Utilities|String|ToString(Integer) (Class|BPSkiPlayerState|GetHits :self ski)))))
+  (bind f (Utilities|String|Append e (Utilities|String|Append " balls " (Utilities|String|ToString(Integer) (Utilities|Array|Length (Actor|GetAllActorsOfClass :ActorClass "/SKIvSKI/Blueprints/BP_Paintball.BP_Paintball_C"))))))
+  (Development|PrintString :InString f :Duration 3.0))
+
+; For tests: during the race, point the skis 35 degrees off the fall line toward the middle of the slope, so both
+; teams meet ("call pawn DebugSteerToMiddle").
+(fn DebugSteerToMiddle ()
+  (if (== (Class|BPSkiDirector|GetPhase :self (Actor|GetActorOfClass :ActorClass "/SKIvSKI/Blueprints/BP_SkiDirector.BP_SkiDirector_C")) 2)
+    (bind y (.y (Transformation|GetActorLocation)))
+    (if (> (Math|Float|Absolute(Float) y) 600.0)
+      (Variables|Ski|State|SetSkiYaw (+ (Variables|Ski|State|GetFallLineYaw) (select (< y 0.0) 35.0 -35.0)))
+      (else
+        (Variables|Ski|State|SetSkiYaw (Variables|Ski|State|GetFallLineYaw))))))

@@ -1,4 +1,4 @@
-; BP_SkiDirector: rounds and teams, in Unreal MCP's Blueprint graph DSL (BlueprintTools.write_graph_dsl).
+﻿; BP_SkiDirector: rounds and teams, in Unreal MCP's Blueprint graph DSL (BlueprintTools.write_graph_dsl).
 ; A child of Other5's Game Coordinator (AOther5GameCoordinator), placed once in the level. Kept as text so the logic
 ; can be reviewed; the asset itself is binary.
 ;
@@ -36,7 +36,12 @@
 
 ; The time everyone agrees on (the server's clock, replicated by the game state).
 (fn Now ()
-  (return (GameState|GetServerWorldTimeSeconds :self (Game|GetGameState))))
+  (bind state (Game|GetGameState))
+  (Utilities|IsValid state
+    (:"Is Valid"
+      (return (GameState|GetServerWorldTimeSeconds :self state)))
+    (:"Is Not Valid"
+      (return 0.0))))
 
 ; The slope this director runs: the Slope set on it in the level, or else the first BP_SkiSlope found.
 (fn FindSlope ()
@@ -58,6 +63,8 @@
   (Variables|Round|State|SetDifficulty (Class|BPSkiSlope|GetStartDifficulty :self (Variables|Round|Settings|GetSlope)))
   (if found
     (Variables|Round|State|SetDifficulty (select (Utilities|String|Equal,CaseInsensitive(String) value "Easy") 0 (select (Utilities|String|Equal,CaseInsensitive(String) value "Hard") 2 1))))
+  ; -SkiPracticeHits: paint hits score in the lobby too (to try scoring without racing).
+  (Variables|Round|Settings|SetPracticeHits (Utilities|HasLaunchOption "SkiPracticeHits"))
   (CallFunction|StartLobby)
   (Utilities|Time|SetTimerbyFunctionName :Object self :FunctionName "ServerStep" :Time 0.25 :bLooping true))
 
@@ -210,7 +217,7 @@
 
 ; A paintball from Shooter hit Victim (server, from the ball that counts). Scores only in the race, only across teams.
 (fn ScorePaintHit (Shooter Victim)
-  (if (== (Variables|Round|State|GetPhase) 2)
+  (if (or (== (Variables|Round|State|GetPhase) 2) (and (Variables|Round|Settings|GetPracticeHits) (== (Variables|Round|State|GetPhase) 0)))
     (bind from (Utilities|Casting|CastToBP_SkiPlayerState :Object (Class|Pawn|GetPlayerState :self Shooter))
       (:then
         (bind to (Utilities|Casting|CastToBP_SkiPlayerState :Object (Class|Pawn|GetPlayerState :self Victim))

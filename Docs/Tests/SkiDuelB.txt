@@ -1,0 +1,301 @@
+# SKIvSKI duel, client B (Run-SkiMultiplayer.ps1): aim at the other player and fire every 0.7 s through a lobby and a race.
+wait 6
+call pawn DebugScore
+call pawn DebugSteerToMiddle
+combat aim
+call pawn DebugFire
+wait 0.7
+call pawn DebugSteerToMiddle
+combat aim
+call pawn DebugFire
+wait 0.7
+call pawn DebugSteerToMiddle
+combat aim
+call pawn DebugFire
+wait 0.7
+call pawn DebugSteerToMiddle
+combat aim
+call pawn DebugFire
+wait 0.7
+call pawn DebugSteerToMiddle
+combat aim
+call pawn DebugFire
+wait 0.7
+call pawn DebugSteerToMiddle
+combat aim
+call pawn DebugFire
+wait 0.7
+call pawn DebugSteerToMiddle
+combat aim
+call pawn DebugFire
+wait 0.7
+call pawn DebugSteerToMiddle
+combat aim
+call pawn DebugFire
+wait 0.7
+call pawn DebugSteerToMiddle
+combat aim
+call pawn DebugFire
+wait 0.7
+call pawn DebugSteerToMiddle
+combat aim
+call pawn DebugFire
+wait 0.7
+call pawn DebugScore
+call pawn DebugReport
+call pawn DebugSteerToMiddle
+combat aim
+call pawn DebugFire
+wait 0.7
+call pawn DebugSteerToMiddle
+combat aim
+call pawn DebugFire
+wait 0.7
+call pawn DebugSteerToMiddle
+combat aim
+call pawn DebugFire
+wait 0.7
+call pawn DebugSteerToMiddle
+combat aim
+call pawn DebugFire
+wait 0.7
+call pawn DebugSteerToMiddle
+combat aim
+call pawn DebugFire
+wait 0.7
+call pawn DebugSteerToMiddle
+combat aim
+call pawn DebugFire
+wait 0.7
+call pawn DebugSteerToMiddle
+combat aim
+call pawn DebugFire
+wait 0.7
+call pawn DebugSteerToMiddle
+combat aim
+call pawn DebugFire
+wait 0.7
+call pawn DebugSteerToMiddle
+combat aim
+call pawn DebugFire
+wait 0.7
+call pawn DebugSteerToMiddle
+combat aim
+call pawn DebugFire
+wait 0.7
+call pawn DebugScore
+call pawn DebugReport
+call pawn DebugSteerToMiddle
+combat aim
+call pawn DebugFire
+wait 0.7
+call pawn DebugSteerToMiddle
+combat aim
+call pawn DebugFire
+wait 0.7
+call pawn DebugSteerToMiddle
+combat aim
+call pawn DebugFire
+wait 0.7
+call pawn DebugSteerToMiddle
+combat aim
+call pawn DebugFire
+wait 0.7
+call pawn DebugSteerToMiddle
+combat aim
+call pawn DebugFire
+wait 0.7
+call pawn DebugSteerToMiddle
+combat aim
+call pawn DebugFire
+wait 0.7
+call pawn DebugSteerToMiddle
+combat aim
+call pawn DebugFire
+wait 0.7
+call pawn DebugSteerToMiddle
+combat aim
+call pawn DebugFire
+wait 0.7
+call pawn DebugSteerToMiddle
+combat aim
+call pawn DebugFire
+wait 0.7
+call pawn DebugSteerToMiddle
+combat aim
+call pawn DebugFire
+wait 0.7
+call pawn DebugScore
+call pawn DebugReport
+call pawn DebugSteerToMiddle
+combat aim
+call pawn DebugFire
+wait 0.7
+call pawn DebugSteerToMiddle
+combat aim
+call pawn DebugFire
+wait 0.7
+call pawn DebugSteerToMiddle
+combat aim
+call pawn DebugFire
+wait 0.7
+call pawn DebugSteerToMiddle
+combat aim
+call pawn DebugFire
+wait 0.7
+call pawn DebugSteerToMiddle
+combat aim
+call pawn DebugFire
+wait 0.7
+call pawn DebugSteerToMiddle
+combat aim
+call pawn DebugFire
+wait 0.7
+call pawn DebugSteerToMiddle
+combat aim
+call pawn DebugFire
+wait 0.7
+call pawn DebugSteerToMiddle
+combat aim
+call pawn DebugFire
+wait 0.7
+call pawn DebugSteerToMiddle
+combat aim
+call pawn DebugFire
+wait 0.7
+call pawn DebugSteerToMiddle
+combat aim
+call pawn DebugFire
+wait 0.7
+call pawn DebugScore
+call pawn DebugReport
+call pawn DebugSteerToMiddle
+combat aim
+call pawn DebugFire
+wait 0.7
+call pawn DebugSteerToMiddle
+combat aim
+call pawn DebugFire
+wait 0.7
+call pawn DebugSteerToMiddle
+combat aim
+call pawn DebugFire
+wait 0.7
+call pawn DebugSteerToMiddle
+combat aim
+call pawn DebugFire
+wait 0.7
+call pawn DebugSteerToMiddle
+combat aim
+call pawn DebugFire
+wait 0.7
+call pawn DebugSteerToMiddle
+combat aim
+call pawn DebugFire
+wait 0.7
+call pawn DebugSteerToMiddle
+combat aim
+call pawn DebugFire
+wait 0.7
+call pawn DebugSteerToMiddle
+combat aim
+call pawn DebugFire
+wait 0.7
+call pawn DebugSteerToMiddle
+combat aim
+call pawn DebugFire
+wait 0.7
+call pawn DebugSteerToMiddle
+combat aim
+call pawn DebugFire
+wait 0.7
+call pawn DebugScore
+call pawn DebugReport
+call pawn DebugSteerToMiddle
+combat aim
+call pawn DebugFire
+wait 0.7
+call pawn DebugSteerToMiddle
+combat aim
+call pawn DebugFire
+wait 0.7
+call pawn DebugSteerToMiddle
+combat aim
+call pawn DebugFire
+wait 0.7
+call pawn DebugSteerToMiddle
+combat aim
+call pawn DebugFire
+wait 0.7
+call pawn DebugSteerToMiddle
+combat aim
+call pawn DebugFire
+wait 0.7
+call pawn DebugSteerToMiddle
+combat aim
+call pawn DebugFire
+wait 0.7
+call pawn DebugSteerToMiddle
+combat aim
+call pawn DebugFire
+wait 0.7
+call pawn DebugSteerToMiddle
+combat aim
+call pawn DebugFire
+wait 0.7
+call pawn DebugSteerToMiddle
+combat aim
+call pawn DebugFire
+wait 0.7
+call pawn DebugSteerToMiddle
+combat aim
+call pawn DebugFire
+wait 0.7
+call pawn DebugScore
+call pawn DebugReport
+call pawn DebugSteerToMiddle
+combat aim
+call pawn DebugFire
+wait 0.7
+call pawn DebugSteerToMiddle
+combat aim
+call pawn DebugFire
+wait 0.7
+call pawn DebugSteerToMiddle
+combat aim
+call pawn DebugFire
+wait 0.7
+call pawn DebugSteerToMiddle
+combat aim
+call pawn DebugFire
+wait 0.7
+call pawn DebugSteerToMiddle
+combat aim
+call pawn DebugFire
+wait 0.7
+call pawn DebugSteerToMiddle
+combat aim
+call pawn DebugFire
+wait 0.7
+call pawn DebugSteerToMiddle
+combat aim
+call pawn DebugFire
+wait 0.7
+call pawn DebugSteerToMiddle
+combat aim
+call pawn DebugFire
+wait 0.7
+call pawn DebugSteerToMiddle
+combat aim
+call pawn DebugFire
+wait 0.7
+call pawn DebugSteerToMiddle
+combat aim
+call pawn DebugFire
+wait 0.7
+call pawn DebugScore
+call pawn DebugReport
+shot SkiDuelB
+wait 1
+call pawn DebugScore
+quit

@@ -57,4 +57,8 @@
 
 ; A fresh splat takes this ball's colour (the material reads it with its Decal Color node).
 (fn ColorSplat (Splat)
-  (Rendering|Components|Decal|SetDecalColor :self Splat :Color (Variables|Paintball|GetBallColor)))
+  ; A dedicated server draws nothing, so it gets no decal.
+  (Utilities|IsValid Splat
+    (:"Is Valid"
+      (Rendering|Components|Decal|SetDecalColor :self Splat :Color (Variables|Paintball|GetBallColor)))
+    (:"Is Not Valid")))
