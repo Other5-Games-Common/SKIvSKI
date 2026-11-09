@@ -1,0 +1,31 @@
+{
+	"FileVersion": 3,
+	"Version": 1,
+	"VersionName": "0.1",
+	"FriendlyName": "SKIvSKI",
+	"Description": "SKIvSKI: two teams ski down a random slope and shoot each other with paintballs. A Blueprint-only teaching Creation.",
+	"Category": "Other",
+	"CreatedBy": "Other5 Games",
+	"CreatedByURL": "https://other5.xyz",
+	"DocsURL": "",
+	"MarketplaceURL": "",
+	"SupportURL": "",
+	"CanContainContent": true,
+	"IsBetaVersion": false,
+	"IsExperimentalVersion": true,
+	"Installed": false,
+	"Plugins": [
+		{
+			"Name": "Other5Combat",
+			"Enabled": true
+		},
+		{
+			"Name": "Other5Characters",
+			"Enabled": true
+		},
+		{
+			"Name": "ProceduralMeshComponent",
+			"Enabled": true
+		}
+	]
+}
