@@ -1,0 +1,24 @@
+# Ride the generated slope on L_SkiVSki (standalone, no director rounds needed):
+#   UnrealEditor.exe Other5.uproject /SKIvSKI/Maps/L_SkiVSki -game -windowed -log -NoEOS -Other5TestScript=<this file>
+wait 6
+call pawn DebugReport
+shot SkiLobby
+wait 1
+log skate out of the lobby with W, past the start
+keydown W
+wait 6
+call pawn DebugReport
+wait 4
+call pawn DebugReport
+shot SkiRun
+wait 1
+wait 4
+call pawn DebugReport
+keyup W
+wait 5
+call pawn DebugReport
+wait 5
+call pawn DebugReport
+shot SkiLow
+wait 1
+quit

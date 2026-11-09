@@ -1,0 +1,52 @@
+# A whole round on L_SkiVSki (standalone, one player): lobby with paintballs, countdown at the gate, race, results.
+#   UnrealEditor.exe Other5.uproject /SKIvSKI/Maps/L_SkiVSki -game -windowed -log -NoEOS -Other5TestScript=<this file>
+wait 4
+call pawn DebugReport
+log fire paintballs at the snow ahead, each gun
+call pawn DebugAim -14
+wait 0.3
+call pawn DebugFire
+wait 0.15
+call pawn DebugFire
+wait 0.15
+shot RoundBalls
+wait 1
+key Q
+wait 0.3
+call pawn DebugFire
+wait 0.6
+call pawn DebugFire
+wait 0.6
+key Q
+wait 0.3
+call pawn DebugFire
+wait 0.2
+shot RoundSpread
+wait 1
+wait 1
+shot RoundSplats
+wait 1
+key Q
+log switch team with T
+key T
+wait 1
+log wait for the countdown (lobby is 15 s)
+wait 7
+call pawn DebugReport
+shot RoundCountdown
+wait 1
+wait 4
+log race: gravity only
+wait 5
+call pawn DebugReport
+shot RoundRace
+wait 1
+wait 8
+call pawn DebugReport
+wait 10
+call pawn DebugReport
+wait 10
+call pawn DebugReport
+shot RoundLate
+wait 1
+quit

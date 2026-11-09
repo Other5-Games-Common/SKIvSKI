@@ -1,0 +1,32 @@
+# Ride down from the Red gate on L_SkiVSki (standalone): teleports there, lets gravity work, steers a little.
+#   UnrealEditor.exe Other5.uproject /SKIvSKI/Maps/L_SkiVSki -game -windowed -log -NoEOS -Other5TestScript=<this file>
+wait 6
+call pawn K2_TeleportTo (X=150,Y=-3600,Z=150) (Pitch=0,Yaw=0,Roll=0)
+wait 1
+call pawn DebugReport
+keydown W
+wait 0.5
+keyup W
+wait 4
+call pawn DebugReport
+shot SkiGate1
+wait 4
+call pawn DebugReport
+keydown D
+wait 0.5
+keyup D
+wait 3
+call pawn DebugReport
+shot SkiGate2
+keydown A
+wait 1
+keyup A
+wait 4
+call pawn DebugReport
+wait 6
+call pawn DebugReport
+shot SkiGate3
+wait 6
+call pawn DebugReport
+wait 1
+quit

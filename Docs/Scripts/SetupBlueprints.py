@@ -84,6 +84,16 @@ def main():
         sub.rename_subobject(nh, unreal.Text("Ball"))
         h, o = find(ball, "Ball")
         log("component BP_Paintball.Ball")
+    # The sphere must be the root: Projectile Movement moves (and sweeps) the root component.
+    for rh in handles(ball):
+        rd = lib.get_data(rh)
+        ro = lib.get_object(rd)
+        if ro and ro.get_name().startswith("DefaultSceneRoot"):
+            sub.make_new_scene_root(hs[0], h, ball)
+            sub.delete_subobject(hs[0], rh, ball)
+            log("Ball is now the root")
+            break
+    h, o = find(ball, "Ball")
     o.set_editor_property("sphere_radius", 4.0)
     o.set_collision_profile_name("Custom")
     o.set_collision_object_type(unreal.CollisionChannel.ECC_WORLD_DYNAMIC)
@@ -99,6 +109,7 @@ def main():
     bm.set_editor_property("relative_scale3d", unreal.Vector(0.08, 0.08, 0.08))
     bm.set_collision_profile_name("NoCollision")
     bm.set_editor_property("cast_shadow", False)
+    bm.set_material(0, unreal.load_asset("/SKIvSKI/Materials/M_SkiColor"))
     pm = add_comp(ball, "Flight", unreal.ProjectileMovementComponent)
     pm.set_editor_property("initial_speed", 0.0)
     pm.set_editor_property("max_speed", 0.0)
@@ -112,13 +123,15 @@ def main():
     for side, y in (("SkiLeft", -13.0), ("SkiRight", 13.0)):
         s = add_comp(ch, side, unreal.StaticMeshComponent)
         s.set_editor_property("static_mesh", cube)
-        s.set_editor_property("relative_location", unreal.Vector(10.0, y, -92.0))
+        s.set_editor_property("relative_location", unreal.Vector(10.0, y, -86.0))
         s.set_editor_property("relative_scale3d", unreal.Vector(1.7, 0.09, 0.025))
         s.set_collision_profile_name("NoCollision")
+        s.set_material(0, unreal.load_asset("/SKIvSKI/Materials/M_SkiColor"))
     hm = add_comp(ch, "Helmet", unreal.StaticMeshComponent)
     hm.set_editor_property("static_mesh", sphere)
     hm.set_editor_property("relative_scale3d", unreal.Vector(0.27, 0.25, 0.22))
     hm.set_collision_profile_name("NoCollision")
+    hm.set_material(0, unreal.load_asset("/SKIvSKI/Materials/M_SkiColor"))
     gm = add_comp(ch, "GunMesh", unreal.StaticMeshComponent)
     gm.set_collision_profile_name("NoCollision")
 
@@ -126,7 +139,31 @@ def main():
     make_bp("BP_SkiGameMode", "/Script/Other5.Other5GameModeBase")
     make_bp("BP_SkiHUD", "/Other5Combat/UI/Hud/BP_Other5CombatHUD.BP_Other5CombatHUD_C")
     slope = make_bp("BP_SkiSlope", "/Script/Engine.Actor")
-    add_comp(slope, "Snow", unreal.ProceduralMeshComponent)
+    snow = add_comp(slope, "Snow", unreal.ProceduralMeshComponent)
+    snow.set_editor_property("use_complex_as_simple_collision", True)
+    snow.set_material(0, unreal.load_asset("/SKIvSKI/Materials/M_SkiSnow"))
+    # Snow, trees and arches are WorldStatic (BlockAll), so paintballs (which ignore WorldDynamic) splat on them.
+    snow.set_collision_profile_name("BlockAll")
+    # Pines from engine shapes: a cone of needles on a short cylinder trunk, one instanced mesh each (cheap to draw).
+    cone = mesh("/Engine/BasicShapes/Cone.Cone")
+    cylinder = mesh("/Engine/BasicShapes/Cylinder.Cylinder")
+    crowns = add_comp(slope, "TreeCrowns", unreal.HierarchicalInstancedStaticMeshComponent)
+    crowns.set_editor_property("static_mesh", cone)
+    crowns.set_material(0, unreal.load_asset("/SKIvSKI/Materials/MI_SkiPineNeedles"))
+    crowns.set_collision_profile_name("BlockAll")
+    trunks = add_comp(slope, "TreeTrunks", unreal.HierarchicalInstancedStaticMeshComponent)
+    trunks.set_editor_property("static_mesh", cylinder)
+    trunks.set_material(0, unreal.load_asset("/SKIvSKI/Materials/MI_SkiPineBark"))
+    trunks.set_collision_profile_name("BlockAll")
+    # Start gates (Red team on the left, Blue on the right, looking downhill) and the finish arch: two posts and a
+    # banner each, moved into place by Generate.
+    for prefix, mat in (("GateRed", "MI_SkiTeamRed"), ("GateBlue", "MI_SkiTeamBlue"), ("Finish", "MI_SkiFinish")):
+        m = unreal.load_asset("/SKIvSKI/Materials/" + mat)
+        for part in ("PostLeft", "PostRight", "Banner"):
+            c = add_comp(slope, prefix + part, unreal.StaticMeshComponent)
+            c.set_editor_property("static_mesh", cube if part == "Banner" else cylinder)
+            c.set_material(0, m)
+            c.set_collision_profile_name("BlockAll")
     make_bp("BP_SkiDirector", "/Script/Other5.Other5GameCoordinator")
 
     for bp in (ball, ch, slope):
