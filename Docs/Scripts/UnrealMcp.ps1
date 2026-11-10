@@ -269,7 +269,8 @@ function WriteDslFn($bpPath, $file, [string[]]$only = @()) {
 	}
 }
 
-function SaveAll() { Mcp-Call 'editor_toolset.toolsets.asset.AssetTools' 'save_assets' @{ asset_paths = @('/SKIvSKI') } }
+# Every asset under /SKIvSKI, dirty or not (AssetTools.save_assets skips Blueprints the graph tool didn't mark dirty).
+function SaveAll() { SaveSki }
 function SaveAssets([string[]]$paths) { Mcp-Call 'editor_toolset.toolsets.asset.AssetTools' 'save_assets' @{ asset_paths = $paths } }
 function SaveSki() { Py (Join-Path $PSScriptRoot "SaveSki.py") }
 function RunGame($map, $script, $name, $extra = @(), $timeoutMs = 240000) {
