@@ -2,14 +2,16 @@
 .SYNOPSIS
   Builds (or rebuilds) every SKIvSKI asset from the scripts and graph sources in Docs/, over Unreal MCP.
 .DESCRIPTION
-  The editor must be open with Other5 loaded (Unreal MCP on http://localhost:8000/mcp) and the "Cmd" console box
+  The editor must be open with Other5 loaded (Unreal MCP on http://localhost:8000/mcp, or the URL in
+  $env:UNREAL_MCP_URL when another project's editor holds port 8000; see UnrealMcp.ps1) and the "Cmd" console box
   visible in its status bar (editor Python is run through it). Rerunnable: existing assets and variables are kept,
   graphs are cleared and written again from Docs/Graphs/*.lisp, and the RPC events keep their inputs and Replicates.
 
   On a fresh project (no SKIvSKI assets yet) it also adds the RPC events' inputs and sets Replicates through the
   Blueprint editor's Details panel (the DSL can't), so leave the editor alone while it runs.
 
-  Order matters: Blueprints that call others are written after those exist and compile.
+  Order matters: Blueprints that call others are written after those exist and compile. Last, LayoutGraphs.py lays
+  every graph out (the DSL leaves all nodes in one row) and boxes each event and function with its .lisp comment.
 #>
 param([switch]$SkipRpcUi)
 $ErrorActionPreference = 'Continue'
@@ -33,13 +35,16 @@ $SM = 'obj:/Script/Engine.StaticMeshComponent'
 Step 'input, materials, Blueprint shells and components'
 Py (Join-Path $Scripts 'SetupInput.py')
 Py (Join-Path $Scripts 'SetupMaterials.py')
+Py (Join-Path $Scripts 'SetupAudio.py')
+Py (Join-Path $Scripts 'SetupFonts.py')
 Py (Join-Path $Scripts 'SetupBlueprints.py') | Select-String -NotMatch 'char comp'
 
 Step 'variables'
 AddVars $G @(
 	@('GunName', 'text', 'Gun', 'None', $true), @('Mesh', '/Script/Engine.StaticMesh', 'Gun', 'None', $true), @('MuzzleOffset', 'Vector', 'Gun', 'None', $true),
 	@('MuzzleSpeed', 'float', 'Paintball', 'None', $true), @('BallGravityScale', 'float', 'Paintball', 'None', $true), @('BallSize', 'float', 'Paintball', 'None', $true),
-	@('ShotsPerSecond', 'float', 'Firing', 'None', $true), @('PelletsPerShot', 'int', 'Firing', 'None', $true), @('SpreadDegrees', 'float', 'Firing', 'None', $true))
+	@('ShotsPerSecond', 'float', 'Firing', 'None', $true), @('PelletsPerShot', 'int', 'Firing', 'None', $true), @('SpreadDegrees', 'float', 'Firing', 'None', $true),
+	@('FireSounds', '/Script/Engine.SoundBase:Array', 'Firing', 'None', $true), @('FireMontage', '/Script/Engine.AnimMontage', 'Firing', 'None', $true))
 # Teams are Other5's shared teams (team on Other5's player state), so the player state keeps only SKIvSKI's own state.
 AddVars $P @(@('bOut', 'bool', 'Score', 'Replicated', $false), @('SnowFriction', 'float', 'Gear', 'Replicated', $true), @('BounceChance', 'float', 'Gear', 'Replicated', $true),
 	@('Hits', 'int', 'Score', 'Replicated', $false),
@@ -82,7 +87,10 @@ AddVars $D @(
 	@('RedPlaced', 'int', 'Round|Work', 'None', $false), @('BluePlaced', 'int', 'Round|Work', 'None', $false), @('LobbyPlaced', 'int', 'Round|Work', 'None', $false), @('HitResult', 'int', 'Round|Work', 'None', $false))
 AddVars $B @(@('Shooter', '/Script/Engine.Pawn', 'Paintball', 'None', $false), @('bScores', 'bool', 'Paintball', 'None', $false), @('BallColor', 'LinearColor', 'Paintball', 'None', $false))
 AddVars $H @(@('PopupTexts', 'string:Array', 'Popups', 'None', $false), @('PopupPlaces', 'Vector:Array', 'Popups', 'None', $false), @('PopupColors', 'LinearColor:Array', 'Popups', 'None', $false),
-	@('PopupStarts', 'float:Array', 'Popups', 'None', $false), @('PopupSeconds', 'float', 'Popups', 'None', $true))
+	@('PopupStarts', 'float:Array', 'Popups', 'None', $false), @('PopupSizes', 'float:Array', 'Popups', 'None', $false), @('PopupSeconds', 'float', 'Popups', 'None', $true),
+	@('ScreenW', 'float', 'Layout', 'None', $false), @('ScreenH', 'float', 'Layout', 'None', $false), @('U', 'float', 'Layout', 'None', $false), @('Row', 'int', 'Layout', 'None', $false),
+	@('LastPhase', 'int', 'Sound', 'None', $false), @('LastSecond', 'int', 'Sound', 'None', $false), @('GoUntil', 'float', 'Sound', 'None', $false),
+	@('LastScore0', 'int', 'Sound', 'None', $false), @('LastScore1', 'int', 'Sound', 'None', $false), @('Flash0Until', 'float', 'Sound', 'None', $false), @('Flash1Until', 'float', 'Sound', 'None', $false))
 foreach ($asset in $G, $P, $C, $S, $D, $B, $H) { Compile $asset | Out-Null }
 
 Step 'functions (with typed inputs/outputs)'
@@ -97,11 +105,11 @@ AddFunctions $C @(
 	@('DebugReport', @()), @('PlaceAt', @(, @('Spot', 'Transform'))),
 	@('PaintedBy', @(@('Shooter', $PAWN), @('Where', 'Vector'), @('Direction', 'Vector'), @('Normal', 'Vector'), @('Color', 'LinearColor'), @('Size', 'float'))),
 	@('IsOut', @(, @('Out', 'bool', 'out'))), @('AddCoins', @(, @('Amount', 'int'))), @('GetCoins', @(, @('Coins', 'int', 'out'))),
-	@('GetSnowFriction', @(, @('Friction', 'float', 'out'))), @('ShowPopup', @(@('Text', 'string'), @('Where', 'Vector'), @('Color', 'LinearColor'))), @('DebugPopup', @()),
+	@('GetSnowFriction', @(, @('Friction', 'float', 'out'))), @('ShowPopup', @(@('Text', 'string'), @('Where', 'Vector'), @('Color', 'LinearColor'), @('Size', 'float'))), @('DebugPopup', @()),
 	@('GetCurrentGun', @(, @('Gun', 'obj:/SKIvSKI/Guns/BP_PaintGunData.BP_PaintGunData_C', 'out'))), @('GetSkiPlayerState', @(, @('Player', $PS, 'out'))),
 	@('ShowGun', @()), @('UpdateTeamLook', @()), @('ReadButtons', @()), @('TryFire', @()),
 	@('SpawnBalls', @(@('Muzzle', 'Vector'), @('Direction', 'Vector'), @('Seed', 'int'), @('bScores', 'bool'))),
-	@('DebugAim', @(, @('Pitch', 'float'))), @('DebugFire', @()), @('DebugScore', @()), @('DebugSteerToMiddle', @())) | Out-Null
+	@('DebugAim', @(, @('Pitch', 'float'))), @('DebugFire', @()), @('DebugScore', @()), @('DebugSteerToMiddle', @()), @('DebugPhase', @(, @('Phase', 'int')))) | Out-Null
 AddFunctions $D @(
 	@('Now', @(, @('Time', 'float', 'out'))), @('FindSlope', @(, @('Found', 'bool', 'out'))), @('SetupRounds', @()), @('ServerStep', @()), @('StartLobby', @()),
 	@('StartCountdown', @()), @('StartRace', @()), @('EndRace', @()), @('PlaceAll', @(@('bAtGate', 'bool'), @('bFreeze', 'bool'))),
@@ -111,12 +119,21 @@ AddFunctions $D @(
 	@('ChangeDifficulty', @(@('Player', $PS), @('Step', 'int')))) | Out-Null
 AddFunctions $H @(
 	@('DrawRound', @(, @('Director', 'obj:/SKIvSKI/Blueprints/BP_SkiDirector.BP_SkiDirector_C'))), @('DrawSkier', @(, @('Skier', 'obj:/SKIvSKI/Blueprints/BP_SkiCharacter.BP_SkiCharacter_C'))),
-	@('AddPopup', @(@('Text', 'string'), @('Where', 'Vector'), @('Color', 'LinearColor'))), @('DrawPopups', @())) | Out-Null
+	@('AddPopup', @(@('Text', 'string'), @('Where', 'Vector'), @('Color', 'LinearColor'), @('Size', 'float'))), @('DrawPopups', @()),
+	@('DrawTeamPanel', @(@('Team', 'int'), @('X', 'float'), @('FlashUntil', 'float'))), @('DrawCountdown', @(, @('Left', 'float'))), @('DrawGo', @()),
+	@('DrawResults', @(, @('Director', 'obj:/SKIvSKI/Blueprints/BP_SkiDirector.BP_SkiDirector_C'))), @('DrawResultRow', @(@('Player', 'obj:/Script/Engine.PlayerState'), @('Top', 'float'))),
+	@('PlayRoundSounds', @(, @('Director', 'obj:/SKIvSKI/Blueprints/BP_SkiDirector.BP_SkiDirector_C'))),
+	@('DrawPanel', @(@('X', 'float'), @('Y', 'float'), @('W', 'float'), @('H', 'float'), @('Accent', 'LinearColor'))),
+	@('DrawCentered', @(@('Text', 'string'), @('CenterX', 'float'), @('Y', 'float'), @('Color', 'LinearColor'), @('Size', 'float'), @('bTitle', 'bool'))),
+	@('DrawLeft', @(@('Text', 'string'), @('X', 'float'), @('Y', 'float'), @('Color', 'LinearColor'), @('Size', 'float'), @('bTitle', 'bool'))),
+	@('Ink', @(, @('Color', 'LinearColor', 'out'))), @('Muted', @(, @('Color', 'LinearColor', 'out'))), @('Neon', @(, @('Color', 'LinearColor', 'out'))),
+	@('Gold', @(, @('Color', 'LinearColor', 'out'))), @('Bad', @(, @('Color', 'LinearColor', 'out')))) | Out-Null
 AddFunctions $B @(
 	@('Launch', @(@('Velocity', 'Vector'), @('Color', 'LinearColor'), @('InShooter', $PAWN), @('bInScores', 'bool'), @('Size', 'float'), @('GravityScale', 'float'))),
 	@('Splash', @(@('HitActor', 'obj:/Script/Engine.Actor'), @('HitComponent', 'obj:/Script/Engine.PrimitiveComponent'), @('Where', 'Vector'), @('Normal', 'Vector'))),
 	@('ColorSplat', @(, @('Splat', 'obj:/Script/Engine.DecalComponent')))) | Out-Null
-foreach ($asset in $C, $S, $D, $B) { Compile $asset | Out-Null }
+foreach ($asset in $C, $S, $D, $B, $H) { Compile $asset | Out-Null }
+Py (Join-Path $Scripts 'SetupPureFunctions.py')
 
 Step 'RPC events (inputs and Replicates through the Blueprint editor UI)'
 $rpcs = @('ServerSetSkiYaw', 'ServerFire', 'MulticastFire', 'ServerNextGun', 'ServerChangeDifficulty', 'MulticastPaintResult')
@@ -180,4 +197,7 @@ Py (Join-Path $Scripts 'SetupDefaults.py')
 Py (Join-Path $Scripts 'SetupGuns.py')
 Py (Join-Path $Scripts 'SetupSkiMap.py')
 Py (Join-Path $Scripts 'SetupCreationLabel.py')
+
+Step 'layout: readable graphs with comment boxes'
+Py (Join-Path $Scripts 'LayoutGraphs.py') 600
 SaveSki

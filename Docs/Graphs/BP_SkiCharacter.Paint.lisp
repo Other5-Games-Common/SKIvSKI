@@ -115,8 +115,14 @@
 
 ; One shot of the gun in hand: PelletsPerShot balls in a SpreadDegrees cone, picked from Seed. Each ball also gets
 ; the skier's own velocity (throw a ball from a moving sled and it keeps the sled's speed).
+; This runs on every machine for every shot, so it's also where the shot is heard and seen: one of the gun's
+; FireSounds at the muzzle, and its FireMontage (Other5Combat's recoil) on the skier's upper body.
 (fn SpawnBalls (Muzzle Direction Seed bScores)
   (bind gun (CallFunction|GetCurrentGun))
+  (bind sounds (Class|BPPaintGunData|GetFireSounds :self gun))
+  (if (> (Utilities|Array|Length sounds) 0)
+    (Audio|PlaySoundatLocation :Sound (Utilities|Array|Get(acopy) sounds (Math|Random|RandomIntegerinRange 0 (- (Utilities|Array|Length sounds) 1))) :Location Muzzle :AttenuationSettings "/Other5Combat/Audio/AttenuationPresets/ATT_Rifle.ATT_Rifle"))
+  (Animation|PlayAnimMontage :AnimMontage (Class|BPPaintGunData|GetFireMontage :self gun))
   (Variables|Paint|SetShotStream (Math|Random|MakeRandomStream Seed))
   (for i (range (Class|BPPaintGunData|GetPelletsPerShot :self gun))
     (Variables|Paint|SetShotDir (Math|Random|RandomUnitVectorinConeinDegreesfromStream :Stream (Variables|Paint|GetShotStream) :ConeDir Direction :ConeHalfAngleInDegrees (Class|BPPaintGunData|GetSpreadDegrees :self gun)))
@@ -194,6 +200,18 @@
   (bind f (Utilities|String|Append e (Utilities|String|Append " balls " (Utilities|String|ToString(Integer) (Utilities|Array|Length (Actor|GetAllActorsOfClass :ActorClass "/SKIvSKI/Blueprints/BP_Paintball.BP_Paintball_C"))))))
   (Development|PrintString :InString f :Duration 3.0))
 
+; For tests: move the round on now, without waiting for its timers: 1 the countdown, 2 the race, 3 the results
+; ("call pawn DebugPhase 3"). Only where the round is run (the server, or a standalone game).
+(fn DebugPhase (Phase)
+  (bind director (Actor|GetActorOfClass :ActorClass "/SKIvSKI/Blueprints/BP_SkiDirector.BP_SkiDirector_C"))
+  (if (Networking|HasAuthority)
+    (if (== Phase 1)
+      (Class|BPSkiDirector|StartCountdown :self director))
+    (if (== Phase 2)
+      (Class|BPSkiDirector|StartRace :self director))
+    (if (== Phase 3)
+      (Class|BPSkiDirector|EndRace :self director))))
+
 ; For tests: during the race, point the skis 35 degrees off the fall line toward the middle of the slope, so both
 ; teams meet ("call pawn DebugSteerToMiddle").
 (fn DebugSteerToMiddle ()
@@ -204,31 +222,36 @@
       (else
         (Variables|Ski|State|SetSkiYaw (Variables|Ski|State|GetFallLineYaw))))))
 
-; Multicast (Reliable): every machine shows what a paintball did to this skier. A hit: a splat on the skier and
-; "Hit!" over their head. A bounce: the ball flies off (a ball that can't score) and "Bounce!" over their head.
+; Multicast (Reliable): every machine shows what a paintball did to this skier. A hit: a splat on the skier, a big
+; "Hit!" over their head and the hit sound. A bounce: the ball flies off (a ball that can't score), a smaller
+; "Bounce!" and the bounce sound. Both sounds are heard by everyone, wherever they are on the slope.
 (event Custom|MulticastPaintResult (bHit Where Bounce Tint Size)
   ; The colour comes as a vector (R, G, B): simpler to add as an event input than a Linear Color.
   (bind Color (Math|Conversions|ToLinearColor(Vector) Tint))
   (bind head (+ (Transformation|GetActorLocation) (Math|Vector|MakeVector 0.0 0.0 120.0)))
-  (CallFunction|ShowPopup :Text (select bHit "Hit!" "Bounce!") :Where head :Color (select bHit Color (Utilities|Struct|MakeLinearColor 1.0 1.0 1.0 1.0)))
+  (CallFunction|ShowPopup :Text (select bHit "Hit!" "Bounce!") :Where head :Color (select bHit Color (Utilities|Struct|MakeLinearColor 1.0 1.0 1.0 1.0)) :Size (select bHit 1.0 0.6))
   (if bHit
+    (Audio|PlaySound2D :Sound "/SKIvSKI/Audio/S_SkiHit.S_SkiHit" :VolumeMultiplier 0.9 :bIsUISound false)
     (bind splat (Rendering|Decal|SpawnDecalAttached :DecalMaterial "/SKIvSKI/Materials/M_PaintSplat.M_PaintSplat" :DecalSize (Math|Vector|MakeVector 20.0 (* Size 4.0) (* Size 4.0)) :AttachToComponent (Variables|Character|GetMesh) :Location Where :Rotation (Math|Conversions|RotationFromXVector (- (Transformation|GetActorLocation) Where)) :LocationType "KeepWorldPosition" :LifeSpan 20.0))
     (Utilities|IsValid splat
       (:"Is Valid"
         (Rendering|Components|Decal|SetDecalColor :self splat :Color Color))
       (:"Is Not Valid"))
     (else
+      (Audio|PlaySound2D :Sound "/SKIvSKI/Audio/S_SkiBounce.S_SkiBounce" :VolumeMultiplier 0.8 :bIsUISound false)
       (bind ball (Game|SpawnActorfromClass :Class "/SKIvSKI/Blueprints/BP_Paintball.BP_Paintball_C" :SpawnTransform (Math|Transform|MakeTransform (+ Where (* (Math|Vector|Normalize Bounce) 20.0)) (Math|Conversions|RotationFromXVector Bounce) (Math|Vector|MakeVector 1.0 1.0 1.0)) :CollisionHandlingOverride "AlwaysSpawn"))
       (Class|BPPaintball|Launch :self ball :Velocity Bounce :Color Color :InShooter self :bInScores false :Size Size :GravityScale 1.0))))
 
-; Shows a rising, fading word over a spot on this machine's HUD (BP_SkiHUD AddPopup). Nothing on a dedicated server.
-(fn ShowPopup (Text Where Color)
+; Shows a word that pops up big and flies up off a spot, fading, on this machine's HUD (BP_SkiHUD AddPopup).
+; Size 1 is a "Hit!"; smaller for lesser news. Nothing on a dedicated server.
+(fn ShowPopup (Text Where Color Size)
   (bind hud (Utilities|Casting|CastToBP_SkiHUD :Object (HUD|GetHUD :self (Game|GetPlayerController 0)))
     (:then
-      (Class|BPSkiHUD|AddPopup :self hud :Text Text :Where Where :Color Color))
+      (Class|BPSkiHUD|AddPopup :self hud :Text Text :Where Where :Color Color :Size Size))
     (:CastFailed)))
 
-; For tests: show both pop-ups over this skier on this machine ("call pawn DebugPopup").
+; For tests: show both pop-ups over this skier on this machine, with their sounds ("call pawn DebugPopup").
 (fn DebugPopup ()
-  (CallFunction|ShowPopup :Text "Hit!" :Where (+ (Transformation|GetActorLocation) (Math|Vector|MakeVector 0.0 0.0 120.0)) :Color (Variables|Team|GetTeamColor))
-  (CallFunction|ShowPopup :Text "Bounce!" :Where (+ (Transformation|GetActorLocation) (Math|Vector|MakeVector 0.0 80.0 60.0)) :Color (Utilities|Struct|MakeLinearColor 1.0 1.0 1.0 1.0)))
+  (CallFunction|ShowPopup :Text "Hit!" :Where (+ (Transformation|GetActorLocation) (Math|Vector|MakeVector 0.0 0.0 120.0)) :Color (Variables|Team|GetTeamColor) :Size 1.0)
+  (CallFunction|ShowPopup :Text "Bounce!" :Where (+ (Transformation|GetActorLocation) (Math|Vector|MakeVector 0.0 80.0 60.0)) :Color (Utilities|Struct|MakeLinearColor 1.0 1.0 1.0 1.0) :Size 0.6)
+  (Audio|PlaySound2D :Sound "/SKIvSKI/Audio/S_SkiHit.S_SkiHit"))

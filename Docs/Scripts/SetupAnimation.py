@@ -67,4 +67,30 @@ try:
     setup_layer_blend()
 except Exception:
     log("ERROR " + traceback.format_exc().replace("\n", " / "))
+
+
+def setup_fire_slot():
+    # The upper body's montage slot: Other5Combat's fire montages (AM_MM_*_Fire, set on each gun in SetupGuns.py)
+    # are additive recoil in the FullBodyAdditivePreAim slot, applied before the aim offset as Other5Combat does.
+    node = None
+    for i in range(64):
+        found = unreal.find_object(None, FOLDER + "/ABP_Skier.ABP_Skier:AnimGraph.AnimGraphNode_Slot_%d" % i)
+        if found:
+            node = found
+    if not node:
+        log("no slot node yet: run BuildAnimGraph.ps1 first")
+        return
+    anim_node = node.get_editor_property("node")
+    anim_node.set_editor_property("slot_name", "FullBodyAdditivePreAim")
+    node.set_editor_property("node", anim_node)
+    abp = unreal.load_asset(FOLDER + "/ABP_Skier")
+    unreal.BlueprintEditorLibrary.compile_blueprint(abp)
+    unreal.EditorAssetLibrary.save_asset(FOLDER + "/ABP_Skier", only_if_is_dirty=False)
+    log("fire slot: FullBodyAdditivePreAim")
+
+
+try:
+    setup_fire_slot()
+except Exception:
+    log("ERROR " + traceback.format_exc().replace("\n", " / "))
 log("END")

@@ -3,7 +3,10 @@
 # Py runs an editor Python file through the editor's console box (the "Cmd" textbox, ref tb3 in the main window);
 # AddVars / AddFunctions / WriteDslFn build Blueprints; OpenBpWindow / SelectEvent / AddParam / SetRpc drive the
 # Blueprint editor's UI for what the DSL can't do (custom event inputs and Replicates).
-$script:McpUrl = 'http://localhost:8000/mcp'
+# Another project's editor may already hold port 8000 (Unreal MCP's default). Then start Other5's editor with
+#   -ini:EditorPerProjectUserSettings:[/Script/ModelContextProtocolEngine.ModelContextProtocolSettings]:ServerPortNumber=8001
+# and set $env:UNREAL_MCP_URL = 'http://localhost:8001/mcp' before running these scripts.
+$script:McpUrl = if ($env:UNREAL_MCP_URL) { $env:UNREAL_MCP_URL } else { 'http://localhost:8000/mcp' }
 $script:McpSession = $null
 $script:McpId = 0
 

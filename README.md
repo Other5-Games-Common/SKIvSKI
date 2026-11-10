@@ -64,7 +64,8 @@ Team Name, Team Score, Add Team Score, Request Team, Set Team Switch Allowed...)
 | `Blueprints/BP_SkiPlayerState` | Each player's outs scored (`Hits`), points, finish place, whether they're out (`bOut`), and gear: `SnowFriction`, `BounceChance` (child of `Other5BasePlayerStateGAS`, whose `TeamId` is the team). |
 | `Blueprints/BP_Paintball` | One paintball. |
 | `Guns/BP_PaintGunData`, `Guns/DA_Paint*` | Gun data: a Blueprint Primary Data Asset class and the three guns. |
-| `Blueprints/BP_SkiHUD` | Round, team scores, your state and gear, coins, and the "Hit!" / "Bounce!" pop-ups, as text (child of Other5's game HUD `BP_Other5GameHUD`: menu and chat, none of Combat's ammo, grenade, health or credits widgets). |
+| `Blueprints/BP_SkiHUD` | The round panel and team scores, the GET READY countdown, GO!, the results scoreboard, your skier and gear panels, the "Hit!" / "Bounce!" pop-ups and the round sounds, drawn on the canvas in Other5's UI style (child of Other5's game HUD `BP_Other5GameHUD`: menu and chat, none of Combat's ammo, grenade, health or credits widgets). |
+| `Audio/S_Ski*` | The game's own sounds (hit, bounce, countdown beep, go, score chime, results fanfare), synthesised by `Docs/Scripts/SetupAudio.py` (sources in `Docs/Audio`). The shots are Other5Combat's rifle sounds. |
 | `Blueprints/BP_SkiGameMode` | Pawn, player state, controller and HUD classes, and the **Teams** list (child of `Other5GameModeBase`). |
 | `Animation/ABP_Skier` | The skier's Animation Blueprint. |
 | `Input/IA_Ski*`, `IMC_SkiVSki` | The controls (player-mappable, `SKIvSKI.*` names). |
@@ -133,8 +134,16 @@ rebuilds between rounds.
 ### Paintballs (`Docs/Graphs/BP_SkiCharacter.Paint.lisp`, `BP_Paintball.lisp`)
 
 A gun is a data asset: mesh, muzzle offset, `MuzzleSpeed`, `BallGravityScale`, `BallSize`, `ShotsPerSecond`,
-`PelletsPerShot`, `SpreadDegrees`. Splat Pistol: fast, flat, 6 a second. Big Marker: big slow loopy balls. Splatter
-Gun: six balls in a cone. Add a gun by copying a `DA_Paint*` and adding it to the character's `Guns`.
+`PelletsPerShot`, `SpreadDegrees`, `FireSounds` (one is picked at random per shot) and `FireMontage`. Splat Pistol:
+fast, flat, 6 a second. Big Marker: big slow loopy balls. Splatter Gun: six balls in a cone. Add a gun by copying a
+`DA_Paint*` and adding it to the character's `Guns`.
+
+The guns are Other5Combat's meshes in the `weapon_r` hand socket. Their barrels point along the mesh's +Y, so the
+character turns the gun -90 degrees (yaw) after attaching it, as Other5Combat's weapons do with their Attach Offset,
+and the muzzle offsets are along Y. Every gun fires with Other5Combat's rifle shots for now (a suppressed,
+paintball-like pop) and plays Other5Combat's fire montage for its kind of gun (pistol, rifle, shotgun): additive
+recoil in the anim graph's `FullBodyAdditivePreAim` slot. `SpawnBalls` runs on every machine for every shot, so the
+sound and the recoil happen there.
 
 A ball is a sphere (the root, so Projectile Movement sweeps it) flying with gravity; it keeps the skier's own speed.
 On the snow, a tree or an arch it leaves a splat decal in the team colour and goes.
@@ -148,8 +157,10 @@ go the same way everywhere.
 (`ResolvePaintHit`: 0 doesn't count, 1 hit and out, 2 bounce, rolled against the shooter's `BounceChance`), then
 `MulticastPaintResult` (Multicast, Reliable) shows it on every machine: a splat stuck to the skier and "Hit!", or a
 ricochet ball (`MirrorVectorByNormal`) and "Bounce!". The other machines' copies of the ball just vanish on a skier,
-so nobody sees a splat that turns out to be a bounce. The pop-ups are the HUD's `AddPopup` / `DrawPopups`: a world
-spot projected to the screen each frame (`Project`), rising and fading over `PopupSeconds`.
+so nobody sees a splat that turns out to be a bounce. Everyone hears it too (`S_SkiHit` / `S_SkiBounce`). The pop-ups are
+the HUD's `AddPopup` / `DrawPopups`: a world spot projected to the screen each frame (`Project`); the word starts
+nearly twice its size and settles, flies up the screen (fast, then slowing) and fades over `PopupSeconds`, centred on
+the spot with a drop shadow. "Hit!" is big (Size 1), "Bounce!" smaller (0.6).
 
 Balls ignore WorldDynamic objects (so a spread shot's pellets don't hit each other), so anything they should splat on
 must be WorldStatic (BlockAll): the slope's snow, trees and arches are.
@@ -168,10 +179,28 @@ difficulty and a message for the HUD.
 
 The server-only parts check the player's **Has Valid Admin PIN** (Other5's player state) for difficulty changes.
 
+### The HUD (`Docs/Graphs/BP_SkiHUD.lisp`)
+
+All Blueprint, drawn on the HUD's canvas each frame (`Event Receive Draw HUD`: **Draw Rect** and **Draw Text**) in
+Other5's UI style: dark see-through panels with a coloured top edge, Orbitron (`/Game/UI/Fonts/Font_Orbitron`) for
+titles and numbers and Exo 2 for the rest, Other5's colours (`Ink`, `Muted`, `Neon`, `Gold`, `Bad`, as linear colours).
+Every size is for a 1080-pixel-high screen times `U` (screen height / 1080), and text is centred with **Get Text
+Size**, so it fits any resolution.
+
+- Top: the round panel (LOBBY / GET READY / RACE / RESULTS, the time, the slope) between the two team score boxes,
+  which glow in the team's colour for half a second when the score goes up.
+- Middle: the countdown seconds (each pops in big and settles), GO!, and at the results a scoreboard: the winner and
+  score, then every player (Red, then Blue) with points, outs and place.
+- Bottom: your speed, team, OUT and outs on the left; your gun, paint bounce chance, ski friction and coins on the
+  right; the keys in the lobby.
+- Sounds (`PlayRoundSounds`, this machine only, from what the director replicates): a beep each countdown second, a
+  higher one at GO!, a chime when a team scores, a fanfare with the results.
+
 ### Animation (`Animation/ABP_Skier`)
 
 Legs: a Two Way Blend from a standing to a crouched pose (`SkiCrouch`: deeper the faster you go). Upper body: the rifle
-hip-fire pose through an aim offset (`AimYaw`, `AimPitch` from where the player aims relative to the skis). A
+hip-fire pose, the `FullBodyAdditivePreAim` montage slot (the guns' fire recoil), then an aim offset (`AimYaw`,
+`AimPitch` from where the player aims relative to the skis). A
 Layered Blend per Bone joins them from `spine_01` up (mesh-space rotation). No walking legs: on skis the feet stay put.
 The Anim Graph is built by `Docs/Scripts/BuildAnimGraph.ps1`; the event graph is `Docs/Graphs/ABP_Skier.lisp`.
 
@@ -200,8 +229,17 @@ The Blueprints were written as text and built over **Unreal MCP** (Epic's editor
   `SetupBlueprints`, `SetupGuns`, `SetupAnimation`, `SetupDefaults`, `SetupSkiMap`, `SetupTestMap`,
   `SetupCreationLabel`).
 - `Docs/Scripts/UnrealMcp.ps1`: a PowerShell Unreal MCP client with the helpers; `BuildAll.ps1` rebuilds everything
-  in order (editor open, MCP running); `BuildAnimGraph.ps1` the Anim Graph.
-
+  in order (editor open, MCP running); `BuildAnimGraph.ps1` the Anim Graph. If another project's editor already holds
+  Unreal MCP's port 8000, start Other5's editor on another port (see the top of `UnrealMcp.ps1`) and set
+  `$env:UNREAL_MCP_URL`.
+- `Docs/Scripts/LayoutGraphs.py`: makes the generated graphs readable (the DSL puts every node in one row). Per event
+  or function, the execution chain runs left to right in the order it runs; each data node sits just left of and below
+  the node that first uses it, its own inputs further left, so wires stay short; a node's other exec outputs (Branch
+  False, Cast Failed, loop Completed) start rows below; the events are stacked, each in a **comment box holding its
+  comment from the .lisp file**. Graphs with no exec pins (the Anim Graph) use the editor toolset's own layered
+  layout (`BlueprintTools.arrange_nodes`). It runs last in `BuildAll.ps1`; run it alone after any graph change:
+  `py "Docs/Scripts/LayoutGraphs.py"` in the editor's console box.
+- `Docs/Scripts/SetupAudio.py`: synthesises the game's sounds (no recordings, nothing to license) and imports them.
 What the DSL can't do, done through the Blueprint editor's UI by `BuildAll.ps1`: inputs on custom events and their
 **Replicates** setting (Run on Server / Multicast, Reliable). If you edit the Blueprints by hand, the `.lisp` files
 go stale: either keep editing by hand, or update the text and run `BuildAll.ps1`.
@@ -214,11 +252,12 @@ The Other5 test runner (`-Other5TestScript=`) drives the scripts in `Docs/Tests`
 - `SkiSlope.txt`, `SkiGate.txt` on `L_SkiVSki`: riding the generated slope.
 - `SkiRound.txt`: lobby, paintballs, team switch, countdown at the gate, race (one player).
 - `SkiLook.txt`: screenshots of the ski stance and aiming.
+- `SkiPolish.txt`: the HUD in every phase (moved on with `DebugPhase`), the gun in hand, recoil and the pop-ups.
 - `Run-SkiMultiplayer.ps1`: a dedicated server and two clients (`SkiDuelA/B.txt`) aiming at each other through a
   lobby and a race (the server runs with `-SkiPracticeHits`). 2026-11-10: shared teams Red/Blue, a hit puts the other
   player out, team score and a coin for the shooter, outs reset at the countdown.
 
-The character has `DebugReport`, `DebugScore`, `DebugAim`, `DebugFire`, `DebugPopup` and `DebugSteerToMiddle` functions for these
+The character has `DebugReport`, `DebugScore`, `DebugAim`, `DebugFire`, `DebugPopup`, `DebugPhase` and `DebugSteerToMiddle` functions for these
 (`call pawn DebugReport`). Mouse buttons sent by the runner's `keydown` don't reach Enhanced Input, hence `DebugFire`.
 
 ## Status
@@ -230,14 +269,17 @@ each round; on a dedicated server with two clients: a hit puts the other player 
 fire, further hits ignored), the team scores, the shooter gets a coin, and the next countdown brings everyone back in;
 the HUD (team scores in team colours, outs, paint bounce %, ski friction, coins) on the plain Other5 game HUD; the
 "Hit!" / "Bounce!" pop-ups rising and fading; admin difficulty keys; the ski stance and aiming upper body; PIE
-(server + client) starts with no errors. Not seen in a test yet: a real bounce (10%: the ricochet path is built and
+(server + client) starts with no errors. Polish (2026-11-10, `SkiPolish.txt`, PIE): the gun points where the skier aims, the fire
+recoil plays in the new slot, the HUD in every phase, the pop-ups, and every graph laid out with comment boxes. The
+sounds play (no errors) but nobody has listened to them yet. Not seen in a test yet: a real bounce (10%: the ricochet path is built and
 compiles), and the controls in Settings > Controls.
 
 **Stubbed or rough:**
 - Pines are engine cones and cylinders. The snow has no texture.
-- The guns are Other5Combat's pistol, rifle and shotgun meshes, roughly in the hand (no muzzle socket; the balls still
-  go where the crosshair points). No firing sound or muzzle flash yet; no splash particles.
-- The HUD is Draw Text, not a widget.
+- The guns are Other5Combat's pistol, rifle and shotgun meshes, held as Other5Combat holds them (2026-11-10: they were
+  turned 90 degrees before). Every gun uses the rifle's shot sounds; no muzzle flash or splash particles yet.
+- The HUD is drawn on the canvas (Draw Rect / Draw Text), not a UMG widget, so it has no hover or click; fine for a
+  read-only HUD.
 - No shop yet: gear (bounce chance, ski friction) and coins are in place for it. Better paint's looks (colours) not
   started.
 - Finish and out-of-bounds are polled four times a second. Players stuck across the slope in a bowl must steer out.
@@ -249,7 +291,7 @@ compiles), and the controls in Settings > Controls.
   effects) and ski wax (lower ski friction). Other5's `AOther5Shop` / inventory currency is the likely base.
 - **Ski compass** (Matt 2026-11-10, later): a compass-like HUD element showing which way your skis point relative to
   the fall line (straight downhill), like Other5Compass but for the hill.
-- Sounds and a muzzle/splash effect (Niagara); a UMG HUD with a results table; nicer pines (Megascans are fine to use,
+- A muzzle/splash effect (Niagara); each gun its own shot sound; nicer pines (Megascans are fine to use,
   Matt 2026-11-10); a ski-specific idle/turn pose set (or Control Rig leg IK); a cooked-pak test on a server.
 - **Creator guides** on other5.xyz: very detailed, lots of pictures and step-by-step how-tos, the animation work above
   all (Matt 2026-11-10). Topics in `CreatorTopics.md`.

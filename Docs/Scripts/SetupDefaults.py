@@ -116,7 +116,7 @@ def main():
     log("player state defaults")
 
     bp, hud = cdo("/SKIvSKI/Blueprints/BP_SkiHUD")
-    set_all(hud, {"PopupSeconds": 1.2})   # "Hit!" / "Bounce!" rise and fade over this long
+    set_all(hud, {"PopupSeconds": 1.6})   # "Hit!" / "Bounce!" pop up, fly up and fade over this long
     eal.save_loaded_asset(bp, False)
 
     bp, gm = cdo("/SKIvSKI/Blueprints/BP_SkiGameMode")

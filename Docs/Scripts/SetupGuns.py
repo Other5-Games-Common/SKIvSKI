@@ -16,21 +16,28 @@ def log(s):
 at = unreal.AssetToolsHelpers.get_asset_tools()
 eal = unreal.EditorAssetLibrary
 
-# name: (shown name, mesh, muzzle offset, speed cm/s, gravity scale, ball cm, shots/s, pellets, spread degrees)
+# name: (shown name, mesh, muzzle offset, speed cm/s, gravity scale, ball cm, shots/s, pellets, spread degrees, fire montage)
+# Other5Combat's gun meshes point their barrels along +Y (the skier holds them turned -90 degrees, as Other5Combat
+# does), so the muzzle offsets are along Y, in the mesh's own space.
 GUNS = {
     # Quick and light: fast, flat-flying small balls, many shots.
-    "DA_PaintPistol": ("Splat Pistol", "/Other5Combat/Weapons/Pistol/Mesh/SM_Pistol", (25, 0, 8), 7000.0, 0.5, 7.0, 6.0, 1, 0.6),
+    "DA_PaintPistol": ("Splat Pistol", "/Other5Combat/Weapons/Pistol/Mesh/SM_Pistol", (0, 14, 3), 7000.0, 0.5, 7.0, 6.0, 1, 0.6,
+                       "/Other5Combat/Weapons/Pistol/Animations/AM_MM_Pistol_Fire"),
     # Heavy marker: big, slow, loopy balls (lead your target), two shots a second.
-    "DA_PaintMarker": ("Big Marker", "/Other5Combat/Weapons/Rifle/Mesh/SM_Rifle", (60, 0, 10), 4200.0, 1.0, 14.0, 2.0, 1, 0.2),
+    "DA_PaintMarker": ("Big Marker", "/Other5Combat/Weapons/Rifle/Mesh/SM_Rifle", (0, 54, 6), 4200.0, 1.0, 14.0, 2.0, 1, 0.2,
+                       "/Other5Combat/Weapons/Rifle/Animations/AM_MM_Rifle_Fire"),
     # Spread gun: six balls in a cone, slow to reload; hard to miss up close.
-    "DA_PaintSpread": ("Splatter Gun", "/Other5Combat/Weapons/Shotgun/Mesh/SM_Shotgun", (55, 0, 8), 5000.0, 0.8, 7.0, 1.2, 6, 5.0),
+    "DA_PaintSpread": ("Splatter Gun", "/Other5Combat/Weapons/Shotgun/Mesh/SM_Shotgun", (0, 36, 4), 5000.0, 0.8, 7.0, 1.2, 6, 5.0,
+                       "/Other5Combat/Weapons/Shotgun/Animations/AM_MM_Shotgun_Fire"),
 }
+# Every marker uses Other5Combat's rifle shots for now (a suppressed, paintball-like pop), one picked at random.
+FIRE_SOUNDS = ["/Other5Combat/Audio/Sounds/Weapons/Rifle/Weapons_Rifle_Punch-Close_%02d" % i for i in range(1, 8)]
 
 
 def main():
     data_class = unreal.load_asset(FOLDER + "/BP_PaintGunData").generated_class()
     guns = []
-    for name, (label, mesh, offset, speed, grav, size, rate, pellets, spread) in GUNS.items():
+    for name, (label, mesh, offset, speed, grav, size, rate, pellets, spread, montage) in GUNS.items():
         path = FOLDER + "/" + name
         if eal.does_asset_exist(path):
             da = unreal.load_asset(path)
@@ -47,6 +54,8 @@ def main():
         da.set_editor_property("ShotsPerSecond", rate)
         da.set_editor_property("PelletsPerShot", pellets)
         da.set_editor_property("SpreadDegrees", spread)
+        da.set_editor_property("FireSounds", [unreal.load_asset(p) for p in FIRE_SOUNDS])
+        da.set_editor_property("FireMontage", unreal.load_asset(montage))
         eal.save_loaded_asset(da, False)
         guns.append(da)
         log("gun " + name)
