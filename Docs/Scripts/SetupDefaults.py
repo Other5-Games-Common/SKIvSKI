@@ -77,6 +77,9 @@ def main():
         "RidgeHeight": 500.0,       # between the two start gates
         "GateSpread": 3600.0,       # each gate this far from the middle
         "ClearPathWidth": 900.0,    # no trees on each team's racing line
+        "TreeGap": 250.0,           # open snow between any two pines' crowns (wider than skis are long)
+        "RunoutLength": 15000.0,    # 150 m of nearly flat run-out past the run...
+        "RunoutRise": 4500.0,       # ...curving up 45 m at its end (enough to stop at top speed)
         # Slope|Difficulty: Easy, Medium, Hard
         "SlopeDegreesByLevel": [13.0, 19.0, 26.0],
         "BumpHeightByLevel": [12.0, 30.0, 50.0],

@@ -44,7 +44,8 @@ AddVars $G @(
 	@('GunName', 'text', 'Gun', 'None', $true), @('Mesh', '/Script/Engine.StaticMesh', 'Gun', 'None', $true), @('MuzzleOffset', 'Vector', 'Gun', 'None', $true),
 	@('MuzzleSpeed', 'float', 'Paintball', 'None', $true), @('BallGravityScale', 'float', 'Paintball', 'None', $true), @('BallSize', 'float', 'Paintball', 'None', $true),
 	@('ShotsPerSecond', 'float', 'Firing', 'None', $true), @('PelletsPerShot', 'int', 'Firing', 'None', $true), @('SpreadDegrees', 'float', 'Firing', 'None', $true),
-	@('FireSounds', '/Script/Engine.SoundBase:Array', 'Firing', 'None', $true), @('FireMontage', '/Script/Engine.AnimMontage', 'Firing', 'None', $true))
+	@('FireSounds', '/Script/Engine.SoundBase:Array', 'Firing', 'None', $true), @('FireMontage', '/Script/Engine.AnimMontage', 'Firing', 'None', $true),
+	@('GripOffset', 'Vector', 'Gun', 'None', $true), @('ArmsKind', 'int', 'Gun', 'None', $true))
 # Teams are Other5's shared teams (team on Other5's player state), so the player state keeps only SKIvSKI's own state.
 AddVars $P @(@('bOut', 'bool', 'Score', 'Replicated', $false), @('SnowFriction', 'float', 'Gear', 'Replicated', $true), @('BounceChance', 'float', 'Gear', 'Replicated', $true),
 	@('Hits', 'int', 'Score', 'Replicated', $false),
@@ -68,14 +69,15 @@ AddVars $S @(
 	@('Length', 'float', 'Slope|Layout', 'None', $true), @('TopWidth', 'float', 'Slope|Layout', 'None', $true), @('FinishWidth', 'float', 'Slope|Layout', 'None', $true),
 	@('LobbyLength', 'float', 'Slope|Layout', 'None', $true), @('CellSize', 'float', 'Slope|Layout', 'None', $true), @('BankHeight', 'float', 'Slope|Layout', 'None', $true),
 	@('BankWidth', 'float', 'Slope|Layout', 'None', $true), @('RidgeHeight', 'float', 'Slope|Layout', 'None', $true), @('GateSpread', 'float', 'Slope|Layout', 'None', $true),
-	@('ClearPathWidth', 'float', 'Slope|Layout', 'None', $true),
+	@('ClearPathWidth', 'float', 'Slope|Layout', 'None', $true), @('TreeGap', 'float', 'Slope|Layout', 'None', $true), @('RunoutLength', 'float', 'Slope|Layout', 'None', $true), @('RunoutRise', 'float', 'Slope|Layout', 'None', $true),
 	@('SlopeDegreesByLevel', 'float:Array', 'Slope|Difficulty', 'None', $true), @('BumpHeightByLevel', 'float:Array', 'Slope|Difficulty', 'None', $true),
 	@('TreeCountByLevel', 'int:Array', 'Slope|Difficulty', 'None', $true), @('bBuildOnBeginPlay', 'bool', 'Slope|Difficulty', 'None', $true), @('StartDifficulty', 'int', 'Slope|Difficulty', 'None', $true),
 	@('Seed', 'int', 'Slope|Build', 'Replicated', $false), @('Difficulty', 'int', 'Slope|Build', 'Replicated', $false), @('BuildId', 'int', 'Slope|Build', 'RepNotify', $false),
 	@('Vertices', 'Vector:Array', 'Slope|Work', 'None', $false), @('Triangles', 'int:Array', 'Slope|Work', 'None', $false), @('UVs', 'Vector2D:Array', 'Slope|Work', 'None', $false),
 	@('Stream', '/Script/CoreUObject.RandomStream', 'Slope|Work', 'None', $false), @('SlopeTan', 'float', 'Slope|Work', 'None', $false), @('BumpHeight', 'float', 'Slope|Work', 'None', $false),
 	@('Phase1', 'float', 'Slope|Work', 'None', $false), @('Phase2', 'float', 'Slope|Work', 'None', $false), @('Phase3', 'float', 'Slope|Work', 'None', $false), @('FinishX', 'float', 'Slope|Work', 'None', $false),
-	@('TreeT', 'float', 'Slope|Work', 'None', $false), @('TreeSide', 'float', 'Slope|Work', 'None', $false), @('TreeSize', 'float', 'Slope|Work', 'None', $false), @('TreeSpin', 'float', 'Slope|Work', 'None', $false))
+	@('TreeT', 'float', 'Slope|Work', 'None', $false), @('TreeSide', 'float', 'Slope|Work', 'None', $false), @('TreeSize', 'float', 'Slope|Work', 'None', $false), @('TreeSpin', 'float', 'Slope|Work', 'None', $false),
+	@('TreeSpots', 'Vector:Array', 'Slope|Work', 'None', $false), @('bTreeClear', 'bool', 'Slope|Work', 'None', $false))
 AddVars $D @(
 	@('Slope', '/SKIvSKI/Blueprints/BP_SkiSlope.BP_SkiSlope_C', 'Round|Settings', 'None', $true), @('LobbySeconds', 'float', 'Round|Settings', 'None', $true),
 	@('CountdownSeconds', 'float', 'Round|Settings', 'None', $true), @('RaceSeconds', 'float', 'Round|Settings', 'None', $true), @('ResultsSeconds', 'float', 'Round|Settings', 'None', $true),
@@ -87,7 +89,7 @@ AddVars $D @(
 	@('RedPlaced', 'int', 'Round|Work', 'None', $false), @('BluePlaced', 'int', 'Round|Work', 'None', $false), @('LobbyPlaced', 'int', 'Round|Work', 'None', $false), @('HitResult', 'int', 'Round|Work', 'None', $false))
 AddVars $B @(@('Shooter', '/Script/Engine.Pawn', 'Paintball', 'None', $false), @('bScores', 'bool', 'Paintball', 'None', $false), @('BallColor', 'LinearColor', 'Paintball', 'None', $false))
 AddVars $H @(@('PopupTexts', 'string:Array', 'Popups', 'None', $false), @('PopupPlaces', 'Vector:Array', 'Popups', 'None', $false), @('PopupColors', 'LinearColor:Array', 'Popups', 'None', $false),
-	@('PopupStarts', 'float:Array', 'Popups', 'None', $false), @('PopupSizes', 'float:Array', 'Popups', 'None', $false), @('PopupSeconds', 'float', 'Popups', 'None', $true),
+	@('PopupStarts', 'float:Array', 'Popups', 'None', $false), @('PopupSizes', 'float:Array', 'Popups', 'None', $false), @('PopupTargets', '/Script/Engine.Actor:Array', 'Popups', 'None', $false), @('PopupSeconds', 'float', 'Popups', 'None', $true),
 	@('ScreenW', 'float', 'Layout', 'None', $false), @('ScreenH', 'float', 'Layout', 'None', $false), @('U', 'float', 'Layout', 'None', $false), @('Row', 'int', 'Layout', 'None', $false),
 	@('LastPhase', 'int', 'Sound', 'None', $false), @('LastSecond', 'int', 'Sound', 'None', $false), @('GoUntil', 'float', 'Sound', 'None', $false),
 	@('LastScore0', 'int', 'Sound', 'None', $false), @('LastScore1', 'int', 'Sound', 'None', $false), @('Flash0Until', 'float', 'Sound', 'None', $false), @('Flash1Until', 'float', 'Sound', 'None', $false))
@@ -95,7 +97,7 @@ foreach ($asset in $G, $P, $C, $S, $D, $B, $H) { Compile $asset | Out-Null }
 
 Step 'functions (with typed inputs/outputs)'
 AddFunctions $S @(
-	@('HeightAt', @(@('X', 'float'), @('Y', 'float'), @('Height', 'float', 'out'))), @('BuildSnow', @()), @('PlantTrees', @()), @('PlaceGates', @()), @('Generate', @()),
+	@('HeightAt', @(@('X', 'float'), @('Y', 'float'), @('Height', 'float', 'out'))), @('BuildSnow', @()), @('PlantTrees', @()), @('PlantTree', @(@('X', 'float'), @('Y', 'float'), @('Size', 'float'), @('Spin', 'float'))), @('PlaceGates', @()), @('Generate', @()),
 	@('PlaceArch', @(@('PostLeft', $SM), @('PostRight', $SM), @('Banner', $SM), @('X', 'float'), @('Y', 'float'), @('Width', 'float'))),
 	@('Rebuild', @(@('NewSeed', 'int'), @('NewDifficulty', 'int'))), @('GetStartSpot', @(@('Team', 'int'), @('Index', 'int'), @('Spot', 'Transform', 'out'))),
 	@('GetLobbySpot', @(@('Index', 'int'), @('Spot', 'Transform', 'out'))), @('IsPastFinish', @(@('WorldLocation', 'Vector'), @('Result', 'bool', 'out'))),
@@ -105,7 +107,7 @@ AddFunctions $C @(
 	@('DebugReport', @()), @('PlaceAt', @(, @('Spot', 'Transform'))),
 	@('PaintedBy', @(@('Shooter', $PAWN), @('Where', 'Vector'), @('Direction', 'Vector'), @('Normal', 'Vector'), @('Color', 'LinearColor'), @('Size', 'float'))),
 	@('IsOut', @(, @('Out', 'bool', 'out'))), @('AddCoins', @(, @('Amount', 'int'))), @('GetCoins', @(, @('Coins', 'int', 'out'))),
-	@('GetSnowFriction', @(, @('Friction', 'float', 'out'))), @('ShowPopup', @(@('Text', 'string'), @('Where', 'Vector'), @('Color', 'LinearColor'), @('Size', 'float'))), @('DebugPopup', @()),
+	@('GetSnowFriction', @(, @('Friction', 'float', 'out'))), @('ShowPopup', @(@('Text', 'string'), @('Where', 'Vector'), @('Color', 'LinearColor'), @('Size', 'float'), @('Target', 'obj:/Script/Engine.Actor'))), @('DebugPopup', @()), @('DebugHitMe', @()),
 	@('GetCurrentGun', @(, @('Gun', 'obj:/SKIvSKI/Guns/BP_PaintGunData.BP_PaintGunData_C', 'out'))), @('GetSkiPlayerState', @(, @('Player', $PS, 'out'))),
 	@('ShowGun', @()), @('UpdateTeamLook', @()), @('ReadButtons', @()), @('TryFire', @()),
 	@('SpawnBalls', @(@('Muzzle', 'Vector'), @('Direction', 'Vector'), @('Seed', 'int'), @('bScores', 'bool'))),
@@ -119,7 +121,9 @@ AddFunctions $D @(
 	@('ChangeDifficulty', @(@('Player', $PS), @('Step', 'int')))) | Out-Null
 AddFunctions $H @(
 	@('DrawRound', @(, @('Director', 'obj:/SKIvSKI/Blueprints/BP_SkiDirector.BP_SkiDirector_C'))), @('DrawSkier', @(, @('Skier', 'obj:/SKIvSKI/Blueprints/BP_SkiCharacter.BP_SkiCharacter_C'))),
-	@('AddPopup', @(@('Text', 'string'), @('Where', 'Vector'), @('Color', 'LinearColor'), @('Size', 'float'))), @('DrawPopups', @()),
+	@('AddPopup', @(@('Text', 'string'), @('Where', 'Vector'), @('Color', 'LinearColor'), @('Size', 'float'), @('Target', 'obj:/Script/Engine.Actor'))), @('DrawPopups', @()),
+	@('AddPopupLook', @(@('Color', 'LinearColor'), @('Size', 'float'))), @('PopupSpot', @(@('Index', 'int'), @('Spot', 'Vector', 'out'))),
+	@('DrawOutlined', @(@('Text', 'string'), @('CenterX', 'float'), @('Y', 'float'), @('Color', 'LinearColor'), @('Size', 'float'))),
 	@('DrawTeamPanel', @(@('Team', 'int'), @('X', 'float'), @('FlashUntil', 'float'))), @('DrawCountdown', @(, @('Left', 'float'))), @('DrawGo', @()),
 	@('DrawResults', @(, @('Director', 'obj:/SKIvSKI/Blueprints/BP_SkiDirector.BP_SkiDirector_C'))), @('DrawResultRow', @(@('Player', 'obj:/Script/Engine.PlayerState'), @('Top', 'float'))),
 	@('PlayRoundSounds', @(, @('Director', 'obj:/SKIvSKI/Blueprints/BP_SkiDirector.BP_SkiDirector_C'))),

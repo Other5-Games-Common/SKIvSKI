@@ -194,37 +194,79 @@
 ; ---- pop-ups ---------------------------------------------------------------------------------------------------------
 
 ; A word that pops up over Where and flies up, fading, over PopupSeconds ("Hit!" at Size 1, "Bounce!" smaller).
-; Called on every machine.
-(fn AddPopup (Text Where Color Size)
+; Called on every machine. With a Target (the skier who was hit) it follows them: skiers move at 20 m/s, so a word
+; left at the spot of the hit was behind everyone within a second.
+(fn AddPopup (Text Where Color Size Target)
   (Utilities|Array|Add (Variables|Popups|GetPopupTexts) Text)
-  (Utilities|Array|Add (Variables|Popups|GetPopupPlaces) Where)
+  (Utilities|Array|Add (Variables|Popups|GetPopupTargets) Target)
+  (CallFunction|AddPopupLook :Color Color :Size Size)
+  ; Kept relative to the Target when there is one, else as the spot in the world.
+  (Utilities|IsValid Target
+    (:"Is Valid"
+      (Utilities|Array|Add (Variables|Popups|GetPopupPlaces) (- Where (Transformation|GetActorLocation :self Target))))
+    (:"Is Not Valid"
+      (Utilities|Array|Add (Variables|Popups|GetPopupPlaces) Where))))
+
+(fn AddPopupLook (Color Size)
   (Utilities|Array|Add (Variables|Popups|GetPopupColors) Color)
   (Utilities|Array|Add (Variables|Popups|GetPopupSizes) Size)
   (Utilities|Array|Add (Variables|Popups|GetPopupStarts) (Utilities|Time|GetTimeSeconds)))
 
+; Where pop-up Index is in the world now: on its Target if it still has one.
+(fn PopupSpot (Index)
+  (bind target (Utilities|Array|Get(acopy) (Variables|Popups|GetPopupTargets) Index))
+  (bind place (Utilities|Array|Get(acopy) (Variables|Popups|GetPopupPlaces) Index))
+  (Utilities|IsValid target
+    (:"Is Valid"
+      (return (+ (Transformation|GetActorLocation :self target) place)))
+    (:"Is Not Valid"
+      (return place))))
+
 ; Each pop-up starts nearly twice its size and settles in a fifth of its life, flies up the screen (fast, then
-; slowing), and fades over its last 40%, drawn where its spot in the world is on screen, with a drop shadow.
+; slowing), and fades over its last 40%, drawn where its skier (or spot) is on screen, outlined so it reads against
+; snow and sky alike.
 (fn DrawPopups ()
   (bind now (Utilities|Time|GetTimeSeconds))
   (bind life (Variables|Popups|GetPopupSeconds))
   (bind u (Variables|Layout|GetU))
-  ; Oldest first: drop the ones that are over.
-  (while (and (> (Utilities|Array|Length (Variables|Popups|GetPopupStarts)) 0) (> (- now (Utilities|Array|Get(acopy) (Variables|Popups|GetPopupStarts) 0)) life))
-    (Utilities|Array|RemoveIndex (Variables|Popups|GetPopupTexts) 0)
-    (Utilities|Array|RemoveIndex (Variables|Popups|GetPopupPlaces) 0)
-    (Utilities|Array|RemoveIndex (Variables|Popups|GetPopupColors) 0)
-    (Utilities|Array|RemoveIndex (Variables|Popups|GetPopupSizes) 0)
-    (Utilities|Array|RemoveIndex (Variables|Popups|GetPopupStarts) 0))
+  ; Drop the ones that are over (from the last back, so removing doesn't shift the ones still to check).
+  (bind count (Utilities|Array|Length (Variables|Popups|GetPopupStarts)))
+  (for k (range count)
+    (bind old (- (- count 1) k))
+    (if (> (- now (Utilities|Array|Get(acopy) (Variables|Popups|GetPopupStarts) old)) life)
+      (Utilities|Array|RemoveIndex (Variables|Popups|GetPopupTexts) old)
+      (Utilities|Array|RemoveIndex (Variables|Popups|GetPopupTargets) old)
+      (Utilities|Array|RemoveIndex (Variables|Popups|GetPopupPlaces) old)
+      (Utilities|Array|RemoveIndex (Variables|Popups|GetPopupColors) old)
+      (Utilities|Array|RemoveIndex (Variables|Popups|GetPopupSizes) old)
+      (Utilities|Array|RemoveIndex (Variables|Popups|GetPopupStarts) old)))
   (for i (range (Utilities|Array|Length (Variables|Popups|GetPopupStarts)))
     (bind age (/ (- now (Utilities|Array|Get(acopy) (Variables|Popups|GetPopupStarts) i)) life))
-    (bind screen (HUD|Project :Location (Utilities|Array|Get(acopy) (Variables|Popups|GetPopupPlaces) i) :bClampToZeroPlane false))
+    (bind screen (HUD|Project :Location (CallFunction|PopupSpot :Index i) :bClampToZeroPlane false))
     ; Behind the camera Project gives Z <= 0: skip those.
     (if (> (.z screen) 0.0)
       (bind rise (- 1.0 (Math|Float|Power (- 1.0 age) 3.0)))
       (bind pop (+ 1.0 (* 0.9 (Math|Float|Max(Float) (- 1.0 (* age 5.0)) 0.0))))
       (bind fade (Math|Float|Clamp(Float) (/ (- 1.0 age) 0.4) 0.0 1.0))
       (bind (r g b a) (Utilities|Struct|BreakLinearColor (Utilities|Array|Get(acopy) (Variables|Popups|GetPopupColors) i)))
-      (CallFunction|DrawCentered :Text (Utilities|Array|Get(acopy) (Variables|Popups|GetPopupTexts) i) :CenterX (.x screen) :Y (- (.y screen) (* (* rise 220.0) u)) :Color (Utilities|Struct|MakeLinearColor r g b fade) :Size (* (* (Utilities|Array|Get(acopy) (Variables|Popups|GetPopupSizes) i) 8.0) pop) :bTitle true))))
+      ; A little lighter than the team colour, so it stands out from the skier's own helmet and skis.
+      (bind light (Utilities|Struct|MakeLinearColor (Math|Float|Lerp r 1.0 0.25) (Math|Float|Lerp g 1.0 0.25) (Math|Float|Lerp b 1.0 0.25) fade))
+      (CallFunction|DrawOutlined :Text (Utilities|Array|Get(acopy) (Variables|Popups|GetPopupTexts) i) :CenterX (.x screen) :Y (- (.y screen) (* (* rise 220.0) u)) :Color light :Size (* (* (Utilities|Array|Get(acopy) (Variables|Popups|GetPopupSizes) i) 8.0) pop)))))
+
+; Big text centred on CenterX with a dark outline all round (drawn four times offset, then on top).
+(fn DrawOutlined (Text CenterX Y Color Size)
+  (bind u (Variables|Layout|GetU))
+  (bind scale (* (* Size u) 0.125))
+  (bind (w h) (HUD|GetTextSize :Text Text :Font "/SKIvSKI/UI/Font_SkiTitle.Font_SkiTitle" :Scale scale))
+  (bind x (- CenterX (* w 0.5)))
+  (bind (r g b a) (Utilities|Struct|BreakLinearColor Color))
+  (bind edge (Utilities|Struct|MakeLinearColor 0.0 0.0 0.0 (* a 0.85)))
+  (bind o (Math|Float|Max(Float) (* (* Size 0.35) u) 1.5))
+  (HUD|DrawText :Text Text :TextColor edge :ScreenX (- x o) :ScreenY (- Y o) :Font "/SKIvSKI/UI/Font_SkiTitle.Font_SkiTitle" :Scale scale)
+  (HUD|DrawText :Text Text :TextColor edge :ScreenX (+ x o) :ScreenY (- Y o) :Font "/SKIvSKI/UI/Font_SkiTitle.Font_SkiTitle" :Scale scale)
+  (HUD|DrawText :Text Text :TextColor edge :ScreenX (- x o) :ScreenY (+ Y o) :Font "/SKIvSKI/UI/Font_SkiTitle.Font_SkiTitle" :Scale scale)
+  (HUD|DrawText :Text Text :TextColor edge :ScreenX (+ x o) :ScreenY (+ Y o) :Font "/SKIvSKI/UI/Font_SkiTitle.Font_SkiTitle" :Scale scale)
+  (HUD|DrawText :Text Text :TextColor Color :ScreenX x :ScreenY Y :Font "/SKIvSKI/UI/Font_SkiTitle.Font_SkiTitle" :Scale scale))
 
 ; ---- drawing helpers -------------------------------------------------------------------------------------------------
 

@@ -134,6 +134,31 @@ def main():
     hm.set_material(0, unreal.load_asset("/SKIvSKI/Materials/M_SkiColor"))
     gm = add_comp(ch, "GunMesh", unreal.StaticMeshComponent)
     gm.set_collision_profile_name("NoCollision")
+    # Character select: the skier's look (Other5's character skins, the same three as CubeEscape, from
+    # Other5Characters), picked on joining (until the player has a fighter) and from the game menu's Fighter button.
+    sk = add_comp(ch, "CharacterSkins", unreal.Other5CharacterSkins)
+    skins = []
+    for label, mesh_path, retargeted, retargeter, hidden, tough, speed, accuracy in (
+            ("Manny", "/Other5Characters/Mannequin/Meshes/SKM_Manny", None, None, [], 5.0, 0.0, 0.0),
+            ("Quinn", "/Other5Characters/Mannequin/Meshes/SKM_Quinn", None, None, [], 0.0, 0.0, 5.0),
+            ("Countess", None, "/Other5Characters/Countess/Characters/Heroes/Countess/Meshes/SM_Countess",
+             "/Other5Characters/Countess/Rigs/RTG_Mannequin_Countess", ["M03_Swords_holster"], 0.0, 5.0, 0.0)):
+        s = unreal.Other5CharacterSkin()
+        s.set_editor_property("display_name", unreal.Text(label))
+        if mesh_path:
+            s.set_editor_property("mesh", unreal.load_asset(mesh_path))
+        if retargeted:
+            s.set_editor_property("retargeted_mesh", unreal.load_asset(retargeted))
+            s.set_editor_property("retargeter", unreal.load_asset(retargeter))
+        s.set_editor_property("hidden_material_slots", [unreal.Name(n) for n in hidden])
+        s.set_editor_property("toughness", tough)
+        s.set_editor_property("speed", speed)
+        s.set_editor_property("accuracy", accuracy)
+        skins.append(s)
+    sk.set_editor_property("skins", skins)
+    sk.set_editor_property("default_skin", 0)
+    sk.set_editor_property("choose_on_join", True)
+    sk.set_editor_property("menu_button", True)
 
     make_bp("BP_SkiPlayerState", "/Script/Other5.Other5BasePlayerStateGAS")
     make_bp("BP_SkiGameMode", "/Script/Other5.Other5GameModeBase")

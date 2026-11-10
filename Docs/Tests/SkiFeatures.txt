@@ -1,0 +1,52 @@
+# 2026-11-10 additions (standalone, one player, L_SkiVSki; run without -Other5NoFighterScreen): character select on
+# joining, the game menu's Fighter button, a middle-mouse ping, the gun held per kind, and the run-out at the bottom.
+#   UnrealEditor.exe Other5.uproject /SKIvSKI/Maps/L_SkiVSki -game -windowed -log -NoEOS -Other5TestScript=<this file>
+wait 6
+log character select on joining (a player without a fighter must pick one)
+shot FeatureFighterJoin
+key Enter
+wait 1
+log ping: middle mouse on the snow ahead
+call pawn DebugAim -12
+wait 0.5
+key MiddleMouseButton
+wait 0.6
+expect commsheard>=1
+shot FeaturePing
+wait 1
+log each gun held: pistol, marker, splatter gun (from the side)
+call pc SetControlRotation (Pitch=-8,Yaw=120,Roll=0)
+wait 0.8
+shot FeatureHoldPistol
+key Q
+wait 0.8
+shot FeatureHoldMarker
+key Q
+wait 0.8
+shot FeatureHoldSpread
+key Q
+wait 0.5
+log the game menu's Fighter button
+key Escape
+wait 1
+expect widget=Button_Fighter
+shot FeatureMenu
+key Escape
+wait 1
+log the run-out: race, then put the skier near the end of the run at 100 km/h
+call pawn DebugPhase 1
+wait 1
+call pawn DebugPhase 2
+wait 1
+call pawn K2_TeleportTo (X=38500,Y=0,Z=-12400) (Pitch=0,Yaw=0,Roll=0)
+wait 0.5
+call pawn LaunchCharacter (X=2800,Y=0,Z=0) true true
+call pawn DebugAim -10
+wait 3
+call pawn DebugReport
+shot FeatureRunout
+wait 6
+call pawn DebugReport
+shot FeatureRunoutStop
+wait 1
+quit

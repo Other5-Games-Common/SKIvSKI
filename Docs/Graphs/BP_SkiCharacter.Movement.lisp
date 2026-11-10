@@ -128,8 +128,9 @@
   (bind vel (Transformation|GetVelocity))
   (bind speed (Math|Vector|VectorLengthXY vel))
   (bind yaw (Variables|Ski|State|GetSkiYaw))
-  ; sin of the angle between the skis and the motion: 0 gliding straight, 1 fully sideways.
-  (bind sideways (select (> speed 10.0) (Math|Float|Absolute(Float) (/ (- (* (.x vel) (Math|Trig|Sin(Degrees) yaw)) (* (.y vel) (Math|Trig|Cos(Degrees) yaw))) speed)) 0.0))
+  ; sin of the angle between the skis and the motion: 0 gliding straight, 1 fully sideways. (A select works out both
+  ; sides, so the division never sees a speed of 0.)
+  (bind sideways (select (> speed 10.0) (Math|Float|Absolute(Float) (/ (- (* (.x vel) (Math|Trig|Sin(Degrees) yaw)) (* (.y vel) (Math|Trig|Cos(Degrees) yaw))) (Math|Float|Max(Float) speed 1.0))) 0.0))
   (bind pressing (* (Variables|Ski|Tuning|GetGravity) (Math|Trig|Cos(Degrees) (Variables|Ski|State|GetSlopeDegrees))))
   (Class|CharacterMovementComponent|SetBrakingDecelerationWalking :self cmc :BrakingDecelerationWalking (+ (* (CallFunction|GetSnowFriction) pressing) (* sideways (Variables|Ski|Tuning|GetSkidBraking))))
   (Class|CharacterMovementComponent|SetBrakingFriction :self cmc :BrakingFriction (* sideways (Variables|Ski|Tuning|GetSkidFriction))))

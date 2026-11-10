@@ -140,7 +140,9 @@ fast, flat, 6 a second. Big Marker: big slow loopy balls. Splatter Gun: six ball
 
 The guns are Other5Combat's meshes in the `weapon_r` hand socket. Their barrels point along the mesh's +Y, so the
 character turns the gun -90 degrees (yaw) after attaching it, as Other5Combat's weapons do with their Attach Offset,
-and the muzzle offsets are along Y. Every gun fires with Other5Combat's rifle shots for now (a suppressed,
+and the muzzle offsets are along Y. The static meshes are centred on their middle, but Other5Combat holds skeletal
+meshes whose pivot is the grip, so each gun has a `GripOffset` (worked out by `SetupGuns.py` from the two meshes)
+that `ShowGun` puts it at. Each gun's `ArmsKind` (0 pistol, 1 rifle, 2 shotgun) picks how the upper body holds it. Every gun fires with Other5Combat's rifle shots for now (a suppressed,
 paintball-like pop) and plays Other5Combat's fire montage for its kind of gun (pistol, rifle, shotgun): additive
 recoil in the anim graph's `FullBodyAdditivePreAim` slot. `SpawnBalls` runs on every machine for every shot, so the
 sound and the recoil happen there.
@@ -158,9 +160,10 @@ go the same way everywhere.
 `MulticastPaintResult` (Multicast, Reliable) shows it on every machine: a splat stuck to the skier and "Hit!", or a
 ricochet ball (`MirrorVectorByNormal`) and "Bounce!". The other machines' copies of the ball just vanish on a skier,
 so nobody sees a splat that turns out to be a bounce. Everyone hears it too (`S_SkiHit` / `S_SkiBounce`). The pop-ups are
-the HUD's `AddPopup` / `DrawPopups`: a world spot projected to the screen each frame (`Project`); the word starts
-nearly twice its size and settles, flies up the screen (fast, then slowing) and fades over `PopupSeconds`, centred on
-the spot with a drop shadow. "Hit!" is big (Size 1), "Bounce!" smaller (0.6).
+the HUD's `AddPopup` / `DrawPopups`: projected to the screen each frame (`Project`) on the skier who was hit (`Target`;
+at 20 m/s a word left at the spot of the hit was behind everyone within a second); the word starts nearly twice its
+size and settles, flies up the screen (fast, then slowing) and fades over `PopupSeconds`, centred, a little lighter
+than the team colour and outlined in black. "Hit!" is big (Size 1), "Bounce!" smaller (0.6).
 
 Balls ignore WorldDynamic objects (so a spread shot's pellets don't hit each other), so anything they should splat on
 must be WorldStatic (BlockAll): the slope's snow, trees and arches are.
@@ -179,6 +182,20 @@ difficulty and a message for the HUD.
 
 The server-only parts check the player's **Has Valid Admin PIN** (Other5's player state) for difficulty changes.
 
+### Pings and character select
+
+Both are Other5's, for every Creation. Pings and quick chat work as in CubeEscape: middle mouse pings the spot under
+the crosshair (hold it for the quick-chat wheel), with markers, the chat line and sound (Other5Comms, keys in
+Settings > Controls). Character select is Other5's "Choose your fighter" screen: the skier has an **Other5 Character
+Skins** component (Manny, Quinn, the Countess, from Other5Characters) with **Choose On Join** (a player who hasn't picked
+a fighter picks one when they join) and **Menu Button** (a Fighter button in the game menu) ticked.
+
+### The slope's trees and run-out
+
+Pines are never closer than **TreeGap** (2.5 m, longer than the skis) of open snow, crown to crown, so nobody can be
+wedged between two of them (`PlantTree` checks every pine already planted). Past the finish the snow goes on for
+**RunoutLength** (150 m): flat where the run ends, rolling gently (under a degree), then curving up to **RunoutRise**
+(45 m) at its end, enough height to stop a skier at top speed, so everyone stays on the snow.
 ### The HUD (`Docs/Graphs/BP_SkiHUD.lisp`)
 
 All Blueprint, drawn on the HUD's canvas each frame (`Event Receive Draw HUD`: **Draw Rect** and **Draw Text**) in
@@ -199,8 +216,10 @@ Size**, so it fits any resolution.
 ### Animation (`Animation/ABP_Skier`)
 
 Legs: a Two Way Blend from a standing to a crouched pose (`SkiCrouch`: deeper the faster you go). Upper body: the rifle
-hip-fire pose, the `FullBodyAdditivePreAim` montage slot (the guns' fire recoil), then an aim offset (`AimYaw`,
-`AimPitch` from where the player aims relative to the skis). A
+pose and aim offset of the gun in hand: pistol (`MM_Pistol_Idle_ADS`, `AO_MM_Pistol_Idle_ADS`), rifle (`MM_Rifle_Idle_Hipfire`,
+`AO_MM_Rifle_Idle_Hipfire`) or shotgun (`MM_Shotgun_Idle_Hipfire` with the rifle's aim offset), picked by two Blend Poses by
+Bool (`bArmsPistol`, `bArmsShotgun`, from the gun's `ArmsKind`), then the `FullBodyAdditivePreAim` montage slot (the guns'
+fire recoil). The aim offsets use `AimYaw`, `AimPitch` (where the player aims relative to the skis). A
 Layered Blend per Bone joins them from `spine_01` up (mesh-space rotation). No walking legs: on skis the feet stay put.
 The Anim Graph is built by `Docs/Scripts/BuildAnimGraph.ps1`; the event graph is `Docs/Graphs/ABP_Skier.lisp`.
 
@@ -253,11 +272,14 @@ The Other5 test runner (`-Other5TestScript=`) drives the scripts in `Docs/Tests`
 - `SkiRound.txt`: lobby, paintballs, team switch, countdown at the gate, race (one player).
 - `SkiLook.txt`: screenshots of the ski stance and aiming.
 - `SkiPolish.txt`: the HUD in every phase (moved on with `DebugPhase`), the gun in hand, recoil and the pop-ups.
+- `SkiFeatures.txt`: character select, a middle-mouse ping, each gun held, the game menu's Fighter button, the run-out.
+- A hit over the network: a listen-server host runs `call pawn DebugHitMe` (a real `MulticastPaintResult`) while a client
+  screenshots it. (Editor Python can't test RPCs: its calls run them locally.)
 - `Run-SkiMultiplayer.ps1`: a dedicated server and two clients (`SkiDuelA/B.txt`) aiming at each other through a
   lobby and a race (the server runs with `-SkiPracticeHits`). 2026-11-10: shared teams Red/Blue, a hit puts the other
   player out, team score and a coin for the shooter, outs reset at the countdown.
 
-The character has `DebugReport`, `DebugScore`, `DebugAim`, `DebugFire`, `DebugPopup`, `DebugPhase` and `DebugSteerToMiddle` functions for these
+The character has `DebugReport`, `DebugScore`, `DebugAim`, `DebugFire`, `DebugPopup`, `DebugHitMe`, `DebugPhase` and `DebugSteerToMiddle` functions for these
 (`call pawn DebugReport`). Mouse buttons sent by the runner's `keydown` don't reach Enhanced Input, hence `DebugFire`.
 
 ## Status

@@ -19,8 +19,13 @@
 (fn OnRep_GunIndex ()
   (CallFunction|ShowGun))
 
+; The gun in the right hand: its mesh, placed so the hand holds the grip (GripOffset, in the hand socket's space: the
+; static meshes are centred on their middle, Other5Combat's skeletal ones on the grip). The upper body's pose and aim
+; offset for this kind of gun come from the same data (ABP_Skier reads them).
 (fn ShowGun ()
-  (Components|StaticMesh|SetStaticMesh :self (Variables|Default|GetGunMesh) :NewMesh (Class|BPPaintGunData|GetMesh :self (CallFunction|GetCurrentGun))))
+  (bind gun (CallFunction|GetCurrentGun))
+  (Components|StaticMesh|SetStaticMesh :self (Variables|Default|GetGunMesh) :NewMesh (Class|BPPaintGunData|GetMesh :self gun))
+  (Transformation|SetRelativeLocation :self (Variables|Default|GetGunMesh) :NewLocation (Class|BPPaintGunData|GetGripOffset :self gun)))
 
 (fn GetSkiPlayerState ()
   (bind ski (Utilities|Casting|CastToBP_SkiPlayerState :Object (Variables|Pawn|GetPlayerState))
@@ -229,7 +234,7 @@
   ; The colour comes as a vector (R, G, B): simpler to add as an event input than a Linear Color.
   (bind Color (Math|Conversions|ToLinearColor(Vector) Tint))
   (bind head (+ (Transformation|GetActorLocation) (Math|Vector|MakeVector 0.0 0.0 120.0)))
-  (CallFunction|ShowPopup :Text (select bHit "Hit!" "Bounce!") :Where head :Color (select bHit Color (Utilities|Struct|MakeLinearColor 1.0 1.0 1.0 1.0)) :Size (select bHit 1.0 0.6))
+  (CallFunction|ShowPopup :Text (select bHit "Hit!" "Bounce!") :Where head :Color (select bHit Color (Utilities|Struct|MakeLinearColor 1.0 1.0 1.0 1.0)) :Size (select bHit 1.0 0.6) :Target self)
   (if bHit
     (Audio|PlaySound2D :Sound "/SKIvSKI/Audio/S_SkiHit.S_SkiHit" :VolumeMultiplier 0.9 :bIsUISound false)
     (bind splat (Rendering|Decal|SpawnDecalAttached :DecalMaterial "/SKIvSKI/Materials/M_PaintSplat.M_PaintSplat" :DecalSize (Math|Vector|MakeVector 20.0 (* Size 4.0) (* Size 4.0)) :AttachToComponent (Variables|Character|GetMesh) :Location Where :Rotation (Math|Conversions|RotationFromXVector (- (Transformation|GetActorLocation) Where)) :LocationType "KeepWorldPosition" :LifeSpan 20.0))
@@ -242,16 +247,22 @@
       (bind ball (Game|SpawnActorfromClass :Class "/SKIvSKI/Blueprints/BP_Paintball.BP_Paintball_C" :SpawnTransform (Math|Transform|MakeTransform (+ Where (* (Math|Vector|Normalize Bounce) 20.0)) (Math|Conversions|RotationFromXVector Bounce) (Math|Vector|MakeVector 1.0 1.0 1.0)) :CollisionHandlingOverride "AlwaysSpawn"))
       (Class|BPPaintball|Launch :self ball :Velocity Bounce :Color Color :InShooter self :bInScores false :Size Size :GravityScale 1.0))))
 
-; Shows a word that pops up big and flies up off a spot, fading, on this machine's HUD (BP_SkiHUD AddPopup).
-; Size 1 is a "Hit!"; smaller for lesser news. Nothing on a dedicated server.
-(fn ShowPopup (Text Where Color Size)
+; Shows a word that pops up big and flies up off a spot, fading, on this machine's HUD (BP_SkiHUD AddPopup), following
+; Target (a skier) if there is one. Size 1 is a "Hit!"; smaller for lesser news. Nothing on a dedicated server.
+(fn ShowPopup (Text Where Color Size Target)
   (bind hud (Utilities|Casting|CastToBP_SkiHUD :Object (HUD|GetHUD :self (Game|GetPlayerController 0)))
     (:then
-      (Class|BPSkiHUD|AddPopup :self hud :Text Text :Where Where :Color Color :Size Size))
+      (Class|BPSkiHUD|AddPopup :self hud :Text Text :Where Where :Color Color :Size Size :Target Target))
     (:CastFailed)))
+
+; For tests: the server sends this skier a paint hit through MulticastPaintResult, as a real hit would, so every
+; machine should show the splat, "Hit!" and its sound (server only: "call pawn DebugHitMe" on a listen server).
+(fn DebugHitMe ()
+  (if (Networking|HasAuthority)
+    (CallFunction|MulticastPaintResult :bHit true :Where (+ (Transformation|GetActorLocation) (Math|Vector|MakeVector 30.0 0.0 40.0)) :Bounce (Math|Vector|MakeVector 0.0 0.0 0.0) :Tint (Math|Vector|MakeVector 1.0 0.1 0.1) :Size 14.0)))
 
 ; For tests: show both pop-ups over this skier on this machine, with their sounds ("call pawn DebugPopup").
 (fn DebugPopup ()
-  (CallFunction|ShowPopup :Text "Hit!" :Where (+ (Transformation|GetActorLocation) (Math|Vector|MakeVector 0.0 0.0 120.0)) :Color (Variables|Team|GetTeamColor) :Size 1.0)
-  (CallFunction|ShowPopup :Text "Bounce!" :Where (+ (Transformation|GetActorLocation) (Math|Vector|MakeVector 0.0 80.0 60.0)) :Color (Utilities|Struct|MakeLinearColor 1.0 1.0 1.0 1.0) :Size 0.6)
+  (CallFunction|ShowPopup :Text "Hit!" :Where (+ (Transformation|GetActorLocation) (Math|Vector|MakeVector 0.0 0.0 120.0)) :Color (Variables|Team|GetTeamColor) :Size 1.0 :Target self)
+  (CallFunction|ShowPopup :Text "Bounce!" :Where (+ (Transformation|GetActorLocation) (Math|Vector|MakeVector 0.0 80.0 60.0)) :Color (Utilities|Struct|MakeLinearColor 1.0 1.0 1.0 1.0) :Size 0.6 :Target self)
   (Audio|PlaySound2D :Sound "/SKIvSKI/Audio/S_SkiHit.S_SkiHit"))

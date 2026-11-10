@@ -9,7 +9,9 @@
 ;   X = 0          two start gates, Red on the left (-Y) and Blue on the right (+Y), a ridge between them
 ;   0 .. Length    the run: it narrows from TopWidth to FinishWidth, banks rise at its sides, the ridge fades out
 ;                  by 45% of the way down so the two runs meet, moguls and rollers, pines
-;   90% of Length  the finish arch; the last 15% flattens out so everyone can stop
+;   90% of Length  the finish arch; the last 15% flattens out
+;   past Length    the run-out (RunoutLength): long and nearly flat, gently rolling, curving up towards its end
+;                  (RunoutRise) so everyone slows down and stays on the snow
 
 ; How high the snow is at (X, Y), in cm. Everything else (mesh, trees, gates, spawn spots) asks this.
 (fn HeightAt (X Y)
@@ -36,15 +38,21 @@
   (bind localTan (* (Variables|Slope|Work|GetSlopeTan) (- 1.0 (/ runout 0.15))))
   (bind bumpCap (Math|Float|Min(Float) 1.0 (/ (* 0.6 localTan) (Math|Float|Max(Float) (* (Variables|Slope|Work|GetBumpHeight) 0.0198) 0.001))))
   (bind bumps (* (* (* (Variables|Slope|Work|GetBumpHeight) (+ moguls rollers)) fade) bumpCap))
-  (return (+ (+ (- bank fall) ridge) bumps)))
+  ; The run-out, past the run: flat where the run ends, rolling gently (15 cm, about 50 m apart: under 1 degree, so they never stop anyone), then rising as the
+  ; cube of the way along it to RunoutRise at its end, so it stays nearly flat for its first half and stops even a
+  ; skier at top speed (108 km/h needs about 45 m of climb).
+  (bind past (Math|Float|Clamp(Float) (/ (- X length) (Variables|Slope|Layout|GetRunoutLength)) 0.0 1.0))
+  (bind rise (* (Variables|Slope|Layout|GetRunoutRise) (* past (* past past))))
+  (bind rolls (* (* 15.0 (Math|Float|Min(Float) (* past 6.0) 1.0)) (Math|Trig|Sin(Radians) (+ (+ (* X 0.0012) (* Y 0.0009)) (Variables|Slope|Work|GetPhase1)))))
+  (return (+ (+ (+ (- bank fall) ridge) bumps) (+ rise rolls))))
 
-; The snow: a grid of CellSize squares over the lobby and the run (banks included), heights from HeightAt.
+; The snow: a grid of CellSize squares over the lobby, the run and the run-out (banks included), heights from HeightAt.
 (fn BuildSnow ()
   (bind cell (Variables|Slope|Layout|GetCellSize))
   (bind lobby (Variables|Slope|Layout|GetLobbyLength))
   (bind halfY (+ (* (Variables|Slope|Layout|GetTopWidth) 0.5) (Variables|Slope|Layout|GetBankWidth)))
   (bind columns (+ (Math|Float|Round (/ (* halfY 2.0) cell)) 1))
-  (bind rows (+ (Math|Float|Round (/ (+ lobby (Variables|Slope|Layout|GetLength)) cell)) 1))
+  (bind rows (+ (Math|Float|Round (/ (+ (+ lobby (Variables|Slope|Layout|GetLength)) (Variables|Slope|Layout|GetRunoutLength)) cell)) 1))
   (Utilities|Array|Clear (Variables|Slope|Work|GetVertices))
   (Utilities|Array|Clear (Variables|Slope|Work|GetTriangles))
   (Utilities|Array|Clear (Variables|Slope|Work|GetUVs))
@@ -70,10 +78,13 @@
   (Components|ProceduralMesh|CreateMeshSection :self (Variables|Default|GetSnow) :SectionIndex 0 :Vertices (Variables|Slope|Work|GetVertices) :Triangles (Variables|Slope|Work|GetTriangles) :Normals normals :UV0 (Variables|Slope|Work|GetUVs) :Tangents tangents :bCreateCollision true))
 
 ; Pines: TreeCountByLevel tries for this difficulty, at random spots on the run and its banks, except on each
-; team's racing line (a ClearPathWidth lane from its gate to the middle of the slope). Same Seed, same trees.
+; team's racing line (a ClearPathWidth lane from its gate to the middle of the slope), and never so close to another
+; pine that a skier could be wedged between them: there is always TreeGap of open snow between two crowns. Same
+; Seed, same trees.
 (fn PlantTrees ()
   (Components|InstancedStaticMesh|ClearInstances :self (Variables|Default|GetTreeCrowns))
   (Components|InstancedStaticMesh|ClearInstances :self (Variables|Default|GetTreeTrunks))
+  (Utilities|Array|Clear (Variables|Slope|Work|GetTreeSpots))
   (bind length (Variables|Slope|Layout|GetLength))
   (bind count (Utilities|Array|Get(acopy) (Variables|Slope|Difficulty|GetTreeCountByLevel) (Variables|Slope|Build|GetDifficulty)))
   (for n (range count)
@@ -93,10 +104,26 @@
     ; Each team's line runs from its gate (GateSpread out from the middle) to the middle by 55% of the way down.
     (bind lineY (* (Variables|Slope|Layout|GetGateSpread) (Math|Float|Max(Float) (- 1.0 (/ t 0.55)) 0.0)))
     (if (> (Math|Float|Absolute(Float) (- (Math|Float|Absolute(Float) y) lineY)) (* (Variables|Slope|Layout|GetClearPathWidth) 0.5))
-      (bind ground (CallFunction|HeightAt :X x :Y y))
-      (bind turn (Math|Rotator|MakeRotator :Yaw spin))
-      (Components|InstancedStaticMesh|AddInstance :self (Variables|Default|GetTreeTrunks) :InstanceTransform (Math|Transform|MakeTransform (Math|Vector|MakeVector x y (+ ground (* 60.0 size))) turn (Math|Vector|MakeVector (* 0.35 size) (* 0.35 size) (* 1.6 size))))
-      (Components|InstancedStaticMesh|AddInstance :self (Variables|Default|GetTreeCrowns) :InstanceTransform (Math|Transform|MakeTransform (Math|Vector|MakeVector x y (+ ground (* 360.0 size))) turn (Math|Vector|MakeVector (* 2.4 size) (* 2.4 size) (* 5.0 size)))))))
+      (CallFunction|PlantTree :X x :Y y :Size size :Spin spin))))
+
+; One pine at (X, Y), if it leaves TreeGap of open snow to every pine already planted (a crown is 1.2 m x Size
+; across its middle, TreeSpots keeps X, Y and Size of each).
+(fn PlantTree (X Y Size Spin)
+  (bind here (Math|Vector|MakeVector X Y Size))
+  (Variables|Slope|Work|SetTreeClear true)
+  (for spot (Variables|Slope|Work|GetTreeSpots)
+    (if (< (Math|Vector|VectorLengthXY (- spot here)) (+ (* 120.0 (+ Size (.z spot))) (Variables|Slope|Layout|GetTreeGap)))
+      (Variables|Slope|Work|SetTreeClear false)))
+  (if (Variables|Slope|Work|GetTreeClear)
+    (Utilities|Array|Add (Variables|Slope|Work|GetTreeSpots) here)
+    (bind x X)
+    (bind y Y)
+    (bind size Size)
+    (bind spin Spin)
+    (bind ground (CallFunction|HeightAt :X x :Y y))
+    (bind turn (Math|Rotator|MakeRotator :Yaw spin))
+    (Components|InstancedStaticMesh|AddInstance :self (Variables|Default|GetTreeTrunks) :InstanceTransform (Math|Transform|MakeTransform (Math|Vector|MakeVector x y (+ ground (* 60.0 size))) turn (Math|Vector|MakeVector (* 0.35 size) (* 0.35 size) (* 1.6 size))))
+    (Components|InstancedStaticMesh|AddInstance :self (Variables|Default|GetTreeCrowns) :InstanceTransform (Math|Transform|MakeTransform (Math|Vector|MakeVector x y (+ ground (* 360.0 size))) turn (Math|Vector|MakeVector (* 2.4 size) (* 2.4 size) (* 5.0 size))))))
 
 ; An arch: two posts and a banner between them, Width apart, standing on the snow at (X, Y).
 (fn PlaceArch (PostLeft PostRight Banner X Y Width)
