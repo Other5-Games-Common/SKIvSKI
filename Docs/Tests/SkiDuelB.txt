@@ -32,6 +32,7 @@ wait 0.7
 call pawn DebugSteerToMiddle
 combat aim
 call pawn DebugFire
+shot DuelB_8
 wait 0.7
 call pawn DebugSteerToMiddle
 combat aim
@@ -40,6 +41,7 @@ wait 0.7
 call pawn DebugSteerToMiddle
 combat aim
 call pawn DebugFire
+shot DuelB_10
 wait 0.7
 call pawn DebugScore
 call pawn DebugReport
@@ -50,6 +52,7 @@ wait 0.7
 call pawn DebugSteerToMiddle
 combat aim
 call pawn DebugFire
+shot DuelB_12
 wait 0.7
 call pawn DebugSteerToMiddle
 combat aim
@@ -58,6 +61,7 @@ wait 0.7
 call pawn DebugSteerToMiddle
 combat aim
 call pawn DebugFire
+shot DuelB_14
 wait 0.7
 call pawn DebugSteerToMiddle
 combat aim
@@ -66,6 +70,7 @@ wait 0.7
 call pawn DebugSteerToMiddle
 combat aim
 call pawn DebugFire
+shot DuelB_16
 wait 0.7
 call pawn DebugSteerToMiddle
 combat aim
@@ -74,6 +79,7 @@ wait 0.7
 call pawn DebugSteerToMiddle
 combat aim
 call pawn DebugFire
+shot DuelB_18
 wait 0.7
 call pawn DebugSteerToMiddle
 combat aim
@@ -82,6 +88,7 @@ wait 0.7
 call pawn DebugSteerToMiddle
 combat aim
 call pawn DebugFire
+shot DuelB_20
 wait 0.7
 call pawn DebugScore
 call pawn DebugReport

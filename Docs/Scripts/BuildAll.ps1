@@ -40,7 +40,9 @@ AddVars $G @(
 	@('GunName', 'text', 'Gun', 'None', $true), @('Mesh', '/Script/Engine.StaticMesh', 'Gun', 'None', $true), @('MuzzleOffset', 'Vector', 'Gun', 'None', $true),
 	@('MuzzleSpeed', 'float', 'Paintball', 'None', $true), @('BallGravityScale', 'float', 'Paintball', 'None', $true), @('BallSize', 'float', 'Paintball', 'None', $true),
 	@('ShotsPerSecond', 'float', 'Firing', 'None', $true), @('PelletsPerShot', 'int', 'Firing', 'None', $true), @('SpreadDegrees', 'float', 'Firing', 'None', $true))
-AddVars $P @(@('Team', 'int', 'Team', 'Replicated', $false), @('bJoinedTeam', 'bool', 'Team', 'Replicated', $false), @('Hits', 'int', 'Score', 'Replicated', $false),
+# Teams are Other5's shared teams (team on Other5's player state), so the player state keeps only SKIvSKI's own state.
+AddVars $P @(@('bOut', 'bool', 'Score', 'Replicated', $false), @('SnowFriction', 'float', 'Gear', 'Replicated', $true), @('BounceChance', 'float', 'Gear', 'Replicated', $true),
+	@('Hits', 'int', 'Score', 'Replicated', $false),
 	@('Points', 'int', 'Score', 'Replicated', $false), @('FinishPlace', 'int', 'Score', 'Replicated', $false), @('FinishTime', 'float', 'Score', 'Replicated', $false))
 AddVars $C @(
 	@('Gravity', 'float', 'Ski|Tuning', 'None', $true), @('SnowFriction', 'float', 'Ski|Tuning', 'None', $true), @('TopSpeed', 'float', 'Ski|Tuning', 'None', $true),
@@ -72,14 +74,15 @@ AddVars $D @(
 	@('Slope', '/SKIvSKI/Blueprints/BP_SkiSlope.BP_SkiSlope_C', 'Round|Settings', 'None', $true), @('LobbySeconds', 'float', 'Round|Settings', 'None', $true),
 	@('CountdownSeconds', 'float', 'Round|Settings', 'None', $true), @('RaceSeconds', 'float', 'Round|Settings', 'None', $true), @('ResultsSeconds', 'float', 'Round|Settings', 'None', $true),
 	@('HitPoints', 'int', 'Round|Settings', 'None', $true), @('FinishPoints', 'int:Array', 'Round|Settings', 'None', $true), @('MinPlayers', 'int', 'Round|Settings', 'None', $true),
-	@('bPracticeHits', 'bool', 'Round|Settings', 'None', $true),
+	@('bPracticeHits', 'bool', 'Round|Settings', 'None', $true), @('CoinsPerPoint', 'int', 'Round|Settings', 'None', $true),
 	@('Phase', 'int', 'Round|State', 'Replicated', $false), @('PhaseEndsAt', 'float', 'Round|State', 'Replicated', $false), @('Difficulty', 'int', 'Round|State', 'Replicated', $false),
-	@('RedScore', 'int', 'Round|State', 'Replicated', $false), @('BlueScore', 'int', 'Round|State', 'Replicated', $false), @('RoundNumber', 'int', 'Round|State', 'Replicated', $false),
-	@('Message', 'string', 'Round|State', 'Replicated', $false),
+	@('RoundNumber', 'int', 'Round|State', 'Replicated', $false), @('Message', 'string', 'Round|State', 'Replicated', $false),
 	@('RaceStartedAt', 'float', 'Round|Work', 'None', $false), @('NextPlace', 'int', 'Round|Work', 'None', $false), @('bAllFinished', 'bool', 'Round|Work', 'None', $false),
-	@('RedPlaced', 'int', 'Round|Work', 'None', $false), @('BluePlaced', 'int', 'Round|Work', 'None', $false), @('LobbyPlaced', 'int', 'Round|Work', 'None', $false), @('Counted', 'int', 'Round|Work', 'None', $false))
+	@('RedPlaced', 'int', 'Round|Work', 'None', $false), @('BluePlaced', 'int', 'Round|Work', 'None', $false), @('LobbyPlaced', 'int', 'Round|Work', 'None', $false), @('HitResult', 'int', 'Round|Work', 'None', $false))
 AddVars $B @(@('Shooter', '/Script/Engine.Pawn', 'Paintball', 'None', $false), @('bScores', 'bool', 'Paintball', 'None', $false), @('BallColor', 'LinearColor', 'Paintball', 'None', $false))
-foreach ($asset in $G, $P, $C, $S, $D, $B) { Compile $asset | Out-Null }
+AddVars $H @(@('PopupTexts', 'string:Array', 'Popups', 'None', $false), @('PopupPlaces', 'Vector:Array', 'Popups', 'None', $false), @('PopupColors', 'LinearColor:Array', 'Popups', 'None', $false),
+	@('PopupStarts', 'float:Array', 'Popups', 'None', $false), @('PopupSeconds', 'float', 'Popups', 'None', $true))
+foreach ($asset in $G, $P, $C, $S, $D, $B, $H) { Compile $asset | Out-Null }
 
 Step 'functions (with typed inputs/outputs)'
 AddFunctions $S @(
@@ -90,7 +93,10 @@ AddFunctions $S @(
 	@('IsOutOfBounds', @(@('WorldLocation', 'Vector'), @('Result', 'bool', 'out')))) | Out-Null
 AddFunctions $C @(
 	@('SetupSkiMovement', @()), @('UpdateSlope', @()), @('SteerSkis', @(, @('DeltaSeconds', 'float'))), @('PushDownSlope', @()), @('LeanIntoTurn', @(, @('DeltaSeconds', 'float'))),
-	@('DebugReport', @()), @('PlaceAt', @(, @('Spot', 'Transform'))), @('PaintedBy', @(, @('Shooter', $PAWN))),
+	@('DebugReport', @()), @('PlaceAt', @(, @('Spot', 'Transform'))),
+	@('PaintedBy', @(@('Shooter', $PAWN), @('Where', 'Vector'), @('Direction', 'Vector'), @('Normal', 'Vector'), @('Color', 'LinearColor'), @('Size', 'float'))),
+	@('IsOut', @(, @('Out', 'bool', 'out'))), @('AddCoins', @(, @('Amount', 'int'))), @('GetCoins', @(, @('Coins', 'int', 'out'))),
+	@('GetSnowFriction', @(, @('Friction', 'float', 'out'))), @('ShowPopup', @(@('Text', 'string'), @('Where', 'Vector'), @('Color', 'LinearColor'))), @('DebugPopup', @()),
 	@('GetCurrentGun', @(, @('Gun', 'obj:/SKIvSKI/Guns/BP_PaintGunData.BP_PaintGunData_C', 'out'))), @('GetSkiPlayerState', @(, @('Player', $PS, 'out'))),
 	@('ShowGun', @()), @('UpdateTeamLook', @()), @('ReadButtons', @()), @('TryFire', @()),
 	@('SpawnBalls', @(@('Muzzle', 'Vector'), @('Direction', 'Vector'), @('Seed', 'int'), @('bScores', 'bool'))),
@@ -100,8 +106,11 @@ AddFunctions $D @(
 	@('StartCountdown', @()), @('StartRace', @()), @('EndRace', @()), @('PlaceAll', @(@('bAtGate', 'bool'), @('bFreeze', 'bool'))),
 	@('PlaceOne', @(@('Player', $PS), @('bAtGate', 'bool'), @('Index', 'int'))), @('FreezeAll', @(, @('bFreeze', 'bool'))), @('CheckRacers', @()),
 	@('RescueLost', @(, @('bAtGate', 'bool'))), @('PlayerFinished', @(, @('Player', $PS))), @('AddPoints', @(@('Player', $PS), @('Points', 'int'))),
-	@('ScorePaintHit', @(@('Shooter', $PAWN), @('Victim', $PAWN))), @('SwitchTeam', @(, @('Player', $PS))), @('ChangeDifficulty', @(@('Player', $PS), @('Step', 'int'))),
-	@('CountTeam', @(@('Team', 'int'), @('Count', 'int', 'out')))) | Out-Null
+	@('ResolvePaintHit', @(@('Shooter', $PAWN), @('Victim', $PAWN), @('Result', 'int', 'out'))), @('ResetRound', @()),
+	@('ChangeDifficulty', @(@('Player', $PS), @('Step', 'int')))) | Out-Null
+AddFunctions $H @(
+	@('DrawRound', @(, @('Director', 'obj:/SKIvSKI/Blueprints/BP_SkiDirector.BP_SkiDirector_C'))), @('DrawSkier', @(, @('Skier', 'obj:/SKIvSKI/Blueprints/BP_SkiCharacter.BP_SkiCharacter_C'))),
+	@('AddPopup', @(@('Text', 'string'), @('Where', 'Vector'), @('Color', 'LinearColor'))), @('DrawPopups', @())) | Out-Null
 AddFunctions $B @(
 	@('Launch', @(@('Velocity', 'Vector'), @('Color', 'LinearColor'), @('InShooter', $PAWN), @('bInScores', 'bool'), @('Size', 'float'), @('GravityScale', 'float'))),
 	@('Splash', @(@('HitActor', 'obj:/Script/Engine.Actor'), @('HitComponent', 'obj:/Script/Engine.PrimitiveComponent'), @('Where', 'Vector'), @('Normal', 'Vector'))),
@@ -109,7 +118,7 @@ AddFunctions $B @(
 foreach ($asset in $C, $S, $D, $B) { Compile $asset | Out-Null }
 
 Step 'RPC events (inputs and Replicates through the Blueprint editor UI)'
-$rpcs = @('ServerSetSkiYaw', 'ServerFire', 'MulticastFire', 'ServerNextGun', 'ServerSwitchTeam', 'ServerChangeDifficulty')
+$rpcs = @('ServerSetSkiYaw', 'ServerFire', 'MulticastFire', 'ServerNextGun', 'ServerChangeDifficulty', 'MulticastPaintResult')
 # An RPC event is there if the event graph has an entry node of that name.
 $missing = $rpcs | Where-Object { -not (Mcp-Call $script:BP 'find_nodes' @{ graph = (GraphRef $C); title = $_; entry_points_only = $true } | ConvertFrom-Json).returnValue }
 if ($missing -and -not $SkipRpcUi) {
@@ -124,6 +133,7 @@ if ($missing -and -not $SkipRpcUi) {
 			'ServerFire' { AddParam $w 'Muzzle' 'Vector'; AddParam $w 'Direction' 'Vector'; AddParam $w 'Seed' 'Integer'; SetRpc $w 'Run on Server' $true }
 			'MulticastFire' { AddParam $w 'Muzzle' 'Vector'; AddParam $w 'Direction' 'Vector'; AddParam $w 'Seed' 'Integer'; SetRpc $w 'Multicast' $false }
 			'ServerChangeDifficulty' { AddParam $w 'Step' 'Integer'; SetRpc $w 'Run on Server' $true }
+			'MulticastPaintResult' { AddParam $w 'bHit' 'Boolean'; AddParam $w 'Where' 'Vector'; AddParam $w 'Bounce' 'Vector'; AddParam $w 'Tint' 'Vector'; AddParam $w 'Size' 'Float'; SetRpc $w 'Multicast' $true }
 			default { SetRpc $w 'Run on Server' $true }
 		}
 	}

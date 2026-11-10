@@ -7,7 +7,7 @@
 ; spread shot's pellets go the same way everywhere. Paintballs aren't replicated actors at all.
 ;
 ; RPC events (set in each event's Details: Replicates):
-;   ServerFire (Run on Server, Reliable), MulticastFire (Multicast), ServerNextGun / ServerSwitchTeam /
+;   ServerFire (Run on Server, Reliable), MulticastFire (Multicast), ServerNextGun /
 ;   ServerChangeDifficulty (Run on Server, Reliable), ServerSetSkiYaw (Run on Server, unreliable; Movement file).
 
 ; The gun in hand: one of the Guns data assets (Q cycles through them).
@@ -29,21 +29,41 @@
     (:CastFailed
       (return ski))))
 
-; Helmet and skis in the team's colour (and the paintballs too). The team lives on the player state, which can reach
-; a client after the character, so this checks every frame and only repaints when the team changed.
+; Helmet and skis in the team's colour (and the paintballs too), or grey once the skier is OUT. Team and out-ness live
+; on the player state, which can reach a client after the character, so this checks every frame and only repaints
+; when they changed (LookShown = team * 2 + 1 if out).
 (fn UpdateTeamLook ()
   (bind ski (CallFunction|GetSkiPlayerState))
   (Utilities|IsValid ski
     (:"Is Valid"
-      (bind team (Class|BPSkiPlayerState|GetTeam :self ski))
-      (if (!= team (Variables|Team|GetTeamShown))
-        (Variables|Team|SetTeamShown team)
-        (Variables|Team|SetTeamColor (select (== team 0) (Utilities|Struct|MakeLinearColor 0.9 0.08 0.03 1.0) (Utilities|Struct|MakeLinearColor 0.03 0.25 0.95 1.0)))
-        (bind tint (Math|Conversions|ToVector(LinearColor) (Variables|Team|GetTeamColor)))
+      (bind team (Other5|Teams|GetTeam :Player ski))
+      (bind out (Class|BPSkiPlayerState|GetOut :self ski))
+      (bind look (+ (* team 2) (select out 1 0)))
+      (if (!= look (Variables|Team|GetTeamShown))
+        (Variables|Team|SetTeamShown look)
+        (Variables|Team|SetTeamColor (Other5|Teams|GetTeamColor :Team team))
+        (bind shown (select out (Utilities|Struct|MakeLinearColor 0.25 0.25 0.25 1.0) (Variables|Team|GetTeamColor)))
+        (bind tint (Math|Conversions|ToVector(LinearColor) shown))
         (Rendering|Material|SetVectorParameterValueonMaterials :self (Variables|Default|GetHelmet) :ParameterName "Color" :ParameterValue tint)
         (Rendering|Material|SetVectorParameterValueonMaterials :self (Variables|Default|GetSkiLeft) :ParameterName "Color" :ParameterValue tint)
         (Rendering|Material|SetVectorParameterValueonMaterials :self (Variables|Default|GetSkiRight) :ParameterName "Color" :ParameterValue tint)))
     (:"Is Not Valid")))
+
+; Is this skier out of the race (hit by paint)? Out skiers can't fire.
+(fn IsOut ()
+  (bind ski (CallFunction|GetSkiPlayerState))
+  (Utilities|IsValid ski
+    (:"Is Valid"
+      (return (Class|BPSkiPlayerState|GetOut :self ski)))
+    (:"Is Not Valid"
+      (return false))))
+
+; Server: coins for this player (Other5's inventory currency, which a shop between runs will spend).
+(fn AddCoins (Amount)
+  (Inventory|Currency|AddCurrency :self (Variables|Default|GetInventory) :Amount Amount))
+
+(fn GetCoins ()
+  (return (Inventory|Currency|GetCurrency :self (Variables|Default|GetInventory))))
 
 ; Buttons that act once per press (this player's own machine): Q next gun, T switch team, ] harder, [ easier.
 ; Fire is held: TryFire keeps firing at the gun's rate.
@@ -54,7 +74,8 @@
   (Variables|Paint|SetPrevSwitchGun gunKey)
   (bind teamKey (Input|EnhancedActionValues|IA_SkiSwitchTeam))
   (if (and teamKey (not (Variables|Team|GetPrevSwitchTeam)))
-    (CallFunction|ServerSwitchTeam))
+    ; Other5's shared teams: ask for the next team; the server allows it while switching is on (the lobby).
+    (Other5|Teams|RequestTeam :Player self :Team -2))
   (Variables|Team|SetPrevSwitchTeam teamKey)
   (bind harderKey (Input|EnhancedActionValues|IA_SkiHarder))
   (if (and harderKey (not (Variables|Team|GetPrevHarder)))
@@ -69,7 +90,7 @@
 
 (fn TryFire ()
   (bind now (Utilities|Time|GetTimeSeconds))
-  (if (and (>= now (Variables|Paint|GetNextFireTime)) (not (Variables|Ski|State|GetSkiFrozen)))
+  (if (and (>= now (Variables|Paint|GetNextFireTime)) (and (not (Variables|Ski|State|GetSkiFrozen)) (not (CallFunction|IsOut))))
     (bind gun (CallFunction|GetCurrentGun))
     (Variables|Paint|SetNextFireTime (+ now (/ 1.0 (Math|Float|Max(Float) (Class|BPPaintGunData|GetShotsPerSecond :self gun) 0.1))))
     ; Aim from the camera through the crosshair (up to 300 m); the balls leave the gun's muzzle toward that point.
@@ -111,16 +132,20 @@
 (event Custom|ServerNextGun
   (Variables|Paint|SetGunIndex (Math|Integer|%(Integer) (+ (Variables|Paint|GetGunIndex) 1) (Math|Integer|Max(Integer) (Utilities|Array|Length (Variables|Paint|GetGuns)) 1))))
 
-(event Custom|ServerSwitchTeam
-  (Class|BPSkiDirector|SwitchTeam :self (Actor|GetActorOfClass :ActorClass "/SKIvSKI/Blueprints/BP_SkiDirector.BP_SkiDirector_C") :Player (CallFunction|GetSkiPlayerState)))
-
 (event Custom|ServerChangeDifficulty (Step)
   (Class|BPSkiDirector|ChangeDifficulty :self (Actor|GetActorOfClass :ActorClass "/SKIvSKI/Blueprints/BP_SkiDirector.BP_SkiDirector_C") :Player (CallFunction|GetSkiPlayerState) :Step Step))
 
 ; A scoring paintball hit this skier (server): the director decides whether it counts.
-(fn PaintedBy (Shooter)
-  (Development|PrintString :InString (Utilities|String|Append "SKI| hit: " (Utilities|String|Append (Utilities|String|ToString(Object) self) (Utilities|String|Append " by " (Utilities|String|ToString(Object) Shooter)))) :bPrintToScreen false)
-  (Class|BPSkiDirector|ScorePaintHit :self (Actor|GetActorOfClass :ActorClass "/SKIvSKI/Blueprints/BP_SkiDirector.BP_SkiDirector_C") :Shooter Shooter :Victim self))
+; A scoring paintball (the server's copy) hit this skier at Where, flying along Direction, with the ball's Color and
+; Size. The director decides (ResolvePaintHit): a hit puts this skier out, a bounce doesn't. Everyone then sees the
+; result through MulticastPaintResult. (The other machines' copies of the ball vanish on a skier without a splat.)
+(fn PaintedBy (Shooter Where Direction Normal Color Size)
+  (bind result (Class|BPSkiDirector|ResolvePaintHit :self (Actor|GetActorOfClass :ActorClass "/SKIvSKI/Blueprints/BP_SkiDirector.BP_SkiDirector_C") :Shooter Shooter :Victim self))
+  (Development|PrintString :InString (Utilities|String|Append "SKI| paint result " (Utilities|String|Append (Utilities|String|ToString(Integer) result) (Utilities|String|Append " on " (Utilities|String|ToString(Object) self)))) :bPrintToScreen false)
+  (if (> result 0)
+    ; A bounce flies off the skier like light off a mirror, slower, and a little up.
+    (bind off (+ (* (Math|Vector|MirrorVectorbyNormal Direction Normal) 1500.0) (Math|Vector|MakeVector 0.0 0.0 300.0)))
+    (CallFunction|MulticastPaintResult :bHit (== result 1) :Where Where :Bounce off :Tint (Math|Conversions|ToVector(LinearColor) Color) :Size Size)))
 
 ; The director moves this skier (server): to the lobby, or behind the team's gate. PlaceId (RepNotify) tells the
 ; owning player's machine to point the skis and the camera the new way.
@@ -156,10 +181,12 @@
   (bind director (Actor|GetActorOfClass :ActorClass "/SKIvSKI/Blueprints/BP_SkiDirector.BP_SkiDirector_C"))
   (bind ski (CallFunction|GetSkiPlayerState))
   (bind a (Utilities|String|Append "SKI| phase " (Utilities|String|ToString(Integer) (Class|BPSkiDirector|GetPhase :self director))))
-  (bind b (Utilities|String|Append a (Utilities|String|Append " red " (Utilities|String|ToString(Integer) (Class|BPSkiDirector|GetRedScore :self director)))))
-  (bind c (Utilities|String|Append b (Utilities|String|Append " blue " (Utilities|String|ToString(Integer) (Class|BPSkiDirector|GetBlueScore :self director)))))
-  (bind d (Utilities|String|Append c (Utilities|String|Append " myTeam " (Utilities|String|ToString(Integer) (Class|BPSkiPlayerState|GetTeam :self ski)))))
-  (bind e (Utilities|String|Append d (Utilities|String|Append " myHits " (Utilities|String|ToString(Integer) (Class|BPSkiPlayerState|GetHits :self ski)))))
+  (bind b (Utilities|String|Append a (Utilities|String|Append " red " (Utilities|String|ToString(Integer) (Other5|Teams|GetTeamScore :Team 0)))))
+  (bind c (Utilities|String|Append b (Utilities|String|Append " blue " (Utilities|String|ToString(Integer) (Other5|Teams|GetTeamScore :Team 1)))))
+  (bind d (Utilities|String|Append c (Utilities|String|Append " myTeam " (Utilities|String|ToString(Integer) (Other5|Teams|GetTeam :Player ski)))))
+  (bind e0 (Utilities|String|Append d (Utilities|String|Append " myHits " (Utilities|String|ToString(Integer) (Class|BPSkiPlayerState|GetHits :self ski)))))
+  (bind e1 (Utilities|String|Append e0 (Utilities|String|Append " out " (Utilities|String|ToString(Boolean) (CallFunction|IsOut)))))
+  (bind e (Utilities|String|Append e1 (Utilities|String|Append " coins " (Utilities|String|ToString(Integer) (Inventory|Currency|GetCurrency :self (Variables|Default|GetInventory))))))
   (bind f (Utilities|String|Append e (Utilities|String|Append " balls " (Utilities|String|ToString(Integer) (Utilities|Array|Length (Actor|GetAllActorsOfClass :ActorClass "/SKIvSKI/Blueprints/BP_Paintball.BP_Paintball_C"))))))
   (Development|PrintString :InString f :Duration 3.0))
 
@@ -172,3 +199,32 @@
       (Variables|Ski|State|SetSkiYaw (+ (Variables|Ski|State|GetFallLineYaw) (select (< y 0.0) 35.0 -35.0)))
       (else
         (Variables|Ski|State|SetSkiYaw (Variables|Ski|State|GetFallLineYaw))))))
+
+; Multicast (Reliable): every machine shows what a paintball did to this skier. A hit: a splat on the skier and
+; "Hit!" over their head. A bounce: the ball flies off (a ball that can't score) and "Bounce!" over their head.
+(event Custom|MulticastPaintResult (bHit Where Bounce Tint Size)
+  ; The colour comes as a vector (R, G, B): simpler to add as an event input than a Linear Color.
+  (bind Color (Math|Conversions|ToLinearColor(Vector) Tint))
+  (bind head (+ (Transformation|GetActorLocation) (Math|Vector|MakeVector 0.0 0.0 120.0)))
+  (CallFunction|ShowPopup :Text (select bHit "Hit!" "Bounce!") :Where head :Color (select bHit Color (Utilities|Struct|MakeLinearColor 1.0 1.0 1.0 1.0)))
+  (if bHit
+    (bind splat (Rendering|Decal|SpawnDecalAttached :DecalMaterial "/SKIvSKI/Materials/M_PaintSplat.M_PaintSplat" :DecalSize (Math|Vector|MakeVector 20.0 (* Size 4.0) (* Size 4.0)) :AttachToComponent (Variables|Character|GetMesh) :Location Where :Rotation (Math|Conversions|RotationFromXVector (- (Transformation|GetActorLocation) Where)) :LocationType "KeepWorldPosition" :LifeSpan 20.0))
+    (Utilities|IsValid splat
+      (:"Is Valid"
+        (Rendering|Components|Decal|SetDecalColor :self splat :Color Color))
+      (:"Is Not Valid"))
+    (else
+      (bind ball (Game|SpawnActorfromClass :Class "/SKIvSKI/Blueprints/BP_Paintball.BP_Paintball_C" :SpawnTransform (Math|Transform|MakeTransform (+ Where (* (Math|Vector|Normalize Bounce) 20.0)) (Math|Conversions|RotationFromXVector Bounce) (Math|Vector|MakeVector 1.0 1.0 1.0)) :CollisionHandlingOverride "AlwaysSpawn"))
+      (Class|BPPaintball|Launch :self ball :Velocity Bounce :Color Color :InShooter self :bInScores false :Size Size :GravityScale 1.0))))
+
+; Shows a rising, fading word over a spot on this machine's HUD (BP_SkiHUD AddPopup). Nothing on a dedicated server.
+(fn ShowPopup (Text Where Color)
+  (bind hud (Utilities|Casting|CastToBP_SkiHUD :Object (HUD|GetHUD :self (Game|GetPlayerController 0)))
+    (:then
+      (Class|BPSkiHUD|AddPopup :self hud :Text Text :Where Where :Color Color))
+    (:CastFailed)))
+
+; For tests: show both pop-ups over this skier on this machine ("call pawn DebugPopup").
+(fn DebugPopup ()
+  (CallFunction|ShowPopup :Text "Hit!" :Where (+ (Transformation|GetActorLocation) (Math|Vector|MakeVector 0.0 0.0 120.0)) :Color (Variables|Team|GetTeamColor))
+  (CallFunction|ShowPopup :Text "Bounce!" :Where (+ (Transformation|GetActorLocation) (Math|Vector|MakeVector 0.0 80.0 60.0)) :Color (Utilities|Struct|MakeLinearColor 1.0 1.0 1.0 1.0)))

@@ -52,7 +52,7 @@ $script:BP = 'editor_toolset.toolsets.blueprint.BlueprintTools'
 function Py($file, $timeoutSec = 180) {
 	$marker = 'm' + [guid]::NewGuid().ToString('N').Substring(0, 8)
 	$S = 'SlateInspectorToolset.SlateInspectorToolset'
-	$null = Mcp-Call $S 'Type' @{ ref = 'tb3'; text = ('py "' + $file.Replace([char]92, [char]47) + '" ' + $marker); submit = $true }
+	$null = Mcp-Call $S 'Type' @{ ref = (ConsoleRef); text = ('py "' + $file.Replace([char]92, [char]47) + '" ' + $marker); submit = $true }
 	$deadline = (Get-Date).AddSeconds($timeoutSec)
 	$text = ''
 	while ((Get-Date) -lt $deadline) {
@@ -319,4 +319,16 @@ function RemoveParamsLike($w, $prefix) {
 		$null = UiClick $btn
 		Start-Sleep 1
 	}
+}
+
+# The editor's console box (the textbox after "Cmd" in the main window's status bar); its ref changes per session.
+$script:ConsoleBox = $null
+function ConsoleRef() {
+	if ($script:ConsoleBox) { return $script:ConsoleBox }
+	$null = Mcp-Call $script:SI 'Observe' @{ ref = 'w1'; maxDepth = 40 }
+	Start-Sleep 1
+	$s = Snap 'w1' 40
+	$i = ($s | Select-String 'text "Cmd"' | Select-Object -First 1).LineNumber
+	for ($k = $i; $k -lt $i + 6; $k++) { if ($s[$k] -match '^\s*textbox') { $script:ConsoleBox = RefOf $s[$k]; break } }
+	return $script:ConsoleBox
 }

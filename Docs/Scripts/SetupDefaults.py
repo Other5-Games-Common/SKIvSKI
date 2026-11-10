@@ -97,18 +97,43 @@ def main():
         "HitPoints": 1,                          # per paintball hit on the other team
         "FinishPoints": [10, 8, 6, 5, 4, 3, 2, 1],  # 1st, 2nd, ... across the finish
         "MinPlayers": 1,
+        "CoinsPerPoint": 1,                      # coins for the player per point they earn (for the shop)
     })
     di.set_editor_property("replicates", True)
     di.set_editor_property("always_relevant", True)
     eal.save_loaded_asset(bp, False)
     log("director defaults")
 
+    # Each player's gear (Gear category): what the shop between runs will improve.
+    bp, ps = cdo("/SKIvSKI/Blueprints/BP_SkiPlayerState")
+    set_all(ps, {
+        "SnowFriction": 0.05,    # ski on snow; ski wax will lower it
+        "BounceChance": 0.10,    # this player's paintballs bounce off a target 10% of the time; better paint lowers it
+    })
+    eal.save_loaded_asset(bp, False)
+    log("player state defaults")
+
+    bp, hud = cdo("/SKIvSKI/Blueprints/BP_SkiHUD")
+    set_all(hud, {"PopupSeconds": 1.2})   # "Hit!" / "Bounce!" rise and fade over this long
+    eal.save_loaded_asset(bp, False)
+
     bp, gm = cdo("/SKIvSKI/Blueprints/BP_SkiGameMode")
+    # Other5's shared teams (Docs/Teams.md in Other5): listing them turns teams on for this game.
+    red = unreal.Other5TeamInfo()
+    red.set_editor_property("name", unreal.Text("Red"))
+    red.set_editor_property("color", unreal.LinearColor(0.9, 0.08, 0.03, 1))
+    blue = unreal.Other5TeamInfo()
+    blue.set_editor_property("name", unreal.Text("Blue"))
+    blue.set_editor_property("color", unreal.LinearColor(0.03, 0.25, 0.95, 1))
     set_all(gm, {
         "default_pawn_class": unreal.load_asset("/SKIvSKI/Blueprints/BP_SkiCharacter").generated_class(),
         "player_state_class": unreal.load_asset("/SKIvSKI/Blueprints/BP_SkiPlayerState").generated_class(),
         "player_controller_class": unreal.load_asset("/Other5Combat/Characters/BP_Other5ProjectilePlayerController").generated_class(),
         "hud_class": unreal.load_asset("/SKIvSKI/Blueprints/BP_SkiHUD").generated_class(),
+        "teams": [red, blue],
+        "auto_balance_teams": True,
+        "allow_team_switch": True,
+        "friendly_fire": False,
     })
     eal.save_loaded_asset(bp, False)
     log("game mode defaults")

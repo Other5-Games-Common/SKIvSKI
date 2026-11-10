@@ -45,12 +45,12 @@
   (bind extent (Math|Vector|MakeVector 20.0 size size))
   (bind victim (Utilities|Casting|CastToPawn :Object HitActor)
     (:then
-      ; On a skier: stick the splat to them, so it rides along.
-      (CallFunction|ColorSplat :Splat (Rendering|Decal|SpawnDecalAttached :DecalMaterial "/SKIvSKI/Materials/M_PaintSplat.M_PaintSplat" :DecalSize extent :AttachToComponent HitComponent :Location Where :Rotation facing :LocationType "KeepWorldPosition" :LifeSpan 20.0))
+      ; On a skier only the server's copy (bScores) counts: it asks the skier, and the hit or bounce shows on every
+      ; machine from there (BP_SkiCharacter MulticastPaintResult). Other copies just vanish.
       (if (and (Variables|Paintball|GetScores) (Networking|HasAuthority))
         (bind skier (Utilities|Casting|CastToBP_SkiCharacter :Object victim)
           (:then
-            (Class|BPSkiCharacter|PaintedBy :self skier :Shooter (Variables|Paintball|GetShooter)))
+            (Class|BPSkiCharacter|PaintedBy :self skier :Shooter (Variables|Paintball|GetShooter) :Where Where :Direction (Transformation|GetActorForwardVector) :Normal Normal :Color (Variables|Paintball|GetBallColor) :Size (* (Components|Sphere|GetScaledSphereRadius :self (Variables|Default|GetBall)) 2.0)))
           (:CastFailed))))
     (:CastFailed
       (CallFunction|ColorSplat :Splat (Rendering|Decal|SpawnDecalatLocation :DecalMaterial "/SKIvSKI/Materials/M_PaintSplat.M_PaintSplat" :DecalSize extent :Location Where :Rotation facing :LifeSpan 40.0)))))

@@ -93,7 +93,7 @@
   (bind off (- yaw (Variables|Ski|State|GetFallLineYaw)))
   ; cm/s^2 along the skis: positive pulls them forward, negative (pointing uphill) pulls them backwards.
   (bind along (select (Variables|Ski|State|GetOnSlope) (* (* gravity (Math|Trig|Sin(Degrees) slope)) (Math|Trig|Cos(Degrees) off)) 0.0))
-  (bind grip (* (* (Variables|Ski|Tuning|GetSnowFriction) gravity) (Math|Trig|Cos(Degrees) slope)))
+  (bind grip (* (* (CallFunction|GetSnowFriction) gravity) (Math|Trig|Cos(Degrees) slope)))
   (bind pull (- (Math|Float|Absolute(Float) along) grip))
   (bind input (Math|Float|Clamp(Float) (/ pull (Variables|Ski|Tuning|GetFullInputAccel)) 0.0 1.0))
   (if (and (Variables|Ski|Input|GetHoldDownhill) (< input (Variables|Ski|Tuning|GetSkateInput)))
@@ -126,3 +126,13 @@
   (bind d (Utilities|String|Append c (Utilities|String|Append " slope " (Utilities|String|ToString(Float) (Variables|Ski|State|GetSlopeDegrees)))))
   (bind e (Utilities|String|Append d (Utilities|String|Append " at " (Utilities|String|ToString(Vector) (Transformation|GetActorLocation)))))
   (Development|PrintString :InString e :Duration 5.0))
+
+; The friction between this skier's skis and the snow: the player's own (BP_SkiPlayerState SnowFriction, which the
+; shop's ski wax will lower between runs), or the character's SnowFriction before the player state arrives.
+(fn GetSnowFriction ()
+  (bind ski (CallFunction|GetSkiPlayerState))
+  (Utilities|IsValid ski
+    (:"Is Valid"
+      (return (Class|BPSkiPlayerState|GetSnowFriction :self ski)))
+    (:"Is Not Valid"
+      (return (Variables|Ski|Tuning|GetSnowFriction)))))

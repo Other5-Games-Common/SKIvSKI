@@ -35,26 +35,37 @@ A round: **Lobby** (15 s on the flat snow behind the gates; the clock waits for 
 | Space | Jump (from Other5Combat). |
 | Esc / F10 | Other5's game menu. |
 
-### Scoring
+### Paint, outs and scoring
 
-- Each paintball hit on the **other** team during the race: **1 point** (`HitPoints`) for the shooter's team.
-- Crossing the finish: **10, 8, 6, 5, 4, 3, 2, 1** points (`FinishPoints`) for 1st, 2nd... to your team.
-- Most points wins the round. Paint doesn't hurt (no health loss, no deaths): this is a race.
+- A paintball hit on the **other** team during the race puts that skier **OUT** for the rest of the race: grey helmet
+  and skis, can't fire, no finish points (they can still ski down). "Hit!" rises over them in the shooter's colour.
+- Like real paintball, a ball can **bounce** off instead: each hit bounces with the shooter's **paint bounce chance**
+  (10% with standard paint, shown on your HUD). A bounce ricochets off the skier, doesn't put them out, and shows
+  "Bounce!". Better paint, bought between runs, will lower it (and can look different).
+- Points: **1** (`HitPoints`) per opponent you put out; crossing the finish (not out) **10, 8, 6, 5, 4, 3, 2, 1**
+  (`FinishPoints`) for 1st, 2nd... Points go to your team; most points wins the round.
+- **Coins:** every point you earn is also a coin (`CoinsPerPoint`), kept between rounds, for the shop.
+- Your gear (on your player state, shown on the HUD): **paint bounce chance** and **ski friction** (the snow friction
+  of your skis; wax will lower it). The shop between runs will sell better ones.
+- Paint doesn't hurt (no health loss, no deaths): this is a race.
 
 ## How it works
 
-Everything is in `Content/` (Blueprints, data, materials, one level). C++: none; Other5 gives the base classes.
+Everything is in `Content/` (Blueprints, data, materials, one level). C++: none in this plugin; Other5 gives the base
+classes and the shared **teams** (`Other5Teams.h`, Other5 `Docs/Teams.md`): `BP_SkiGameMode` lists the teams (Red,
+Blue), new players join the smaller one, and the Blueprints use the **Other5|Teams** nodes (Get Team, Team Color,
+Team Name, Team Score, Add Team Score, Request Team, Set Team Switch Allowed...).
 
 | Piece | What it is |
 |---|---|
 | `Blueprints/BP_SkiCharacter` | The skier: a child of Other5Combat's `BP_Other5ProjectileCharacter` (camera, health, skins, game menu) with skis, a team-coloured helmet and a paintball gun. Movement, firing, team colours. |
 | `Blueprints/BP_SkiSlope` | The random slope: builds snow, pines, start gates and the finish from `Seed` + `Difficulty`. |
 | `Blueprints/BP_SkiDirector` | Rounds and teams: a child of Other5's **Game Coordinator** (`AOther5GameCoordinator`), placed once in the level. |
-| `Blueprints/BP_SkiPlayerState` | Each player's team, hits, points, finish place (child of `Other5BasePlayerStateGAS`). |
+| `Blueprints/BP_SkiPlayerState` | Each player's outs scored (`Hits`), points, finish place, whether they're out (`bOut`), and gear: `SnowFriction`, `BounceChance` (child of `Other5BasePlayerStateGAS`, whose `TeamId` is the team). |
 | `Blueprints/BP_Paintball` | One paintball. |
 | `Guns/BP_PaintGunData`, `Guns/DA_Paint*` | Gun data: a Blueprint Primary Data Asset class and the three guns. |
-| `Blueprints/BP_SkiHUD` | Round, scores, gun and speed as text (child of Other5Combat's HUD). |
-| `Blueprints/BP_SkiGameMode` | Pawn, player state, controller and HUD classes (child of `Other5GameModeBase`). |
+| `Blueprints/BP_SkiHUD` | Round, team scores, your state and gear, coins, and the "Hit!" / "Bounce!" pop-ups, as text (child of Other5's game HUD `BP_Other5GameHUD`: menu and chat, none of Combat's ammo, grenade, health or credits widgets). |
+| `Blueprints/BP_SkiGameMode` | Pawn, player state, controller and HUD classes, and the **Teams** list (child of `Other5GameModeBase`). |
 | `Animation/ABP_Skier` | The skier's Animation Blueprint. |
 | `Input/IA_Ski*`, `IMC_SkiVSki` | The controls (player-mappable, `SKIvSKI.*` names). |
 | `Materials/` | Snow, one colour material (team colours, pines, paintballs) and the paint splat decal. All node-built, no textures. |
@@ -72,7 +83,7 @@ machine) the character:
    slope), A/D directly, at `TurnRate` degrees a second. The new yaw goes to the server with `ServerSetSkiYaw` (a
    Run on Server event), which turns the character there so everyone else sees it.
 3. **Lets gravity pull** (`PushDownSlope`): pull along the skis = `Gravity` × sin(slope) × cos(angle to the fall
-   line), less snow friction (`SnowFriction` × `Gravity` × cos(slope)). That becomes **Add Movement Input** along
+   line), less snow friction (the player's `SnowFriction` gear × `Gravity` × cos(slope); `GetSnowFriction`). That becomes **Add Movement Input** along
    the skis (backwards when they point uphill), scaled by `FullInputAccel`.
 
 Character Movement does the rest, and because only Add Movement Input drives it, its client prediction and server
@@ -112,24 +123,34 @@ A gun is a data asset: mesh, muzzle offset, `MuzzleSpeed`, `BallGravityScale`, `
 Gun: six balls in a cone. Add a gun by copying a `DA_Paint*` and adding it to the character's `Guns`.
 
 A ball is a sphere (the root, so Projectile Movement sweeps it) flying with gravity; it keeps the skier's own speed.
-On a hit it leaves a splat decal in the team colour (stuck to a skier if it hit one) and goes.
+On the snow, a tree or an arch it leaves a splat decal in the team colour and goes.
 
 **Multiplayer (the pattern):** balls are not replicated actors. The shooter's machine spawns its own balls at once
 (`TryFire` → `SpawnBalls`) and sends `ServerFire(muzzle, direction, seed)`. The server spawns the same balls (only
 these score) and sends `MulticastFire`, so every other machine spawns them too. The seed makes a spread shot's pellets
-go the same way everywhere. A scoring ball that hits a skier calls `PaintedBy` on the server, which asks the director.
+go the same way everywhere.
+
+**Hitting a skier:** only the server's copy counts. It calls the skier's `PaintedBy`, which asks the director
+(`ResolvePaintHit`: 0 doesn't count, 1 hit and out, 2 bounce, rolled against the shooter's `BounceChance`), then
+`MulticastPaintResult` (Multicast, Reliable) shows it on every machine: a splat stuck to the skier and "Hit!", or a
+ricochet ball (`MirrorVectorByNormal`) and "Bounce!". The other machines' copies of the ball just vanish on a skier,
+so nobody sees a splat that turns out to be a bounce. The pop-ups are the HUD's `AddPopup` / `DrawPopups`: a world
+spot projected to the screen each frame (`Project`), rising and fading over `PopupSeconds`.
 
 Balls ignore WorldDynamic objects (so a spread shot's pellets don't hit each other), so anything they should splat on
 must be WorldStatic (BlockAll): the slope's snow, trees and arches are.
 
 ### Rounds and teams (`Docs/Graphs/BP_SkiDirector.lisp`)
 
-The director is a Game Coordinator child: `On Player Joined` puts a new player on the smaller team, `On Player Pawn
-Changed` places a new character, and four times a second `ServerStep` moves the round on (phases 0 Lobby, 1 Countdown,
-2 Race, 3 Results). It moves skiers with the character's `PlaceAt` (teleport, stop, and a RepNotify that turns the
-owning player's skis and camera), freezes them for the countdown (`bSkiFrozen`), checks who crossed the finish
-(`IsPastFinish`) or got lost (`IsOutOfBounds`: back to the gate, or the lobby), and keeps the scores. It replicates the
-phase, when it ends (server time), both scores, the difficulty and a message for the HUD.
+The director is a Game Coordinator child: `On Player Pawn Changed` places a new character, and four times a second
+`ServerStep` moves the round on (phases 0 Lobby, 1 Countdown, 2 Race, 3 Results). Teams come from Other5 (new players
+join the smaller team; T calls **Request Team**, allowed only while the director has switching on: the lobby). It
+moves skiers with the character's `PlaceAt` (teleport, stop, and a RepNotify that turns the owning player's skis and
+camera), freezes them for the countdown (`bSkiFrozen`), resets outs, hits and team scores (`ResetRound`) at the
+countdown, checks who crossed the finish (`IsPastFinish`) or got lost (`IsOutOfBounds`: back to the gate, or the lobby),
+ends the race when everyone has finished or is out, and adds points (team score with **Add Team Score**, coins with
+the character's `AddCoins`, Other5's inventory currency). It replicates the phase, when it ends (server time), the
+difficulty and a message for the HUD.
 
 The server-only parts check the player's **Has Valid Admin PIN** (Other5's player state) for difficulty changes.
 
@@ -149,7 +170,10 @@ the level):
   SkidFriction, SkateInput, AcrossHoldSeconds, MaxLean. (Keep the Character Movement defaults in step: see the gotcha.)
 - `BP_SkiSlope` **Slope|Layout** and **Slope|Difficulty**.
 - `BP_SkiDirector` **Round|Settings**: LobbySeconds, CountdownSeconds, RaceSeconds, ResultsSeconds, HitPoints,
-  FinishPoints, MinPlayers.
+  FinishPoints, MinPlayers, CoinsPerPoint.
+- `BP_SkiPlayerState` **Gear** (each player's starting gear): SnowFriction 0.05, BounceChance 0.10.
+- `BP_SkiGameMode` **Other5|Teams**: the team names and colours, auto-balance, switching, friendly fire.
+- `BP_SkiHUD` **Popups**: PopupSeconds.
 - The guns: `Guns/DA_Paint*`.
 
 ## How the assets were made (and how to rebuild them)
@@ -177,46 +201,47 @@ The Other5 test runner (`-Other5TestScript=`) drives the scripts in `Docs/Tests`
 - `SkiRound.txt`: lobby, paintballs, team switch, countdown at the gate, race (one player).
 - `SkiLook.txt`: screenshots of the ski stance and aiming.
 - `Run-SkiMultiplayer.ps1`: a dedicated server and two clients (`SkiDuelA/B.txt`) aiming at each other through a
-  lobby and a race. 2026-11-09: teams Red/Blue, rounds, replicated paintballs, server-counted hits, scores on both
-  clients (Red 5 - Blue 6).
+  lobby and a race (the server runs with `-SkiPracticeHits`). 2026-11-10: shared teams Red/Blue, a hit puts the other
+  player out, team score and a coin for the shooter, outs reset at the countdown.
 
-The character has `DebugReport`, `DebugScore`, `DebugAim`, `DebugFire` and `DebugSteerToMiddle` functions for these
+The character has `DebugReport`, `DebugScore`, `DebugAim`, `DebugFire`, `DebugPopup` and `DebugSteerToMiddle` functions for these
 (`call pawn DebugReport`). Mouse buttons sent by the runner's `keydown` don't reach Enhanced Input, hence `DebugFire`.
 
 ## Status
 
-**Works (tested 2026-11-09, editor build):** ski movement and steering on the ramp and the generated slope; the slope
-at three difficulties with pines, gates and finish; three paintball guns, splats, Q to switch; teams (auto-balanced,
-T to switch), lobby, countdown, race, finish places, results and a new slope each round; server-scored hits and
-replicated scores on a dedicated server with two clients; admin difficulty keys; the HUD; the ski stance and aiming
-upper body. Not checked yet: the controls showing in Settings > Controls (they use Add Other5 Mapping Context, as
-the docs say), and PIE.
+**Works (tested 2026-11-10, editor build):** ski movement and steering on the ramp and the generated slope; the slope
+at three difficulties with pines, gates and finish; three paintball guns, splats, Q to switch; Other5's shared teams
+(auto-balanced on join, T to switch in the lobby only); lobby, countdown, race, finish places, results and a new slope
+each round; on a dedicated server with two clients: a hit puts the other player out (grey skis and helmet, can't
+fire, further hits ignored), the team scores, the shooter gets a coin, and the next countdown brings everyone back in;
+the HUD (team scores in team colours, outs, paint bounce %, ski friction, coins) on the plain Other5 game HUD; the
+"Hit!" / "Bounce!" pop-ups rising and fading; admin difficulty keys; the ski stance and aiming upper body; PIE
+(server + client) starts with no errors. Not seen in a test yet: a real bounce (10%: the ricochet path is built and
+compiles), and the controls in Settings > Controls.
 
 **Stubbed or rough:**
-- Pines are engine cones and cylinders (see the open questions). The snow has no texture.
+- Pines are engine cones and cylinders. The snow has no texture.
 - The guns are Other5Combat's pistol, rifle and shotgun meshes, roughly in the hand (no muzzle socket; the balls still
   go where the crosshair points). No firing sound or muzzle flash yet; no splash particles.
-- The HUD is Draw Text, not a widget. Other5Combat's grenade and health-pack counters still show (unused here).
+- The HUD is Draw Text, not a widget.
+- No shop yet: gear (bounce chance, ski friction) and coins are in place for it. Better paint's looks (colours) not
+  started.
 - Finish and out-of-bounds are polled four times a second. Players stuck across the slope in a bowl must steer out.
 - No lag compensation: the server's ball starts from the shooter's muzzle when the RPC arrives.
-- With `-SkiPracticeHits`, lobby points carry into the race's score.
 - No bots. Not tried on Mac, nor as a cooked creation pak (PAL_SKIvSKI is set up but nothing has been cooked).
 
-**Next:** sounds and a muzzle/splash effect (Niagara); a UMG HUD with a results table; nicer pines; a ski-specific
-idle/turn pose set (or Control Rig leg IK for knees over uneven snow); a cooked-pak test on a server; Creator guides.
+**Next / TODO:**
+- **Shop between runs** (Matt 2026-11-10): spend coins on better paint (lower bounce chance, colours and other
+  effects) and ski wax (lower ski friction). Other5's `AOther5Shop` / inventory currency is the likely base.
+- **Ski compass** (Matt 2026-11-10, later): a compass-like HUD element showing which way your skis point relative to
+  the fall line (straight downhill), like Other5Compass but for the hill.
+- Sounds and a muzzle/splash effect (Niagara); a UMG HUD with a results table; nicer pines (Megascans are fine to use,
+  Matt 2026-11-10); a ski-specific idle/turn pose set (or Control Rig leg IK); a cooked-pak test on a server.
+- **Creator guides** on other5.xyz: very detailed, lots of pictures and step-by-step how-tos, the animation work above
+  all (Matt 2026-11-10). Topics in `CreatorTopics.md`.
 
-## Open questions for Matt
+## Decisions (Matt, 2026-11-10)
 
-1. **Pines from Fab/Megascans:** using them needs your sign-in and accepting their licence (not done). Also, this repo
-   is **public**, and the Fab licence doesn't allow redistributing source assets, so licensed trees would need a
-   private plugin (like CubeEscape's packs) or to come from a public-domain source. The cones are a placeholder.
-2. **Chunk 1021** for `PAL_SKIvSKI` (next free after Characters 1019 / Creatures 1020): OK?
-3. **Public repo:** fine for SKIvSKI to stay public (CubeEscape is private)? Its only branch is `SkiVSki` (GitHub made
-   it the default); a `main` appears when you merge.
-4. **Teams as an Other5 system:** this Creation does teams in Blueprints. A reusable proposal is in Other5
-   `Docs/Teams.md` (branch `SkiVSki`): want it in C++ for all Creations, or keep it in Blueprints for now?
-5. **Scoring and paint:** 1 point a hit plus 10/8/6... for finishing, and paint doesn't hurt or slow you. Change
-   anything (e.g. a hit slows the skier, or Combat's GAS damage)?
-6. **Other5's Speed stat** also raises the ski top speed (fighter progression). Keep it?
-7. **Creator guides:** how detailed should the website guides be (ski movement, projectile guns, teams/rounds, random
-   terrain)? They're listed in `CreatorTopics.md`.
+Megascans/Fab assets are fine (Other5ForestBiome already uses them); chunk 1021; the repo stays public (a downloadable
+zip to learn from); teams are a shared C++ Other5 system (done, Other5 branch `SkiVSki`); a hit puts you out with a
+bounce chance; the Speed stat raising ski speed is good; ski friction and paint are shop items between runs.
