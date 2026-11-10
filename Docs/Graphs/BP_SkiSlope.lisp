@@ -31,7 +31,11 @@
   (bind moguls (* (Math|Trig|Sin(Radians) (+ (* X 0.0105) (Variables|Slope|Work|GetPhase1))) (Math|Trig|Sin(Radians) (+ (* Y 0.0126) (Variables|Slope|Work|GetPhase2)))))
   (bind rollers (* 2.5 (Math|Trig|Sin(Radians) (+ (+ (* X 0.0037) (* Y 0.0021)) (Variables|Slope|Work|GetPhase3)))))
   (bind fade (* (Math|Float|Clamp(Float) (* t 10.0) 0.0 1.0) (Math|Float|Clamp(Float) (* (- 1.0 t) 6.0) 0.0 1.0)))
-  (bind bumps (* (* (Variables|Slope|Work|GetBumpHeight) (+ moguls rollers)) fade))
+  ; Never an uphill pointing down the run: the bumps' steepest rise along X (about BumpHeight x 0.0198) stays under
+  ; 60% of the run's own downhill gradient here (which eases off in the run-out), so nobody gets stuck in a dip.
+  (bind localTan (* (Variables|Slope|Work|GetSlopeTan) (- 1.0 (/ runout 0.15))))
+  (bind bumpCap (Math|Float|Min(Float) 1.0 (/ (* 0.6 localTan) (Math|Float|Max(Float) (* (Variables|Slope|Work|GetBumpHeight) 0.0198) 0.001))))
+  (bind bumps (* (* (* (Variables|Slope|Work|GetBumpHeight) (+ moguls rollers)) fade) bumpCap))
   (return (+ (+ (- bank fall) ridge) bumps)))
 
 ; The snow: a grid of CellSize squares over the lobby and the run (banks included), heights from HeightAt.
