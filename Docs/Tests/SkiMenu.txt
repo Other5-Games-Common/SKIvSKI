@@ -1,0 +1,10 @@
+# The game menu: Esc opens Other5's in-game menu (Back to game, Settings, Quit), Esc closes it again.
+#   UnrealEditor.exe Other5.uproject /SKIvSKI/Maps/L_SkiVSki -game -windowed -log -NoEOS -Other5TestScript=<this file>
+wait 5
+shot MenuBefore
+key Escape
+wait 1
+shot MenuOpen
+key Escape
+wait 1
+shot MenuClosed

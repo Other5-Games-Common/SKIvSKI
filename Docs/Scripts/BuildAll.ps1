@@ -48,15 +48,15 @@ AddVars $C @(
 	@('Gravity', 'float', 'Ski|Tuning', 'None', $true), @('SnowFriction', 'float', 'Ski|Tuning', 'None', $true), @('TopSpeed', 'float', 'Ski|Tuning', 'None', $true),
 	@('FullInputAccel', 'float', 'Ski|Tuning', 'None', $true), @('TurnRate', 'float', 'Ski|Tuning', 'None', $true), @('CarveGrip', 'float', 'Ski|Tuning', 'None', $true),
 	@('SkidBraking', 'float', 'Ski|Tuning', 'None', $true), @('SkidFriction', 'float', 'Ski|Tuning', 'None', $true), @('SkateInput', 'float', 'Ski|Tuning', 'None', $true),
-	@('AcrossHoldSeconds', 'float', 'Ski|Tuning', 'None', $true), @('MaxLean', 'float', 'Ski|Tuning', 'None', $true),
+	@('AcrossHoldSeconds', 'float', 'Ski|Tuning', 'None', $true), @('MaxLean', 'float', 'Ski|Tuning', 'None', $true), @('EdgeGrip', 'float', 'Ski|Tuning', 'None', $true), @('SkateSpeed', 'float', 'Ski|Tuning', 'None', $true),
 	@('bHoldDownhill', 'bool', 'Ski|Input', 'None', $false), @('bHoldSlow', 'bool', 'Ski|Input', 'None', $false), @('bHoldLeft', 'bool', 'Ski|Input', 'None', $false), @('bHoldRight', 'bool', 'Ski|Input', 'None', $false),
 	@('SkiYaw', 'float', 'Ski|State', 'None', $false), @('FallLineYaw', 'float', 'Ski|State', 'None', $false), @('SlopeDegrees', 'float', 'Ski|State', 'None', $false),
 	@('bOnSlope', 'bool', 'Ski|State', 'None', $false), @('AcrossHoldLeft', 'float', 'Ski|State', 'None', $false), @('bSkiFrozen', 'bool', 'Ski|State', 'Replicated', $false),
 	@('LastSentYaw', 'float', 'Ski|State', 'None', $false), @('Lean', 'float', 'Ski|State', 'None', $false), @('LastYaw', 'float', 'Ski|State', 'None', $false),
 	@('SpeedKmh', 'float', 'Ski|State', 'None', $false), @('FloorNormal', 'Vector', 'Ski|State', 'None', $false),
-	@('PlaceId', 'int', 'Ski|State', 'RepNotify', $false), @('PlacedYaw', 'float', 'Ski|State', 'Replicated', $false),
+	@('PlaceId', 'int', 'Ski|State', 'RepNotify', $false), @('PlacedYaw', 'float', 'Ski|State', 'Replicated', $false), @('bSkiStarted', 'bool', 'Ski|State', 'None', $false),
 	@('Guns', '/SKIvSKI/Guns/BP_PaintGunData.BP_PaintGunData_C:Array', 'Paint', 'None', $true), @('GunIndex', 'int', 'Paint', 'RepNotify', $false),
-	@('NextFireTime', 'float', 'Paint', 'None', $false), @('bPrevSwitchGun', 'bool', 'Paint', 'None', $false), @('ShotStream', '/Script/CoreUObject.RandomStream', 'Paint', 'None', $false),
+	@('NextFireTime', 'float', 'Paint', 'None', $false), @('ShotSeed', 'int', 'Paint', 'None', $false), @('ShotDir', 'Vector', 'Paint', 'None', $false), @('bPrevSwitchGun', 'bool', 'Paint', 'None', $false), @('ShotStream', '/Script/CoreUObject.RandomStream', 'Paint', 'None', $false),
 	@('TeamShown', 'int', 'Team', 'None', $false), @('TeamColor', 'LinearColor', 'Team', 'None', $false),
 	@('bPrevSwitchTeam', 'bool', 'Team', 'None', $false), @('bPrevHarder', 'bool', 'Team', 'None', $false), @('bPrevEasier', 'bool', 'Team', 'None', $false))
 AddVars $S @(
@@ -69,7 +69,8 @@ AddVars $S @(
 	@('Seed', 'int', 'Slope|Build', 'Replicated', $false), @('Difficulty', 'int', 'Slope|Build', 'Replicated', $false), @('BuildId', 'int', 'Slope|Build', 'RepNotify', $false),
 	@('Vertices', 'Vector:Array', 'Slope|Work', 'None', $false), @('Triangles', 'int:Array', 'Slope|Work', 'None', $false), @('UVs', 'Vector2D:Array', 'Slope|Work', 'None', $false),
 	@('Stream', '/Script/CoreUObject.RandomStream', 'Slope|Work', 'None', $false), @('SlopeTan', 'float', 'Slope|Work', 'None', $false), @('BumpHeight', 'float', 'Slope|Work', 'None', $false),
-	@('Phase1', 'float', 'Slope|Work', 'None', $false), @('Phase2', 'float', 'Slope|Work', 'None', $false), @('Phase3', 'float', 'Slope|Work', 'None', $false), @('FinishX', 'float', 'Slope|Work', 'None', $false))
+	@('Phase1', 'float', 'Slope|Work', 'None', $false), @('Phase2', 'float', 'Slope|Work', 'None', $false), @('Phase3', 'float', 'Slope|Work', 'None', $false), @('FinishX', 'float', 'Slope|Work', 'None', $false),
+	@('TreeT', 'float', 'Slope|Work', 'None', $false), @('TreeSide', 'float', 'Slope|Work', 'None', $false), @('TreeSize', 'float', 'Slope|Work', 'None', $false), @('TreeSpin', 'float', 'Slope|Work', 'None', $false))
 AddVars $D @(
 	@('Slope', '/SKIvSKI/Blueprints/BP_SkiSlope.BP_SkiSlope_C', 'Round|Settings', 'None', $true), @('LobbySeconds', 'float', 'Round|Settings', 'None', $true),
 	@('CountdownSeconds', 'float', 'Round|Settings', 'None', $true), @('RaceSeconds', 'float', 'Round|Settings', 'None', $true), @('ResultsSeconds', 'float', 'Round|Settings', 'None', $true),
@@ -92,7 +93,7 @@ AddFunctions $S @(
 	@('GetLobbySpot', @(@('Index', 'int'), @('Spot', 'Transform', 'out'))), @('IsPastFinish', @(@('WorldLocation', 'Vector'), @('Result', 'bool', 'out'))),
 	@('IsOutOfBounds', @(@('WorldLocation', 'Vector'), @('Result', 'bool', 'out')))) | Out-Null
 AddFunctions $C @(
-	@('SetupSkiMovement', @()), @('UpdateSlope', @()), @('SteerSkis', @(, @('DeltaSeconds', 'float'))), @('PushDownSlope', @()), @('LeanIntoTurn', @(, @('DeltaSeconds', 'float'))),
+	@('SkiBeginPlay', @()), @('SetupSkiMovement', @()), @('UpdateGlide', @()), @('UpdateSlope', @()), @('SteerSkis', @(, @('DeltaSeconds', 'float'))), @('PushDownSlope', @()), @('LeanIntoTurn', @(, @('DeltaSeconds', 'float'))),
 	@('DebugReport', @()), @('PlaceAt', @(, @('Spot', 'Transform'))),
 	@('PaintedBy', @(@('Shooter', $PAWN), @('Where', 'Vector'), @('Direction', 'Vector'), @('Normal', 'Vector'), @('Color', 'LinearColor'), @('Size', 'float'))),
 	@('IsOut', @(, @('Out', 'bool', 'out'))), @('AddCoins', @(, @('Amount', 'int'))), @('GetCoins', @(, @('Coins', 'int', 'out'))),

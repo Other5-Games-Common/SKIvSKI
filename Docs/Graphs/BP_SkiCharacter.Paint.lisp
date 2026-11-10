@@ -102,7 +102,10 @@
     (bind target (select didHit impact far))
     (bind muzzle (Math|Transform|TransformLocation (Transformation|GetWorldTransform :self (Variables|Default|GetGunMesh)) (Class|BPPaintGunData|GetMuzzleOffset :self gun)))
     (bind direction (Math|Vector|Normalize (- target muzzle)))
-    (bind seed (Math|Random|RandomIntegerinRange 0 1000000))
+    ; Drawn once into a variable (a random node is pure: each use would draw again, and the server and the other
+    ; players would get a different spread from the shooter's).
+    (Variables|Paint|SetShotSeed (Math|Random|RandomIntegerinRange 0 1000000))
+    (bind seed (Variables|Paint|GetShotSeed))
     ; Our own balls now (they score only if we are the server), then the server's.
     (CallFunction|SpawnBalls :Muzzle muzzle :Direction direction :Seed seed :bScores (Networking|HasAuthority))
     (if (Networking|HasAuthority)
@@ -116,7 +119,8 @@
   (bind gun (CallFunction|GetCurrentGun))
   (Variables|Paint|SetShotStream (Math|Random|MakeRandomStream Seed))
   (for i (range (Class|BPPaintGunData|GetPelletsPerShot :self gun))
-    (bind dir (Math|Random|RandomUnitVectorinConeinDegreesfromStream :Stream (Variables|Paint|GetShotStream) :ConeDir Direction :ConeHalfAngleInDegrees (Class|BPPaintGunData|GetSpreadDegrees :self gun)))
+    (Variables|Paint|SetShotDir (Math|Random|RandomUnitVectorinConeinDegreesfromStream :Stream (Variables|Paint|GetShotStream) :ConeDir Direction :ConeHalfAngleInDegrees (Class|BPPaintGunData|GetSpreadDegrees :self gun)))
+    (bind dir (Variables|Paint|GetShotDir))
     (bind ball (Game|SpawnActorfromClass :Class "/SKIvSKI/Blueprints/BP_Paintball.BP_Paintball_C" :SpawnTransform (Math|Transform|MakeTransform Muzzle (Math|Conversions|RotationFromXVector dir) (Math|Vector|MakeVector 1.0 1.0 1.0)) :CollisionHandlingOverride "AlwaysSpawn" :Owner self))
     (Class|BPPaintball|Launch :self ball :Velocity (+ (* dir (Class|BPPaintGunData|GetMuzzleSpeed :self gun)) (Transformation|GetVelocity)) :Color (Variables|Team|GetTeamColor) :InShooter self :bInScores bScores :Size (Class|BPPaintGunData|GetBallSize :self gun) :GravityScale (Class|BPPaintGunData|GetBallGravityScale :self gun))))
 

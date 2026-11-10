@@ -33,9 +33,9 @@ def main():
     set_all(ch, {
         # Ski|Tuning (cm, seconds, degrees)
         "Gravity": 980.0,            # cm/s^2
-        "SnowFriction": 0.05,        # waxed skis on packed snow
+        "SnowFriction": 0.02,        # waxed skis on packed snow (along the skis; the shop's wax lowers it)
         "TopSpeed": 3000.0,          # cm/s at full pull (108 km/h)
-        "FullInputAccel": 450.0,     # cm/s^2 of gravity pull that counts as full input (and the Max Acceleration)
+        "FullInputAccel": 700.0,     # cm/s^2 of gravity pull that counts as full input (and the Max Acceleration)
         "TurnRate": 110.0,           # degrees per second the skis turn
         "CarveGrip": 2.5,            # Ground Friction: how fast the velocity follows the skis
         "SkidBraking": 450.0,        # cm/s^2 lost when skidding (skis across, or turning off the fall line)
@@ -43,6 +43,8 @@ def main():
         "SkateInput": 0.12,          # W on flat snow
         "AcrossHoldSeconds": 0.35,   # S pauses this long with the skis across the slope
         "MaxLean": 25.0,             # degrees the body leans into a turn
+        "EdgeGrip": 0.55,           # the edges hold skis across the slope up to about 29 degrees; steeper, they side-slip
+        "SkateSpeed": 600.0,        # cm/s W skates up to on flat snow (22 km/h)
         "TeamShown": -1,             # no team colour shown yet
     })
     # The movement component's own defaults must match the tuning: Other5's Speed stat (fighter progression) sets
@@ -107,7 +109,7 @@ def main():
     # Each player's gear (Gear category): what the shop between runs will improve.
     bp, ps = cdo("/SKIvSKI/Blueprints/BP_SkiPlayerState")
     set_all(ps, {
-        "SnowFriction": 0.05,    # ski on snow; ski wax will lower it
+        "SnowFriction": 0.02,    # ski on snow; ski wax will lower it
         "BounceChance": 0.10,    # this player's paintballs bounce off a target 10% of the time; better paint lowers it
     })
     eal.save_loaded_asset(bp, False)

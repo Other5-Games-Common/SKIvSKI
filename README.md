@@ -82,23 +82,37 @@ machine) the character:
 2. **Steers** (`SteerSkis`): W turns toward the fall line, S away from it (pausing `AcrossHoldSeconds` across the
    slope), A/D directly, at `TurnRate` degrees a second. The new yaw goes to the server with `ServerSetSkiYaw` (a
    Run on Server event), which turns the character there so everyone else sees it.
-3. **Lets gravity pull** (`PushDownSlope`): pull along the skis = `Gravity` × sin(slope) × cos(angle to the fall
-   line), less snow friction (the player's `SnowFriction` gear × `Gravity` × cos(slope); `GetSnowFriction`). That becomes **Add Movement Input** along
-   the skis (backwards when they point uphill), scaled by `FullInputAccel`.
+3. **Lets gravity pull** (`PushDownSlope`), as on real skis:
+   - along the skis: `Gravity` × sin(slope) × cos(angle to the fall line), less snow friction (the player's
+     `SnowFriction` gear × `Gravity` × cos(slope); `GetSnowFriction`). Skis down the fall line: almost no friction.
+   - across the skis: the edges hold, up to `EdgeGrip` × `Gravity` × cos(slope), so skis across the slope keep you
+     standing still; on a slope steep enough to beat the edges (about 29° with EdgeGrip 0.55) you side-slip down.
+   Each pull becomes **Add Movement Input** (backwards when the skis point uphill), scaled by `FullInputAccel`.
+   On flat snow, W skates up to `SkateSpeed`.
 
 Character Movement does the rest, and because only Add Movement Input drives it, its client prediction and server
 correction work as for walking:
 
-- acceleration = Max Acceleration × input, and the speed tops out at Max Walk Speed × input (`TopSpeed`), so a
-  steeper slope, or skis nearer the fall line, go faster (about 40 / 65 / 95 km/h straight down Easy / Medium / Hard);
+- acceleration = Max Acceleration × input. **Min Analog Walk Speed** is set to `TopSpeed`: without it the speed
+  would top out at Max Walk Speed × input, so a gentle pull meant a low top speed (skiing used to be slow for that
+  reason). Now the speed keeps building up to `TopSpeed` (108 km/h); 0 to 30 km/h takes about 2 s at 25°;
 - **Ground Friction** (`CarveGrip`) turns the velocity toward the skis: carving;
-- when the pull is weaker than the speed you have (skis turned across), **Braking Deceleration** (`SkidBraking`,
-  `SkidFriction`) slows you: a skid. No pull at all brakes you to a stop.
+- with no pull, **Braking Deceleration** (`UpdateGlide`, every machine) is the snow friction alone when you glide
+  along your skis, plus `SkidBraking` / `SkidFriction` the more the skis are sideways to your motion: a skid.
+
+Gotcha for Creators (it caused floating trees and mismatched paintball spreads here): a random node is **pure**, so
+every wire from it draws a new number. Draw once into a variable (Set), then read the variable.
 
 `LeanIntoTurn` (every machine) rolls the body into turns and lays the skis flat on the snow.
 
 Gotcha for Creators: Other5's Speed stat sets Max Walk Speed from the **class default** whenever it changes, so the
 movement component's defaults in `BP_SkiCharacter` match the tuning (set by `Docs/Scripts/SetupDefaults.py`).
+
+Gotcha for Creators: don't override **BeginPlay** in a child of an Other5 character without a call to the parent's
+(right-click the event > Add Call to Parent Function). The parent adds the Esc/F10 game menu keys
+(`IMC_BaseGamePawn`), checks the saved admin PIN and refreshes player names; skipping it left SKIvSKI without a game
+menu. The graph DSL can't make that call, so SKIvSKI has no BeginPlay: it sets up from its first Tick
+(`SkiBeginPlay`).
 
 ### The slope (BP_SkiSlope, `Docs/Graphs/BP_SkiSlope.lisp`)
 
@@ -167,11 +181,11 @@ Everything is a variable with a category, so it can be changed in a Blueprint's 
 the level):
 
 - `BP_SkiCharacter` **Ski|Tuning**: Gravity, SnowFriction, TopSpeed, FullInputAccel, TurnRate, CarveGrip, SkidBraking,
-  SkidFriction, SkateInput, AcrossHoldSeconds, MaxLean. (Keep the Character Movement defaults in step: see the gotcha.)
+  SkidFriction, SkateInput, SkateSpeed, EdgeGrip, AcrossHoldSeconds, MaxLean. (Keep the Character Movement defaults in step: see the gotcha.)
 - `BP_SkiSlope` **Slope|Layout** and **Slope|Difficulty**.
 - `BP_SkiDirector` **Round|Settings**: LobbySeconds, CountdownSeconds, RaceSeconds, ResultsSeconds, HitPoints,
   FinishPoints, MinPlayers, CoinsPerPoint.
-- `BP_SkiPlayerState` **Gear** (each player's starting gear): SnowFriction 0.05, BounceChance 0.10.
+- `BP_SkiPlayerState` **Gear** (each player's starting gear): SnowFriction 0.02, BounceChance 0.10.
 - `BP_SkiGameMode` **Other5|Teams**: the team names and colours, auto-balance, switching, friendly fire.
 - `BP_SkiHUD` **Popups**: PopupSeconds.
 - The guns: `Guns/DA_Paint*`.

@@ -1,7 +1,10 @@
 ; BP_SkiCharacter: events. Functions are in BP_SkiCharacter.Movement.lisp (skiing) and BP_SkiCharacter.Paint.lisp
 ; (guns, teams, round placement).
 
-(event EventBeginPlay
+; Set up once, from the first Tick. There's deliberately no BeginPlay here: overriding it would skip the parent's
+; (Other5's character adds the Esc/F10 game menu keys, IMC_BaseGamePawn, checks the saved admin PIN and refreshes
+; player names there), and the graph DSL can't add a call to the parent's BeginPlay.
+(fn SkiBeginPlay ()
   (CallFunction|SetupSkiMovement)
   ; Helmet on the head, paintball gun in the right hand (sockets on the Other5 mannequin skeleton).
   (Transformation|AttachComponentToComponent :self (Variables|Default|GetHelmet) :Parent (Variables|Character|GetMesh) :SocketName "head" :LocationRule "SnapToTarget" :RotationRule "KeepRelative" :ScaleRule "KeepRelative")
@@ -21,7 +24,11 @@
       (:CastFailed))))
 
 (event EventTick (DeltaSeconds)
+  (if (not (Variables|Ski|State|GetSkiStarted))
+    (Variables|Ski|State|SetSkiStarted true)
+    (CallFunction|SkiBeginPlay))
   (CallFunction|UpdateSlope)
+  (CallFunction|UpdateGlide)
   (CallFunction|UpdateTeamLook)
   (if (Pawn|IsLocallyControlled)
     (CallFunction|ReadButtons)
