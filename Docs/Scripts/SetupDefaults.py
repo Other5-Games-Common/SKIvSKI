@@ -12,6 +12,9 @@ def log(s):
 
 
 eal = unreal.EditorAssetLibrary
+# The optional Other5WinterBiome plugin's assets are named by path only (strings, not references), so SKIvSKI still
+# opens, cooks and runs without it.
+W = "/Other5WinterBiome/"
 
 
 def cdo(path):
@@ -80,6 +83,23 @@ def main():
         "TreeGap": 250.0,           # open snow between any two pines' crowns (wider than skis are long)
         "RunoutLength": 15000.0,    # 150 m of nearly flat run-out past the run...
         "RunoutRise": 4500.0,       # ...curving up 45 m at its end (enough to stop at top speed)
+        "OuterWidth": 60000.0,      # the hills around the slope, 600 m out on every side
+        # Slope|Look: the winter look, from the optional (private) Other5WinterBiome plugin; without it, cones
+        "LookTree": W + "Assets/pine_trees_full/pine_tree_full_a.pine_tree_full_a",
+        "LookTreeTall": W + "Assets/pine_trees_full/pine_tree_tall_full_b.pine_tree_tall_full_b",
+        "LookFarTrees": W + "Assets/pine_trees_full/pine_tree_card_group_distant_a.pine_tree_card_group_distant_a",
+        "LookClump": W + "Assets/snow/snow_clumps_piles/Static_Meshes/engine_snow_clumps_a_LODs.engine_snow_clumps_a_LODs",
+        "LookRock": W + "Assets/rocks/rock_a/rock_a.rock_a",
+        "LookMountain": W + "Assets/background_mountains/snow_mountain_low_01.snow_mountain_low_01",
+        "LookMountainMaterial": W + "Materials/M_WinterSnow.M_WinterSnow",  # snow-covered (the pack's own is bare rock)
+        "LookSnow": W + "Materials/M_WinterSnow.M_WinterSnow",
+        "LookSnowfall": W + "Particles/Snow_FX/snow_falling.snow_falling",
+        "ForestCount": 160,         # pines on the hills either side, just out of bounds (cones without the winter look)
+        "FarTreeCount": 500,        # distant pines (cards) further out
+        "ClumpCount": 260,          # snow clumps on the banks and hills
+        "RockCount": 45,
+        "MountainCount": 9,
+        "MountainDistance": 90000.0,  # 900 m away
         # Slope|Difficulty: Easy, Medium, Hard
         "SlopeDegreesByLevel": [13.0, 19.0, 26.0],
         "BumpHeightByLevel": [12.0, 30.0, 50.0],

@@ -180,6 +180,13 @@ def main():
     trunks.set_editor_property("static_mesh", cylinder)
     trunks.set_material(0, unreal.load_asset("/SKIvSKI/Materials/MI_SkiPineBark"))
     trunks.set_collision_profile_name("BlockAll")
+    # The winter look's scenery (meshes from the optional Other5WinterBiome plugin, set by ApplyLook when it's there):
+    # snowy pines over the cones, distant pines, snow clumps, rocks and mountains. No collision: skiers hit the cones.
+    for name, shadow in (("TreeArt", True), ("TreeArtTall", True), ("FarTrees", True), ("Clumps", False),
+                         ("Rocks", True), ("Mountains", False)):
+        art = add_comp(slope, name, unreal.HierarchicalInstancedStaticMeshComponent)
+        art.set_collision_profile_name("NoCollision")
+        art.set_editor_property("cast_shadow", shadow)
     # Start gates (Red team on the left, Blue on the right, looking downhill) and the finish arch: two posts and a
     # banner each, moved into place by Generate.
     for prefix, mat in (("GateRed", "MI_SkiTeamRed"), ("GateBlue", "MI_SkiTeamBlue"), ("Finish", "MI_SkiFinish")):

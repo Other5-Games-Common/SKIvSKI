@@ -31,6 +31,7 @@ $A = '/SKIvSKI/Animation/ABP_Skier'
 $PS = 'obj:/SKIvSKI/Blueprints/BP_SkiPlayerState.BP_SkiPlayerState_C'
 $PAWN = 'obj:/Script/Engine.Pawn'
 $SM = 'obj:/Script/Engine.StaticMeshComponent'
+$ISM = 'obj:/Script/Engine.InstancedStaticMeshComponent'
 
 Step 'input, materials, Blueprint shells and components'
 Py (Join-Path $Scripts 'SetupInput.py')
@@ -77,7 +78,13 @@ AddVars $S @(
 	@('Stream', '/Script/CoreUObject.RandomStream', 'Slope|Work', 'None', $false), @('SlopeTan', 'float', 'Slope|Work', 'None', $false), @('BumpHeight', 'float', 'Slope|Work', 'None', $false),
 	@('Phase1', 'float', 'Slope|Work', 'None', $false), @('Phase2', 'float', 'Slope|Work', 'None', $false), @('Phase3', 'float', 'Slope|Work', 'None', $false), @('FinishX', 'float', 'Slope|Work', 'None', $false),
 	@('TreeT', 'float', 'Slope|Work', 'None', $false), @('TreeSide', 'float', 'Slope|Work', 'None', $false), @('TreeSize', 'float', 'Slope|Work', 'None', $false), @('TreeSpin', 'float', 'Slope|Work', 'None', $false),
-	@('TreeSpots', 'Vector:Array', 'Slope|Work', 'None', $false), @('bTreeClear', 'bool', 'Slope|Work', 'None', $false))
+	@('TreeSpots', 'Vector:Array', 'Slope|Work', 'None', $false), @('bTreeClear', 'bool', 'Slope|Work', 'None', $false),
+@('Xs', 'float:Array', 'Slope|Work', 'None', $false), @('Ys', 'float:Array', 'Slope|Work', 'None', $false), @('Steps', 'float:Array', 'Slope|Work', 'None', $false), @('StepAt', 'float', 'Slope|Work', 'None', $false), @('StepSize', 'float', 'Slope|Work', 'None', $false),
+@('OuterWidth', 'float', 'Slope|Layout', 'None', $true),
+@('LookTree', 'string', 'Slope|Look', 'None', $true), @('LookTreeTall', 'string', 'Slope|Look', 'None', $true), @('LookFarTrees', 'string', 'Slope|Look', 'None', $true), @('LookClump', 'string', 'Slope|Look', 'None', $true),
+@('LookRock', 'string', 'Slope|Look', 'None', $true), @('LookMountain', 'string', 'Slope|Look', 'None', $true), @('LookMountainMaterial', 'string', 'Slope|Look', 'None', $true), @('LookSnow', 'string', 'Slope|Look', 'None', $true), @('LookSnowfall', 'string', 'Slope|Look', 'None', $true),
+@('ForestCount', 'int', 'Slope|Look', 'None', $true), @('FarTreeCount', 'int', 'Slope|Look', 'None', $true), @('ClumpCount', 'int', 'Slope|Look', 'None', $true), @('RockCount', 'int', 'Slope|Look', 'None', $true), @('MountainCount', 'int', 'Slope|Look', 'None', $true), @('MountainDistance', 'float', 'Slope|Look', 'None', $true),
+@('bFancy', 'bool', 'Slope|Look', 'None', $false), @('bSnowing', 'bool', 'Slope|Look', 'None', $false))
 AddVars $D @(
 	@('Slope', '/SKIvSKI/Blueprints/BP_SkiSlope.BP_SkiSlope_C', 'Round|Settings', 'None', $true), @('LobbySeconds', 'float', 'Round|Settings', 'None', $true),
 	@('CountdownSeconds', 'float', 'Round|Settings', 'None', $true), @('RaceSeconds', 'float', 'Round|Settings', 'None', $true), @('ResultsSeconds', 'float', 'Round|Settings', 'None', $true),
@@ -101,7 +108,11 @@ AddFunctions $S @(
 	@('PlaceArch', @(@('PostLeft', $SM), @('PostRight', $SM), @('Banner', $SM), @('X', 'float'), @('Y', 'float'), @('Width', 'float'))),
 	@('Rebuild', @(@('NewSeed', 'int'), @('NewDifficulty', 'int'))), @('GetStartSpot', @(@('Team', 'int'), @('Index', 'int'), @('Spot', 'Transform', 'out'))),
 	@('GetLobbySpot', @(@('Index', 'int'), @('Spot', 'Transform', 'out'))), @('IsPastFinish', @(@('WorldLocation', 'Vector'), @('Result', 'bool', 'out'))),
-	@('IsOutOfBounds', @(@('WorldLocation', 'Vector'), @('Result', 'bool', 'out')))) | Out-Null
+	@('IsOutOfBounds', @(@('WorldLocation', 'Vector'), @('Result', 'bool', 'out'))),
+	@('OuterHeightAt', @(@('X', 'float'), @('Y', 'float'), @('Height', 'float', 'out'))), @('OuterSteps', @()), @('Draw', @(@('Min', 'float'), @('Max', 'float'), @('Value', 'float', 'out'))),
+	@('PlantArt', @(@('Hism', $ISM), @('X', 'float'), @('Y', 'float'), @('Scale', 'float'), @('Spin', 'float'), @('Sink', 'float'))),
+	@('LoadLook', @(@('Path', 'string'), @('Asset', 'obj:/Script/CoreUObject.Object', 'out'))), @('LookMeshOn', @(@('Hism', $ISM), @('Path', 'string'), @('Found', 'bool', 'out'))),
+	@('LookMaterialOn', @(@('Target', 'obj:/Script/Engine.PrimitiveComponent'), @('Path', 'string'), @('Found', 'bool', 'out'))), @('StartSnowfall', @()), @('ApplyLook', @()), @('DressScene', @())) | Out-Null
 AddFunctions $C @(
 	@('SkiBeginPlay', @()), @('SetupSkiMovement', @()), @('UpdateGlide', @()), @('UpdateSlope', @()), @('SteerSkis', @(, @('DeltaSeconds', 'float'))), @('PushDownSlope', @()), @('LeanIntoTurn', @(, @('DeltaSeconds', 'float'))),
 	@('DebugReport', @()), @('PlaceAt', @(, @('Spot', 'Transform'))),

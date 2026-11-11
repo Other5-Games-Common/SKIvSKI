@@ -196,6 +196,26 @@ Pines are never closer than **TreeGap** (2.5 m, longer than the skis) of open sn
 wedged between two of them (`PlantTree` checks every pine already planted). Past the finish the snow goes on for
 **RunoutLength** (150 m): flat where the run ends, rolling gently (under a degree), then curving up to **RunoutRise**
 (45 m) at its end, enough height to stop a skier at top speed, so everyone stays on the snow.
+
+### The winter look (optional art) and the valley
+
+Around the slope the snow carries on as hills (`OuterHeightAt`): rising away on every side for **OuterWidth** (600 m)
+and curving up into a ridge at the rim, so the slope sits in a closed valley. It's the same mesh as the run, its cells
+widening outwards (`OuterSteps`), so there's no seam. **ForestCount** pines stand on the hills just out of bounds.
+
+The good-looking art (snowy pines, a snow material, snow clumps, rocks, distant pine cards, mountains in a ring
+**MountainDistance** away, falling snow) comes from **Other5WinterBiome**, a *private* plugin: it's made from paid Fab
+packs, whose licence allows shipping them cooked in a creation but not sharing the source files, and SKIvSKI is public.
+So SKIvSKI never references those assets: it names them by path in the **Slope|Look** variables (`LookTree`,
+`LookSnow`, ...), and `ApplyLook` loads them at run time (**Load Asset Blocking**). When they load, `bFancy` is set:
+the cones and trunks are hidden (skiers still hit them, so the gameplay is the same) and the art is placed. When they
+don't (a project without the plugin), the slope keeps its own look: cones on trunks and plain snow.
+
+- **Cooking:** `SKIvSKI.uplugin` lists Other5WinterBiome as an *optional* plugin. The Other5 Tool ticks a creation's
+  optional plugins when they're in the project, so a cook with the plugin carries its paks; without it, the creation
+  cooks and plays with the cones.
+- Everything random still comes from `Seed`, and the scenery draws from the stream after the run's own pines, so the
+  run is the same with or without the art.
 ### The HUD (`Docs/Graphs/BP_SkiHUD.lisp`)
 
 All Blueprint, drawn on the HUD's canvas each frame (`Event Receive Draw HUD`: **Draw Rect** and **Draw Text**) in

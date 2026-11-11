@@ -26,6 +26,11 @@
 		{
 			"Name": "ProceduralMeshComponent",
 			"Enabled": true
+		},
+		{
+			"Name": "Other5WinterBiome",
+			"Enabled": true,
+			"Optional": true
 		}
 	]
 }

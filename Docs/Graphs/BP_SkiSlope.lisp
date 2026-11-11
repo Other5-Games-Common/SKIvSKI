@@ -46,21 +46,65 @@
   (bind rolls (* (* 15.0 (Math|Float|Min(Float) (* past 6.0) 1.0)) (Math|Trig|Sin(Radians) (+ (+ (* X 0.0012) (* Y 0.0009)) (Variables|Slope|Work|GetPhase1)))))
   (return (+ (+ (+ (- bank fall) ridge) bumps) (+ rise rolls))))
 
-; The snow: a grid of CellSize squares over the lobby, the run and the run-out (banks included), heights from HeightAt.
+; Around the slope (past the lobby, the banks and the run-out's end) the snow carries on as hills rising away from it,
+; OuterWidth wide, so the slope sits in a valley instead of floating in the air. In the slope's own area this is HeightAt.
+(fn OuterHeightAt (X Y)
+  (bind minX (- 0.0 (Variables|Slope|Layout|GetLobbyLength)))
+  (bind maxX (+ (Variables|Slope|Layout|GetLength) (Variables|Slope|Layout|GetRunoutLength)))
+  (bind halfY (+ (* (Variables|Slope|Layout|GetTopWidth) 0.5) (Variables|Slope|Layout|GetBankWidth)))
+  (bind cx (Math|Float|Clamp(Float) X minX maxX))
+  (bind cy (Math|Float|Clamp(Float) Y (- 0.0 halfY) halfY))
+  ; How far outside the slope's area: 0 inside it.
+  (bind d (Math|Vector|VectorLengthXY (Math|Vector|MakeVector (- X cx) (- Y cy) 0.0)))
+  ; Rising 22 cm a metre, with rounded hills (9 m high, a few hundred metres across) growing in over the first 60 m.
+  (bind hills (* (* 900.0 (Math|Float|Min(Float) (/ d 6000.0) 1.0)) (* (Math|Trig|Sin(Radians) (+ (* X 0.00023) (Variables|Slope|Work|GetPhase2))) (Math|Trig|Sin(Radians) (+ (* Y 0.00031) (Variables|Slope|Work|GetPhase3))))))
+  ; Towards OuterWidth the hills curve up into a ridge (180 m higher at the rim, more or less along it), so the valley
+  ; closes in and nobody sees where the snow ends; the mountains stand beyond it.
+  (bind far (/ d (Variables|Slope|Layout|GetOuterWidth)))
+  (bind ridge (* (* 18000.0 (* far far)) (+ 1.0 (* 0.35 (Math|Trig|Sin(Radians) (+ (+ (* X 0.00011) (* Y 0.00007)) (Variables|Slope|Work|GetPhase1)))))))
+  (bind edge (CallFunction|HeightAt :X cx :Y cy))
+  (return (+ edge (+ (+ (* d 0.22) hills) ridge))))
+
+; The distances out from the slope's edge where the surrounding snow has a row (or column) of vertices: one cell, then
+; each 30% wider than the last, out to OuterWidth (about 16 of them), so the far hills cost few triangles.
+(fn OuterSteps ()
+  (Utilities|Array|Clear (Variables|Slope|Work|GetSteps))
+  (Variables|Slope|Work|SetStepAt 0.0)
+  (Variables|Slope|Work|SetStepSize (Variables|Slope|Layout|GetCellSize))
+  (while (< (Variables|Slope|Work|GetStepAt) (Variables|Slope|Layout|GetOuterWidth))
+    (Variables|Slope|Work|SetStepAt (+ (Variables|Slope|Work|GetStepAt) (Variables|Slope|Work|GetStepSize)))
+    (Utilities|Array|Add (Variables|Slope|Work|GetSteps) (Variables|Slope|Work|GetStepAt))
+    (Variables|Slope|Work|SetStepSize (* (Variables|Slope|Work|GetStepSize) 1.3))))
+
+; The snow: one mesh, a grid of CellSize squares over the lobby, the run and the run-out (banks included), widening
+; into the surrounding hills on every side (OuterSteps), heights from OuterHeightAt. One mesh, so there's no seam.
 (fn BuildSnow ()
   (bind cell (Variables|Slope|Layout|GetCellSize))
   (bind lobby (Variables|Slope|Layout|GetLobbyLength))
+  (bind maxX (+ (Variables|Slope|Layout|GetLength) (Variables|Slope|Layout|GetRunoutLength)))
   (bind halfY (+ (* (Variables|Slope|Layout|GetTopWidth) 0.5) (Variables|Slope|Layout|GetBankWidth)))
-  (bind columns (+ (Math|Float|Round (/ (* halfY 2.0) cell)) 1))
-  (bind rows (+ (Math|Float|Round (/ (+ (+ lobby (Variables|Slope|Layout|GetLength)) (Variables|Slope|Layout|GetRunoutLength)) cell)) 1))
+  (CallFunction|OuterSteps)
+  (bind steps (Utilities|Array|Length (Variables|Slope|Work|GetSteps)))
+  (Utilities|Array|Clear (Variables|Slope|Work|GetXs))
+  (Utilities|Array|Clear (Variables|Slope|Work|GetYs))
+  (for i (range steps)
+    (Utilities|Array|Add (Variables|Slope|Work|GetXs) (- (- 0.0 lobby) (Utilities|Array|Get(acopy) (Variables|Slope|Work|GetSteps) (- (- steps 1) i))))
+    (Utilities|Array|Add (Variables|Slope|Work|GetYs) (- (- 0.0 halfY) (Utilities|Array|Get(acopy) (Variables|Slope|Work|GetSteps) (- (- steps 1) i)))))
+  (for row (range (+ (Math|Float|Round (/ (+ lobby maxX) cell)) 1))
+    (Utilities|Array|Add (Variables|Slope|Work|GetXs) (- (* (Math|Conversions|ToFloat(Integer) row) cell) lobby)))
+  (for col (range (+ (Math|Float|Round (/ (* halfY 2.0) cell)) 1))
+    (Utilities|Array|Add (Variables|Slope|Work|GetYs) (- (* (Math|Conversions|ToFloat(Integer) col) cell) halfY)))
+  (for i (range steps)
+    (Utilities|Array|Add (Variables|Slope|Work|GetXs) (+ maxX (Utilities|Array|Get(acopy) (Variables|Slope|Work|GetSteps) i)))
+    (Utilities|Array|Add (Variables|Slope|Work|GetYs) (+ halfY (Utilities|Array|Get(acopy) (Variables|Slope|Work|GetSteps) i))))
+  (bind columns (Utilities|Array|Length (Variables|Slope|Work|GetYs)))
+  (bind rows (Utilities|Array|Length (Variables|Slope|Work|GetXs)))
   (Utilities|Array|Clear (Variables|Slope|Work|GetVertices))
   (Utilities|Array|Clear (Variables|Slope|Work|GetTriangles))
   (Utilities|Array|Clear (Variables|Slope|Work|GetUVs))
-  (for row (range rows)
-    (bind x (- (* (Math|Conversions|ToFloat(Integer) row) cell) lobby))
-    (for col (range columns)
-      (bind y (- (* (Math|Conversions|ToFloat(Integer) col) cell) halfY))
-      (bind h (CallFunction|HeightAt :X x :Y y))
+  (for x (Variables|Slope|Work|GetXs)
+    (for y (Variables|Slope|Work|GetYs)
+      (bind h (CallFunction|OuterHeightAt :X x :Y y))
       (Utilities|Array|Add (Variables|Slope|Work|GetVertices) (Math|Vector|MakeVector x y h))
       (Utilities|Array|Add (Variables|Slope|Work|GetUVs) (Math|Vector2D|MakeVector2D (/ x 400.0) (/ y 400.0)))))
   ; Two triangles per square, wound so they face up.
@@ -84,6 +128,8 @@
 (fn PlantTrees ()
   (Components|InstancedStaticMesh|ClearInstances :self (Variables|Default|GetTreeCrowns))
   (Components|InstancedStaticMesh|ClearInstances :self (Variables|Default|GetTreeTrunks))
+  (Components|InstancedStaticMesh|ClearInstances :self (Variables|Default|GetTreeArt))
+  (Components|InstancedStaticMesh|ClearInstances :self (Variables|Default|GetTreeArtTall))
   (Utilities|Array|Clear (Variables|Slope|Work|GetTreeSpots))
   (bind length (Variables|Slope|Layout|GetLength))
   (bind count (Utilities|Array|Get(acopy) (Variables|Slope|Difficulty|GetTreeCountByLevel) (Variables|Slope|Build|GetDifficulty)))
@@ -107,7 +153,8 @@
       (CallFunction|PlantTree :X x :Y y :Size size :Spin spin))))
 
 ; One pine at (X, Y), if it leaves TreeGap of open snow to every pine already planted (a crown is 1.2 m x Size
-; across its middle, TreeSpots keeps X, Y and Size of each).
+; across its middle, TreeSpots keeps X, Y and Size of each). The cone and trunk are what skiers hit; with the winter
+; look (bFancy) they're hidden and a snowy pine from Other5WinterBiome stands in the same spot, the bigger ones taller.
 (fn PlantTree (X Y Size Spin)
   (bind here (Math|Vector|MakeVector X Y Size))
   (Variables|Slope|Work|SetTreeClear true)
@@ -120,10 +167,128 @@
     (bind y Y)
     (bind size Size)
     (bind spin Spin)
-    (bind ground (CallFunction|HeightAt :X x :Y y))
+    (bind ground (CallFunction|OuterHeightAt :X x :Y y))
     (bind turn (Math|Rotator|MakeRotator :Yaw spin))
     (Components|InstancedStaticMesh|AddInstance :self (Variables|Default|GetTreeTrunks) :InstanceTransform (Math|Transform|MakeTransform (Math|Vector|MakeVector x y (+ ground (* 60.0 size))) turn (Math|Vector|MakeVector (* 0.35 size) (* 0.35 size) (* 1.6 size))))
-    (Components|InstancedStaticMesh|AddInstance :self (Variables|Default|GetTreeCrowns) :InstanceTransform (Math|Transform|MakeTransform (Math|Vector|MakeVector x y (+ ground (* 360.0 size))) turn (Math|Vector|MakeVector (* 2.4 size) (* 2.4 size) (* 5.0 size))))))
+    (Components|InstancedStaticMesh|AddInstance :self (Variables|Default|GetTreeCrowns) :InstanceTransform (Math|Transform|MakeTransform (Math|Vector|MakeVector x y (+ ground (* 360.0 size))) turn (Math|Vector|MakeVector (* 2.4 size) (* 2.4 size) (* 5.0 size))))
+    (if (Variables|Slope|Look|GetFancy)
+      (if (> size 1.15)
+        (Components|InstancedStaticMesh|AddInstance :self (Variables|Default|GetTreeArtTall) :InstanceTransform (Math|Transform|MakeTransform (Math|Vector|MakeVector x y (- ground 20.0)) turn (Math|Vector|MakeVector (* 0.45 size) (* 0.45 size) (* 0.45 size))))
+        (else
+          (Components|InstancedStaticMesh|AddInstance :self (Variables|Default|GetTreeArt) :InstanceTransform (Math|Transform|MakeTransform (Math|Vector|MakeVector x y (- ground 20.0)) turn (Math|Vector|MakeVector (* 0.57 size) (* 0.57 size) (* 0.57 size)))))))))
+
+; A random number from this round's stream (one draw per call, so bind it before using it twice).
+(fn Draw (Min Max)
+  (return (Math|Random|RandomFloatinRangefromStream :Stream (Variables|Slope|Work|GetStream) :Min Min :Max Max)))
+
+; One piece of scenery (no collision) on the snow at (X, Y), sunk Sink into it.
+(fn PlantArt (Hism X Y Scale Spin Sink)
+  (bind ground (CallFunction|OuterHeightAt :X X :Y Y))
+  (Components|InstancedStaticMesh|AddInstance :self Hism :InstanceTransform (Math|Transform|MakeTransform (Math|Vector|MakeVector X Y (- ground Sink)) (Math|Rotator|MakeRotator :Yaw Spin) (Math|Vector|MakeVector Scale Scale Scale))))
+
+; Loads an asset by its path, if this project has it (Other5WinterBiome is optional: without it nothing loads).
+(fn LoadLook (Path)
+  (bind asset (Utilities|LoadAssetBlocking :Asset (Utilities|ToSoftObjectReference :SoftObjectPath (Utilities|MakeSoftObjectPath :PathString Path))))
+  (return asset))
+
+; Gives Hism the static mesh at Path; Found says whether there was one.
+(fn LookMeshOn (Hism Path)
+  (bind asset (CallFunction|LoadLook :Path Path))
+  (bind mesh (Utilities|Casting|CastToStaticMesh :Object asset)
+    (:then
+      (Components|StaticMesh|SetStaticMesh :self Hism :NewMesh mesh)
+      (return true))
+    (:CastFailed
+      (return false))))
+
+; Gives Target the material at Path (its first slot); Found says whether there was one.
+(fn LookMaterialOn (Target Path)
+  (bind asset (CallFunction|LoadLook :Path Path))
+  (bind material (Utilities|Casting|CastToMaterialInterface :Object asset)
+    (:then
+      (Rendering|Material|SetMaterial :self Target :ElementIndex 0 :Material material)
+      (return true))
+    (:CastFailed
+      (return false))))
+
+; Falling snow around this player's camera (once; not on a dedicated server, which has no camera).
+(fn StartSnowfall ()
+  (if (not (Variables|Slope|Look|GetSnowing))
+    (bind asset (CallFunction|LoadLook :Path (Variables|Slope|Look|GetLookSnowfall)))
+    (bind fx (Utilities|Casting|CastToParticleSystem :Object asset)
+      (:then
+        (bind cam (Game|GetPlayerCameraManager :PlayerIndex 0))
+        (Utilities|IsValid cam
+          (:"Is Valid"
+            (Variables|Slope|Look|SetSnowing true)
+            (Effects|SpawnEmitterAttached :EmitterTemplate fx :AttachToComponent (Actor|GetComponentbyClass :self cam :ComponentClass "/Script/Engine.SceneComponent") :Location (Math|Vector|MakeVector 0.0 0.0 300.0) :bAutoDestroy false))
+          (:"Is Not Valid")))
+      (:CastFailed))))
+
+; The winter look, when this project has Other5WinterBiome (the private art plugin: snowy pines, snow, rocks,
+; mountains, falling snow). Without it bFancy stays false and the slope keeps its own look: cones on trunks, plain snow.
+; Either way the gameplay is the same: the same snow, and the same cones and trunks to hit (hidden with the winter look).
+(fn ApplyLook ()
+  (bind found (CallFunction|LookMeshOn :Hism (Variables|Default|GetTreeArt) :Path (Variables|Slope|Look|GetLookTree)))
+  (Variables|Slope|Look|SetFancy found)
+  (if (Variables|Slope|Look|GetFancy)
+    (CallFunction|LookMeshOn :Hism (Variables|Default|GetTreeArtTall) :Path (Variables|Slope|Look|GetLookTreeTall))
+    (CallFunction|LookMeshOn :Hism (Variables|Default|GetFarTrees) :Path (Variables|Slope|Look|GetLookFarTrees))
+    (CallFunction|LookMeshOn :Hism (Variables|Default|GetClumps) :Path (Variables|Slope|Look|GetLookClump))
+    (CallFunction|LookMeshOn :Hism (Variables|Default|GetRocks) :Path (Variables|Slope|Look|GetLookRock))
+    (CallFunction|LookMeshOn :Hism (Variables|Default|GetMountains) :Path (Variables|Slope|Look|GetLookMountain))
+    (CallFunction|LookMaterialOn :Target (Variables|Default|GetMountains) :Path (Variables|Slope|Look|GetLookMountainMaterial))
+    (CallFunction|LookMaterialOn :Target (Variables|Default|GetSnow) :Path (Variables|Slope|Look|GetLookSnow))
+    (Rendering|SetVisibility :self (Variables|Default|GetTreeCrowns) :bNewVisibility false)
+    (Rendering|SetVisibility :self (Variables|Default|GetTreeTrunks) :bNewVisibility false)
+    (CallFunction|StartSnowfall)))
+
+; The forest around the slope: ForestCount more pines on the hills either side, just past where skiers are out of
+; bounds (cones without the winter look). With the winter look also: distant pines further out, snow clumps on the
+; banks, rocks on the hills, and MountainCount mountains in a ring MountainDistance away.
+(fn DressScene ()
+  (Components|InstancedStaticMesh|ClearInstances :self (Variables|Default|GetFarTrees))
+  (Components|InstancedStaticMesh|ClearInstances :self (Variables|Default|GetClumps))
+  (Components|InstancedStaticMesh|ClearInstances :self (Variables|Default|GetRocks))
+  (Components|InstancedStaticMesh|ClearInstances :self (Variables|Default|GetMountains))
+  (bind minX (- 0.0 (Variables|Slope|Layout|GetLobbyLength)))
+  (bind maxX (+ (Variables|Slope|Layout|GetLength) (Variables|Slope|Layout|GetRunoutLength)))
+  (bind halfY (+ (* (Variables|Slope|Layout|GetTopWidth) 0.5) (Variables|Slope|Layout|GetBankWidth)))
+  (for n (range (Variables|Slope|Look|GetForestCount))
+    (bind x (CallFunction|Draw :Min (- minX 4000.0) :Max (+ maxX 4000.0)))
+    (bind side (CallFunction|Draw :Min -1.0 :Max 1.0))
+    (bind size (CallFunction|Draw :Min 0.8 :Max 1.6))
+    (bind spin (CallFunction|Draw :Min 0.0 :Max 360.0))
+    (CallFunction|PlantTree :X x :Y (* (Math|Float|Sign(Float) side) (+ (+ halfY 1300.0) (* (Math|Float|Absolute(Float) side) 5000.0))) :Size size :Spin spin))
+  (if (Variables|Slope|Look|GetFancy)
+    (for n (range (Variables|Slope|Look|GetFarTreeCount))
+      (bind x (CallFunction|Draw :Min (- minX 20000.0) :Max (+ maxX 20000.0)))
+      (bind side (CallFunction|Draw :Min -1.0 :Max 1.0))
+      (bind size (CallFunction|Draw :Min 0.9 :Max 1.7))
+      (bind spin (CallFunction|Draw :Min 0.0 :Max 360.0))
+      (CallFunction|PlantArt :Hism (Variables|Default|GetFarTrees) :X x :Y (* (Math|Float|Sign(Float) side) (+ (+ halfY 6000.0) (* (Math|Float|Absolute(Float) side) 30000.0))) :Scale size :Spin spin :Sink 30.0))
+    (for n (range (Variables|Slope|Look|GetClumpCount))
+      (bind x (CallFunction|Draw :Min minX :Max maxX))
+      (bind side (CallFunction|Draw :Min -1.0 :Max 1.0))
+      (bind size (CallFunction|Draw :Min 0.6 :Max 2.2))
+      (bind spin (CallFunction|Draw :Min 0.0 :Max 360.0))
+      (CallFunction|PlantArt :Hism (Variables|Default|GetClumps) :X x :Y (* (Math|Float|Sign(Float) side) (+ (- halfY (Variables|Slope|Layout|GetBankWidth)) (* (Math|Float|Absolute(Float) side) 5000.0))) :Scale size :Spin spin :Sink 6.0))
+    (for n (range (Variables|Slope|Look|GetRockCount))
+      (bind x (CallFunction|Draw :Min (- minX 3000.0) :Max (+ maxX 3000.0)))
+      (bind side (CallFunction|Draw :Min -1.0 :Max 1.0))
+      (bind size (CallFunction|Draw :Min 0.8 :Max 3.0))
+      (bind spin (CallFunction|Draw :Min 0.0 :Max 360.0))
+      (CallFunction|PlantArt :Hism (Variables|Default|GetRocks) :X x :Y (* (Math|Float|Sign(Float) side) (+ (+ halfY 900.0) (* (Math|Float|Absolute(Float) side) 9000.0))) :Scale size :Spin spin :Sink (* 35.0 size)))
+    (bind count (Variables|Slope|Look|GetMountainCount))
+    (bind middle (* (+ minX maxX) 0.5))
+    (for n (range count)
+      (bind wobble (CallFunction|Draw :Min -12.0 :Max 12.0))
+      (bind angle (+ (/ (* (Math|Conversions|ToFloat(Integer) n) 360.0) (Math|Conversions|ToFloat(Integer) count)) wobble))
+      (bind far (CallFunction|Draw :Min 0.9 :Max 1.15))
+      (bind away (* (Variables|Slope|Look|GetMountainDistance) far))
+      (bind size (CallFunction|Draw :Min 1.8 :Max 3.2))
+      (bind spin (CallFunction|Draw :Min 0.0 :Max 360.0))
+      (CallFunction|PlantArt :Hism (Variables|Default|GetMountains) :X (+ middle (* away (Math|Trig|Cos(Degrees) angle))) :Y (* away (Math|Trig|Sin(Degrees) angle)) :Scale size :Spin spin :Sink (* 1500.0 size)))))
 
 ; An arch: two posts and a banner between them, Width apart, standing on the snow at (X, Y).
 (fn PlaceArch (PostLeft PostRight Banner X Y Width)
@@ -151,9 +316,12 @@
   (Variables|Slope|Work|SetPhase1 (Math|Random|RandomFloatinRangefromStream :Stream (Variables|Slope|Work|GetStream) :Min 0.0 :Max 6.283))
   (Variables|Slope|Work|SetPhase2 (Math|Random|RandomFloatinRangefromStream :Stream (Variables|Slope|Work|GetStream) :Min 0.0 :Max 6.283))
   (Variables|Slope|Work|SetPhase3 (Math|Random|RandomFloatinRangefromStream :Stream (Variables|Slope|Work|GetStream) :Min 0.0 :Max 6.283))
+  (CallFunction|ApplyLook)
   (CallFunction|BuildSnow)
   (CallFunction|PlantTrees)
-  (CallFunction|PlaceGates))
+  (CallFunction|PlaceGates)
+  ; Scenery last: it draws from the stream after the run's own pines, so those are the same with or without the winter look.
+  (CallFunction|DressScene))
 
 ; Server only: a new slope. Setting BuildId (RepNotify) runs OnRep_BuildId here and on every client.
 (fn Rebuild (NewSeed NewDifficulty)
