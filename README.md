@@ -203,8 +203,9 @@ Around the slope the snow carries on as hills (`OuterHeightAt`): rising away on 
 and curving up into a ridge at the rim, so the slope sits in a closed valley. It's the same mesh as the run, its cells
 widening outwards (`OuterSteps`), so there's no seam. **ForestCount** pines stand on the hills just out of bounds.
 
-The good-looking art (snowy pines, a snow material, snow clumps, rocks, distant pine cards, mountains in a ring
-**MountainDistance** away, falling snow) comes from **Other5WinterBiome**, a *private* plugin: it's made from paid Fab
+The good-looking art (snowy pines, a snow material, snow clumps, rocks, distant pine cards, falling snow; optionally **MountainCount** rings of mountains
+**MountainDistance** away, off by default: the pack's mountain mesh is a whole ring of peaks that leaves thin slivers in the sky
+at this size) comes from **Other5WinterBiome**, a *private* plugin: it's made from paid Fab
 packs, whose licence allows shipping them cooked in a creation but not sharing the source files, and SKIvSKI is public.
 So SKIvSKI never references those assets: it names them by path in the **Slope|Look** variables (`LookTree`,
 `LookSnow`, ...), and `ApplyLook` loads them at run time (**Load Asset Blocking**). When they load, `bFancy` is set:

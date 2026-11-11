@@ -55,7 +55,9 @@
   (bind cx (Math|Float|Clamp(Float) X minX maxX))
   (bind cy (Math|Float|Clamp(Float) Y (- 0.0 halfY) halfY))
   ; How far outside the slope's area: 0 inside it.
-  (bind d (Math|Vector|VectorLengthXY (Math|Vector|MakeVector (- X cx) (- Y cy) 0.0)))
+  ; Beyond the rim (OuterWidth) the ground stays at the rim's height, so whatever stands out there (the mountains)
+  ; sits behind the ridge instead of up in the air.
+  (bind d (Math|Float|Min(Float) (Math|Vector|VectorLengthXY (Math|Vector|MakeVector (- X cx) (- Y cy) 0.0)) (Variables|Slope|Layout|GetOuterWidth)))
   ; Rising 22 cm a metre, with rounded hills (9 m high, a few hundred metres across) growing in over the first 60 m.
   (bind hills (* (* 900.0 (Math|Float|Min(Float) (/ d 6000.0) 1.0)) (* (Math|Trig|Sin(Radians) (+ (* X 0.00023) (Variables|Slope|Work|GetPhase2))) (Math|Trig|Sin(Radians) (+ (* Y 0.00031) (Variables|Slope|Work|GetPhase3))))))
   ; Towards OuterWidth the hills curve up into a ridge (180 m higher at the rim, more or less along it), so the valley
@@ -245,7 +247,7 @@
 
 ; The forest around the slope: ForestCount more pines on the hills either side, just past where skiers are out of
 ; bounds (cones without the winter look). With the winter look also: distant pines further out, snow clumps on the
-; banks, rocks on the hills, and MountainCount mountains in a ring MountainDistance away.
+; banks, rocks on the hills, and MountainCount rings of mountains MountainDistance away, past the rim.
 (fn DressScene ()
   (Components|InstancedStaticMesh|ClearInstances :self (Variables|Default|GetFarTrees))
   (Components|InstancedStaticMesh|ClearInstances :self (Variables|Default|GetClumps))
@@ -279,16 +281,17 @@
       (bind size (CallFunction|Draw :Min 0.8 :Max 3.0))
       (bind spin (CallFunction|Draw :Min 0.0 :Max 360.0))
       (CallFunction|PlantArt :Hism (Variables|Default|GetRocks) :X x :Y (* (Math|Float|Sign(Float) side) (+ (+ halfY 900.0) (* (Math|Float|Absolute(Float) side) 9000.0))) :Scale size :Spin spin :Sink (* 35.0 size)))
-    (bind count (Variables|Slope|Look|GetMountainCount))
+    ; The mountain mesh is a whole ring of peaks (348 m across, seen from inside), so each ring is one instance centred
+    ; on the slope, scaled out to MountainDistance and standing at the rim's height (its foot is below the ridge).
+    ; MountainCount rings, each a third wider and higher than the last and turned at random, for ranges behind ranges.
     (bind middle (* (+ minX maxX) 0.5))
-    (for n (range count)
-      (bind wobble (CallFunction|Draw :Min -12.0 :Max 12.0))
-      (bind angle (+ (/ (* (Math|Conversions|ToFloat(Integer) n) 360.0) (Math|Conversions|ToFloat(Integer) count)) wobble))
-      (bind far (CallFunction|Draw :Min 0.9 :Max 1.15))
-      (bind away (* (Variables|Slope|Look|GetMountainDistance) far))
-      (bind size (CallFunction|Draw :Min 1.8 :Max 3.2))
+    (bind rim (CallFunction|OuterHeightAt :X middle :Y (+ halfY (Variables|Slope|Layout|GetOuterWidth))))
+    (for n (range (Variables|Slope|Look|GetMountainCount))
       (bind spin (CallFunction|Draw :Min 0.0 :Max 360.0))
-      (CallFunction|PlantArt :Hism (Variables|Default|GetMountains) :X (+ middle (* away (Math|Trig|Cos(Degrees) angle))) :Y (* away (Math|Trig|Sin(Degrees) angle)) :Scale size :Spin spin :Sink (* 1500.0 size)))))
+      (bind grow (+ 1.0 (* 0.33 (Math|Conversions|ToFloat(Integer) n))))
+      (bind across (/ (* (Variables|Slope|Look|GetMountainDistance) grow) 17400.0))
+      (bind high (* 5.0 grow))
+      (Components|InstancedStaticMesh|AddInstance :self (Variables|Default|GetMountains) :InstanceTransform (Math|Transform|MakeTransform (Math|Vector|MakeVector middle 0.0 rim) (Math|Rotator|MakeRotator :Yaw spin) (Math|Vector|MakeVector across across high))))))
 
 ; An arch: two posts and a banner between them, Width apart, standing on the snow at (X, Y).
 (fn PlaceArch (PostLeft PostRight Banner X Y Width)

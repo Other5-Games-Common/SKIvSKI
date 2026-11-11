@@ -98,8 +98,8 @@ def main():
         "FarTreeCount": 500,        # distant pines (cards) further out
         "ClumpCount": 260,          # snow clumps on the banks and hills
         "RockCount": 45,
-        "MountainCount": 9,
-        "MountainDistance": 90000.0,  # 900 m away
+        "MountainCount": 0,         # rings of mountains (each one mesh all round): off, the pack's ring shows thin slivers in the sky; the ridge closes the valley
+        "MountainDistance": 100000.0,  # the first ring 1 km out from the middle of the slope
         # Slope|Difficulty: Easy, Medium, Hard
         "SlopeDegreesByLevel": [13.0, 19.0, 26.0],
         "BumpHeightByLevel": [12.0, 30.0, 50.0],
