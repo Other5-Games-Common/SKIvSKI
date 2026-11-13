@@ -27,7 +27,7 @@ GUNS = {
     "DA_PaintMarker": ("Big Marker", "/Other5Combat/Weapons/Rifle/Mesh/SM_Rifle", (0, 54, 6), 4200.0, 1.0, 14.0, 2.0, 1, 0.2,
                        "/Other5Combat/Weapons/Rifle/Animations/AM_MM_Rifle_Fire"),
     # Spread gun: six balls in a cone, slow to reload; hard to miss up close.
-    "DA_PaintSpread": ("Splatter Gun", "/Other5Combat/Weapons/Shotgun/Mesh/SM_Shotgun", (0, 36, 4), 5000.0, 0.8, 7.0, 1.2, 6, 5.0,
+    "DA_PaintSpread": ("Splatter Gun", "/Other5Combat/Weapons/Rifle/Mesh/SM_Rifle", (0, 36, 4), 5000.0, 0.8, 7.0, 1.2, 6, 5.0,
                        "/Other5Combat/Weapons/Shotgun/Animations/AM_MM_Shotgun_Fire"),
 }
 # How each kind of gun is held: Other5Combat's skeletal mesh (its pivot is the grip, which sits in the hand) and
@@ -50,7 +50,7 @@ def grip_offset(static_mesh, skeletal_mesh):
 
 
 # Every marker uses Other5Combat's rifle shots for now (a suppressed, paintball-like pop), one picked at random.
-FIRE_SOUNDS = ["/Other5Combat/Audio/Sounds/Weapons/Rifle/Weapons_Rifle_Punch-Close_%02d" % i for i in range(1, 8)]
+FIRE_SOUNDS = ["/Other5Combat/Template/GrenadeLauncher/Audio/FirstPersonTemplateWeaponFire02"]
 
 
 def main():
