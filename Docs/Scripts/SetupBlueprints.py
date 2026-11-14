@@ -142,7 +142,9 @@ def main():
             ("Manny", "/Other5Characters/Mannequin/Meshes/SKM_Manny", None, None, [], 5.0, 0.0, 0.0),
             ("Quinn", "/Other5Characters/Mannequin/Meshes/SKM_Quinn", None, None, [], 0.0, 0.0, 5.0),
             ("Countess", None, "/Other5Characters/Countess/Characters/Heroes/Countess/Meshes/SM_Countess",
-             "/Other5Characters/Countess/Rigs/RTG_Mannequin_Countess", ["M03_Swords_holster"], 0.0, 5.0, 0.0)):
+             "/Other5Characters/Countess/Rigs/RTG_Mannequin_Countess", ["M03_Swords_holster"], 0.0, 5.0, 0.0),
+            ("Gideon", None, "/Other5Characters/Gideon/Characters/Heroes/Gideon/Meshes/Gideon",
+             "/Other5Characters/Gideon/Rigs/RTG_Mannequin_Gideon", [], 2.5, 0.0, 2.5)):
         s = unreal.Other5CharacterSkin()
         s.set_editor_property("display_name", unreal.Text(label))
         if mesh_path:
