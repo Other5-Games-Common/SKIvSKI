@@ -1,0 +1,108 @@
+# SKIvSKI real paintball hit over a dedicated server (README.md, Tests). Client A: restarts the lobby (admin ]), then aims at B and fires.
+waitfor pawn 120
+key RightBracket
+waitfor pawns>=2 120
+wait 4
+combat aim
+call pawn DebugFire
+wait 0.2
+shot RealA000
+wait 0.3
+combat aim
+call pawn DebugFire
+wait 0.2
+shot RealA001
+wait 0.3
+combat aim
+call pawn DebugFire
+wait 0.2
+shot RealA002
+wait 0.3
+combat aim
+call pawn DebugFire
+wait 0.2
+shot RealA003
+wait 0.3
+combat aim
+call pawn DebugFire
+wait 0.2
+shot RealA004
+wait 0.3
+combat aim
+call pawn DebugFire
+wait 0.2
+shot RealA005
+wait 0.3
+combat aim
+call pawn DebugFire
+wait 0.2
+shot RealA006
+wait 0.3
+combat aim
+call pawn DebugFire
+wait 0.2
+shot RealA007
+wait 0.3
+combat aim
+call pawn DebugFire
+wait 0.2
+shot RealA008
+wait 0.3
+combat aim
+call pawn DebugFire
+wait 0.2
+shot RealA009
+wait 0.3
+combat aim
+call pawn DebugFire
+wait 0.2
+shot RealA010
+wait 0.3
+combat aim
+call pawn DebugFire
+wait 0.2
+shot RealA011
+wait 0.3
+combat aim
+call pawn DebugFire
+wait 0.2
+shot RealA012
+wait 0.3
+combat aim
+call pawn DebugFire
+wait 0.2
+shot RealA013
+wait 0.3
+combat aim
+call pawn DebugFire
+wait 0.2
+shot RealA014
+wait 0.3
+combat aim
+call pawn DebugFire
+wait 0.2
+shot RealA015
+wait 0.3
+combat aim
+call pawn DebugFire
+wait 0.2
+shot RealA016
+wait 0.3
+combat aim
+call pawn DebugFire
+wait 0.2
+shot RealA017
+wait 0.3
+combat aim
+call pawn DebugFire
+wait 0.2
+shot RealA018
+wait 0.3
+combat aim
+call pawn DebugFire
+wait 0.2
+shot RealA019
+wait 0.3
+call pawn DebugScore
+wait 1
+quit

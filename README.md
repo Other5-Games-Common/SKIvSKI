@@ -165,6 +165,13 @@ at 20 m/s a word left at the spot of the hit was behind everyone within a second
 size and settles, flies up the screen (fast, then slowing) and fades over `PopupSeconds`, centred, a little lighter
 than the team colour and outlined in black. "Hit!" is big (Size 1), "Bounce!" smaller (0.6).
 
+A Blueprint lesson from this (fixed 2026-11-15): `ResolvePaintHit`'s casts used to sit inside the function itself. A
+Cast's Then/Cast Failed outputs end that line of the graph, so the Return node was only wired from "not racing", and a
+function that runs out without reaching its Return node gives its outputs' defaults: every real hit scored and put the
+skier out (replicated state) but returned 0, so `PaintedBy` never sent `MulticastPaintResult` (no "Hit!", splat or hit
+sound anywhere). The casts now live in `JudgePaintHit`, which leaves its answer in `HitResult`, and `ResolvePaintHit`
+always reaches its Return. Whenever a function returns a value, make sure every path ends on a Return node.
+
 Balls ignore WorldDynamic objects (so a spread shot's pellets don't hit each other), so anything they should splat on
 must be WorldStatic (BlockAll): the slope's snow, trees and arches are.
 
@@ -295,7 +302,11 @@ The Other5 test runner (`-Other5TestScript=`) drives the scripts in `Docs/Tests`
 - `SkiPolish.txt`: the HUD in every phase (moved on with `DebugPhase`), the gun in hand, recoil and the pop-ups.
 - `SkiFeatures.txt`: character select, a middle-mouse ping, each gun held, the game menu's Fighter button, the run-out.
 - A hit over the network: a listen-server host runs `call pawn DebugHitMe` (a real `MulticastPaintResult`) while a client
-  screenshots it. (Editor Python can't test RPCs: its calls run them locally.)
+  screenshots it. (Editor Python can't test RPCs: its calls run them locally.) `DebugHitMe` skips the director, so it
+  can't catch a scoring bug: for a real paintball hit, run a dedicated server (`-server -SkiPracticeHits`) with
+  `SkiRealHitServer.txt` (a 120 s lobby), then client A with `SkiRealHitA.txt` (presses `]` so the lobby restarts at
+  that length, then aims and fires) and client B with `SkiRealHitB.txt` (screenshots `RealB###` every 0.25 s); the
+  server logs `SKI| paint result 1` and both clients' shots show "Hit!" over B.
 - `Run-SkiMultiplayer.ps1`: a dedicated server and two clients (`SkiDuelA/B.txt`) aiming at each other through a
   lobby and a race (the server runs with `-SkiPracticeHits`). 2026-11-10: shared teams Red/Blue, a hit puts the other
   player out, team score and a coin for the shooter, outs reset at the countdown.

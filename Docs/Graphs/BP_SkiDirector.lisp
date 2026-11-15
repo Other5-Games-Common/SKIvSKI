@@ -1,4 +1,4 @@
-﻿; BP_SkiDirector: rounds and teams, in Unreal MCP's Blueprint graph DSL (BlueprintTools.write_graph_dsl).
+; BP_SkiDirector: rounds and teams, in Unreal MCP's Blueprint graph DSL (BlueprintTools.write_graph_dsl).
 ; A child of Other5's Game Coordinator (AOther5GameCoordinator), placed once in the level. Kept as text so the logic
 ; can be reviewed; the asset itself is binary.
 ;
@@ -215,24 +215,31 @@
 
 ; A scoring paintball from Shooter hit Victim (server). Returns 0 when it doesn't count (not racing, same team,
 ; either already out), 1 for a hit (Victim is out), 2 for a bounce (the shooter's BounceChance came up).
+; The casts that decide it are in JudgePaintHit: a cast ends the flow in a graph, so the Return here would only be
+; reached when nobody is racing, and a function that ends without its Return node gives 0 (the hit counted, but
+; nobody saw "Hit!", the splat or heard the hit sound).
 (fn ResolvePaintHit (Shooter Victim)
   (Variables|Round|Work|SetHitResult 0)
   (if (or (== (Variables|Round|State|GetPhase) 2) (and (Variables|Round|Settings|GetPracticeHits) (== (Variables|Round|State|GetPhase) 0)))
-    (bind from (Utilities|Casting|CastToBP_SkiPlayerState :Object (Class|Pawn|GetPlayerState :self Shooter))
-      (:then
-        (bind to (Utilities|Casting|CastToBP_SkiPlayerState :Object (Class|Pawn|GetPlayerState :self Victim))
-          (:then
-            (if (and (not (Other5|Teams|SameTeam :A from :B to)) (and (not (Class|BPSkiPlayerState|GetOut :self from)) (not (Class|BPSkiPlayerState|GetOut :self to))))
-              (if (< (Math|Random|RandomFloat) (Class|BPSkiPlayerState|GetBounceChance :self from))
-                (Variables|Round|Work|SetHitResult 2)
-                (else
-                  (Variables|Round|Work|SetHitResult 1)
-                  (Class|BPSkiPlayerState|SetOut :self to :bOut true)
-                  (Class|BPSkiPlayerState|SetHits :self from :Hits (+ (Class|BPSkiPlayerState|GetHits :self from) 1))
-                  (CallFunction|AddPoints :Player from :Points (Variables|Round|Settings|GetHitPoints))))))
-          (:CastFailed)))
-      (:CastFailed)))
+    (CallFunction|JudgePaintHit :Shooter Shooter :Victim Victim))
   (return (Variables|Round|Work|GetHitResult)))
+
+; ResolvePaintHit's decision, left in HitResult: a hit (Victim out, a point for the shooter's team) or a bounce.
+(fn JudgePaintHit (Shooter Victim)
+  (bind from (Utilities|Casting|CastToBP_SkiPlayerState :Object (Class|Pawn|GetPlayerState :self Shooter))
+    (:then
+      (bind to (Utilities|Casting|CastToBP_SkiPlayerState :Object (Class|Pawn|GetPlayerState :self Victim))
+        (:then
+          (if (and (not (Other5|Teams|SameTeam :A from :B to)) (and (not (Class|BPSkiPlayerState|GetOut :self from)) (not (Class|BPSkiPlayerState|GetOut :self to))))
+            (if (< (Math|Random|RandomFloat) (Class|BPSkiPlayerState|GetBounceChance :self from))
+              (Variables|Round|Work|SetHitResult 2)
+              (else
+                (Variables|Round|Work|SetHitResult 1)
+                (Class|BPSkiPlayerState|SetOut :self to :bOut true)
+                (Class|BPSkiPlayerState|SetHits :self from :Hits (+ (Class|BPSkiPlayerState|GetHits :self from) 1))
+                (CallFunction|AddPoints :Player from :Points (Variables|Round|Settings|GetHitPoints))))))
+        (:CastFailed)))
+    (:CastFailed)))
 
 ; [ or ] from an admin, in the lobby or the results (server). Without an AdminPIN on the server everyone is an admin.
 (fn ChangeDifficulty (Player Step)
