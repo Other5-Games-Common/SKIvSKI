@@ -1,0 +1,5 @@
+# SKIvSKI real paintball hit over a dedicated server (README.md, Tests). Server: -server -SkiPracticeHits, a 120 s lobby.
+wait 4
+cmd set BP_SkiDirector_C LobbySeconds 120
+wait 90
+quit
