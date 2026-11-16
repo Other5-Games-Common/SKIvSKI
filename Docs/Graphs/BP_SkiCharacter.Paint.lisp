@@ -93,6 +93,16 @@
   (if (Input|EnhancedActionValues|IA_SkiFire)
     (CallFunction|TryFire)))
 
+; The camera, and so every shot, stays within MaxAimYaw (100 degrees) of where the skis point: as far as the body can
+; twist to aim, so nobody shoots behind their own gun. Runs on the player's own machine after the skis turn; skis
+; turning past the camera carry it round with them.
+(fn ClampAim ()
+  (bind rot (Pawn|GetControlRotation :self (Pawn|GetController)))
+  (bind limit (Variables|Paint|GetMaxAimYaw))
+  (bind off (Math|Rotator|NormalizeAxis (- (.yaw rot) (Variables|Ski|State|GetSkiYaw))))
+  (if (> (Math|Float|Absolute(Float) off) limit)
+    (Pawn|SetControlRotation :self (Pawn|GetController) :NewRotation (Math|Rotator|MakeRotator :Pitch (.pitch rot) :Yaw (+ (Variables|Ski|State|GetSkiYaw) (Math|Float|Clamp(Float) off (- limit) limit))))))
+
 (fn TryFire ()
   (bind now (Utilities|Time|GetTimeSeconds))
   (if (and (>= now (Variables|Paint|GetNextFireTime)) (and (not (Variables|Ski|State|GetSkiFrozen)) (not (CallFunction|IsOut))))
