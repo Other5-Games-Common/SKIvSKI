@@ -21,7 +21,8 @@ ACTIONS = [
     ("IA_SkiLeft", "SKIvSKI.Left", "Steer left", "A", "Gamepad_LeftStick_Left"),
     ("IA_SkiRight", "SKIvSKI.Right", "Steer right", "D", "Gamepad_LeftStick_Right"),
     ("IA_SkiFire", "SKIvSKI.Fire", "Fire paintball gun", "LeftMouseButton", "Gamepad_RightTrigger"),
-    ("IA_SkiSwitchGun", "SKIvSKI.SwitchGun", "Next paintball gun", "Q", "Gamepad_FaceButton_Top"),
+    ("IA_SkiReload", "SKIvSKI.Reload", "Reload paintball gun", "R", "Gamepad_FaceButton_Top"),
+    ("IA_SkiStore", "SKIvSKI.Store", "Open the store (lobby and results)", "B", "Gamepad_Special_Right"),
     ("IA_SkiSwitchTeam", "SKIvSKI.SwitchTeam", "Switch team (lobby)", "T", "Gamepad_FaceButton_Left"),
     ("IA_SkiHarder", "SKIvSKI.Harder", "Admin: harder slope (lobby)", "RightBracket", "Gamepad_DPad_Up"),
     ("IA_SkiEasier", "SKIvSKI.Easier", "Admin: easier slope (lobby)", "LeftBracket", "Gamepad_DPad_Down"),
@@ -55,6 +56,8 @@ for name, mappable, display, kbm, pad in ACTIONS:
     actions[name] = (ia, kbm, pad)
     log("action " + name)
 
+# Q used to switch guns (IA_SkiSwitchGun, 2026-11-10); since the store (2026-11-16) you ski with the gun you bought,
+# so it's no longer mapped (SetupGear.py deletes the asset once nothing uses it).
 imc = get_or_create("IMC_SkiVSki", unreal.InputMappingContext, unreal.InputMappingContext_Factory())
 imc.unmap_all()
 for name, (ia, kbm, pad) in actions.items():

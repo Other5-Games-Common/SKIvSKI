@@ -33,7 +33,9 @@
   (CallFunction|UpdateSlope)
   (CallFunction|UpdateGlide)
   (CallFunction|UpdateTeamLook)
+  (CallFunction|UpdateGear)
   (if (Pawn|IsLocallyControlled)
+    (CallFunction|UpdateReload)
     (CallFunction|ReadButtons)
     (if (not (Variables|Ski|State|GetSkiFrozen))
       ; Held keys (this player's own machine only).

@@ -50,6 +50,8 @@ def main():
         "SkateSpeed": 600.0,        # cm/s W skates up to on flat snow (22 km/h)
         "TeamShown": -1,             # no team colour shown yet
         "MaxAimYaw": 100.0,          # degrees the camera and shots may turn from the skis (as far as the body twists)
+        "GunShown": -1,              # no gun or skis shown yet: the first frame shows the player's (UpdateGear)
+        "SkisShown": -1,
     })
     # The movement component's own defaults must match the tuning: Other5's Speed stat (fighter progression) sets
     # Max Walk Speed from the class default whenever it changes, so a value set only at Begin Play doesn't last.
@@ -123,18 +125,24 @@ def main():
         "HitPoints": 1,                          # per paintball hit on the other team
         "FinishPoints": [10, 8, 6, 5, 4, 3, 2, 1],  # 1st, 2nd, ... across the finish
         "MinPlayers": 1,
-        "CoinsPerPoint": 1,                      # coins for the player per point they earn (for the shop)
+        "CoinsPerPoint": 0,                      # unused since the store (2026-11-16): coins come from these two
+        "HitCoins": 3,                           # for each opponent you put out
+        "SurviveCoins": 10,                      # for getting through a race without being put out
     })
     di.set_editor_property("replicates", True)
     di.set_editor_property("always_relevant", True)
     eal.save_loaded_asset(bp, False)
     log("director defaults")
 
-    # Each player's gear (Gear category): what the shop between runs will improve.
+    # Each player's gear (Gear category): everyone starts (or joins) with the store's first gun, skis and wax, no coins.
     bp, ps = cdo("/SKIvSKI/Blueprints/BP_SkiPlayerState")
     set_all(ps, {
-        "SnowFriction": 0.02,    # ski on snow; ski wax will lower it
-        "BounceChance": 0.10,    # this player's paintballs bounce off a target 10% of the time; better paint lowers it
+        "SnowFriction": 0.02,    # ski on snow, with Factory Wax (DA_WaxFactory); the store's wax lowers it
+        "Coins": 0,
+        "GunIndex": 0,
+        "SkisIndex": 0,
+        "WaxIndex": 0,
+        "BounceChance": 0.10,    # this player's paintballs bounce off a target 10% of the time
     })
     eal.save_loaded_asset(bp, False)
     log("player state defaults")

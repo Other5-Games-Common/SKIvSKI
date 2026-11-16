@@ -73,6 +73,9 @@ def main():
 
     # Data for each paintball gun (a Blueprint data asset class; the guns themselves are DA_Paint* assets).
     make_bp("BP_PaintGunData", "/Script/Engine.PrimaryDataAsset", "/SKIvSKI/Guns")
+    # The store's other gear: skis (how they ski) and ski wax (snow friction), the DA_* assets made by SetupGear.py.
+    make_bp("BP_SkiData", "/Script/Engine.PrimaryDataAsset", "/SKIvSKI/Gear")
+    make_bp("BP_WaxData", "/Script/Engine.PrimaryDataAsset", "/SKIvSKI/Gear")
 
     # The paintball: a sphere that the Projectile Movement component flies; the sphere is the root so its hits stop it.
     ball = make_bp("BP_Paintball", "/Script/Engine.Actor")
