@@ -1,0 +1,21 @@
+# SKIvSKI: the camera (and so the shots) can't turn more than MaxAimYaw (100) from where the skis point.
+# Run with E2E Run-Combat.ps1 -Map /SKIvSKI/Maps/L_SkiVSki -Set SkiAim (this file is its ClientA.txt).
+log ski aim client A
+waitfor pawn 180
+wait 6
+combat aimoff
+combat yaw 170
+wait 0.3
+combat aimoff 100.5
+shot A_aim_right
+combat yaw -270
+wait 0.3
+combat aimoff 100.5
+shot A_aim_left
+combat yaw 60
+# Back inside the limit: left alone (-100 + 60 = -40).
+wait 0.3
+combat aimoff 100.5
+call pawn DebugFire
+wait 1
+quit

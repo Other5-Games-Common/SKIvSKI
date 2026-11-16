@@ -49,6 +49,7 @@ def main():
         "EdgeGrip": 0.55,           # the edges hold skis across the slope up to about 29 degrees; steeper, they side-slip
         "SkateSpeed": 600.0,        # cm/s W skates up to on flat snow (22 km/h)
         "TeamShown": -1,             # no team colour shown yet
+        "MaxAimYaw": 100.0,          # degrees the camera and shots may turn from the skis (as far as the body twists)
     })
     # The movement component's own defaults must match the tuning: Other5's Speed stat (fighter progression) sets
     # Max Walk Speed from the class default whenever it changes, so a value set only at Begin Play doesn't last.

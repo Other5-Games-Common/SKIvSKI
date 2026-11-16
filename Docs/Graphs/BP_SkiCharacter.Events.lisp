@@ -42,7 +42,8 @@
       (Variables|Ski|Input|SetHoldLeft (Input|EnhancedActionValues|IA_SkiLeft))
       (Variables|Ski|Input|SetHoldRight (Input|EnhancedActionValues|IA_SkiRight))
       (CallFunction|SteerSkis :DeltaSeconds DeltaSeconds)
-      (CallFunction|PushDownSlope)))
+      (CallFunction|PushDownSlope))
+    (CallFunction|ClampAim))
   (CallFunction|LeanIntoTurn :DeltaSeconds DeltaSeconds))
 
 ; Run on Server (unreliable): the owning player's skis turned; turn this character on the server too, which
