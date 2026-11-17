@@ -147,7 +147,7 @@ AddFunctions $C @(
 	@('IsStoreOpen', @(, @('Open', 'bool', 'out'))), @('ToggleMyStore', @()), @('DebugBuy', @(@('Kind', 'int'), @('Index', 'int'), @('Coins', 'int'))), @('DebugEmpty', @()),
 	@('HopperScale', @(, @('Scale', 'float', 'out'))), @('ExtraMags', @(, @('Mags', 'int', 'out'))), @('MagSizeFor', @(@('Gun', 'obj:/SKIvSKI/Guns/BP_PaintGunData.BP_PaintGunData_C'), @('Size', 'int', 'out'))),
 	@('SpareMax', @(@('Gun', 'obj:/SKIvSKI/Guns/BP_PaintGunData.BP_PaintGunData_C'), @('Balls', 'int', 'out'))), @('GearBlurb', @(@('Kind', 'int'), @('Index', 'int'), @('Blurb', 'string', 'out'))), @('DebugDrain', @()),
-	@('FitToSkin', @()), @('SkinOf', @(@('Component', 'obj:/Script/Engine.ActorComponent'), @('Skin', 'obj:/Script/Engine.SkeletalMeshComponent', 'out')))) | Out-Null
+	@('FitToSkin', @()), @('DebugAimAt', @(@('Yaw', 'float'), @('Pitch', 'float'))), @('DebugGunAim', @()), @('SkinOf', @(@('Component', 'obj:/Script/Engine.ActorComponent'), @('Skin', 'obj:/Script/Engine.SkeletalMeshComponent', 'out')))) | Out-Null
 AddFunctions $D @(
 	@('Now', @(, @('Time', 'float', 'out'))), @('FindSlope', @(, @('Found', 'bool', 'out'))), @('SetupRounds', @()), @('ServerStep', @()), @('StartLobby', @()),
 	@('StartCountdown', @()), @('StartRace', @()), @('EndRace', @()), @('PlaceAll', @(@('bAtGate', 'bool'), @('bFreeze', 'bool'))),

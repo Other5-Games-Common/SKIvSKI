@@ -294,11 +294,12 @@ Bool (`bArmsPistol`, `bArmsShotgun`, from the gun's `ArmsKind`), then the `FullB
 fire recoil) and the `UpperBody` slot (their reloads). The aim offsets use `AimYaw`, `AimPitch` (where the player aims relative to the skis). A
 Layered Blend per Bone joins them from `spine_01` up (mesh-space rotation; without that branch filter the whole body
 plays the legs' idle and the upper body freezes, as happened in SKIvSKI 1.18-1.21). Then the spine leans forward with the
-crouch (`spine_01` to `spine_03`, 6 degrees each at full crouch, Alpha `SkiCrouch`), and the event graph adds that lean
-(`LeanDegrees` x `SkiCrouch`) to `AimPitch`, so the aim offset lifts the arms and gun back to where the player aims.
+crouch (`spine_01` to `spine_03`, 8 degrees each at full crouch about the mesh's sideways axis, Alpha `SkiCrouch`), and the
+event graph adds that lean (`LeanDegrees` x `SkiCrouch` x cos `AimYaw`) to `AimPitch`, so the aim offset lifts the arms and
+gun back to where the player aims (`DebugAimAt` and `DebugGunAim` measure it).
 No walking legs: on skis the feet stay put. How to build it yourself in the editor: `Docs/SkiStanceAnimation.md`.
 The Anim Graph is built by `Docs/Scripts/BuildAnimGraph.ps1`; the event graph is `Docs/Graphs/ABP_Skier.lisp`.
-Known issue: with a retargeted skin (Countess, Gideon) the gun follows the hidden mannequin's hand, not the skin's.
+With a retargeted skin (Countess, Gideon) `FitToSkin` moves the gun and helmet onto the shown skin's hand and head.
 
 ## Tuning
 

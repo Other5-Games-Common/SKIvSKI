@@ -450,6 +450,19 @@
 (fn DebugAim (Pitch)
   (Pawn|SetControlRotation :self (Pawn|GetController) :NewRotation (Math|Rotator|MakeRotator :Pitch Pitch :Yaw (Variables|Ski|State|GetSkiYaw))))
 
+; For tests: aim Yaw degrees off the skis (+ right) and Pitch up ("call pawn DebugAimAt 60 -5").
+(fn DebugAimAt (Yaw Pitch)
+  (Pawn|SetControlRotation :self (Pawn|GetController) :NewRotation (Math|Rotator|MakeRotator :Pitch Pitch :Yaw (+ (Variables|Ski|State|GetSkiYaw) Yaw))))
+
+; For tests: where the gun's barrel points (Other5Combat's guns point along their mesh's +Y: the component's right
+; vector) against where the camera aims, as pitch and yaw ("call pawn DebugGunAim"). They should be close.
+(fn DebugGunAim ()
+  (bind barrel (Math|Conversions|RotationFromXVector (Transformation|GetRightVector :self (Variables|Default|GetGunMesh))))
+  (bind aim (Pawn|GetControlRotation :self (Pawn|GetController)))
+  (bind a (Utilities|String|Append "SKI| gun aim: camera pitch " (Utilities|String|Append (Utilities|String|ToString(Float) (.pitch aim)) (Utilities|String|Append " yaw off skis " (Utilities|String|ToString(Float) (Math|Rotator|NormalizeAxis (- (.yaw aim) (Variables|Ski|State|GetSkiYaw))))))))
+  (bind b (Utilities|String|Append a (Utilities|String|Append "  barrel pitch " (Utilities|String|Append (Utilities|String|ToString(Float) (.pitch barrel)) (Utilities|String|Append " yaw off camera " (Utilities|String|ToString(Float) (Math|Rotator|NormalizeAxis (- (.yaw barrel) (.yaw aim)))))))))
+  (Development|PrintString :InString b :Duration 3.0))
+
 ; For tests: fire the last ball in the magazine, so it reloads ("call pawn DebugEmpty").
 (fn DebugEmpty ()
   (Variables|Paint|SetAmmo 1)

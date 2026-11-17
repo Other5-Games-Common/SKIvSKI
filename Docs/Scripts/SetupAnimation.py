@@ -122,12 +122,13 @@ def setup_nodes():
         set_anim_node(which[key], bone_to_modify=bone(name),
                       rotation_mode=unreal.BoneModificationMode.BMM_REPLACE, rotation_space=cs,
                       translation_mode=ignore, scale_mode=ignore)
-    # The spine curl after the layers: each bone's rotation added in its own (bone) space, Alpha = SkiCrouch.
+    # The spine lean after the layers: a rotation about the mesh's sideways axis added to each bone (component space),
+    # Alpha = SkiCrouch.
     for key, name in (("Curl1", "spine_01"), ("Curl2", "spine_02"), ("Curl3", "spine_03")):
         if key in which:
             set_anim_node(which[key], bone_to_modify=bone(name),
                           rotation_mode=unreal.BoneModificationMode.BMM_ADDITIVE,
-                          rotation_space=unreal.BoneControlSpace.BCS_BONE_SPACE,
+                          rotation_space=cs,
                           translation_mode=ignore, scale_mode=ignore)
     abp = unreal.load_asset(FOLDER + "/ABP_Skier")
     unreal.BlueprintEditorLibrary.compile_blueprint(abp)

@@ -98,9 +98,11 @@ $null = Link $footRight 'Pose' $legs 'ComponentPose'
 $FOOT_L = '13.0,4.0,8.5'
 $FOOT_R = '-13.0,4.0,8.5'
 $PELVIS_CROUCH = '0.0,-10.0,-34.0'
-# Spine lean at full crouch (rotators: pitch, yaw, roll; the spine bones' sideways axis is their local Z, so it's yaw):
-# spine_01 to spine_03 each bend forward CURL degrees (24 in all). ABP_Skier.lisp adds the whole lean (3 x CURL x SkiCrouch, its
-# LeanDegrees) to the aim offset's pitch, so the arms and gun come up by what the torso leans: shots go where you aim.
+# Spine lean at full crouch: spine_01 to spine_03 each turn CURL degrees about the mesh's sideways axis (component
+# space, rotator Roll: +Roll tips up toward mesh +Y, forward). Not about each bone's own axis: on the mannequin that's
+# tilted ~23 degrees, so the lean also tipped the torso right, and the gun aimed low to the right and high to the left.
+# ABP_Skier.lisp adds the lean (LeanDegrees x SkiCrouch x cos AimYaw) to the aim offset's pitch, so the arms and gun come
+# back up by what the lean tips them where the player aims.
 $CURL = 8.0
 function SetPin($node, $name, $value) { $null = Mcp-Call $script:BP 'set_pin_value' @{ pin = (PinId $node $name 'in'); value = $value } }
 SetPin $pelvisDown 'Translation' '0.0,0.0,-5.0'
@@ -113,7 +115,7 @@ SetPin $ikRight 'JointTargetLocation' '-15.0,60.0,50.0'
 # Rotators are pitch, yaw, roll: MM_Idle's foot rotations turned about Z so the toes point down mesh +Y.
 SetPin $footLeft 'Rotation' '85.608,63.771,66.755'
 SetPin $footRight 'Rotation' '-86.070,-109.248,-69.363'
-foreach ($c in $curl1, $curl2, $curl3) { SetPin $c 'Rotation' "0.0,$CURL,0.0" }
+foreach ($c in $curl1, $curl2, $curl3) { SetPin $c 'Rotation' "0.0,0.0,$CURL" }
 # Which node is which, for SetupAnimation.py (bones, spaces, modes, the layers and the slots' names). By their exact
 # names: a guess by number found nodes an earlier rebuild had deleted (still in memory) and set those up instead.
 $which = @{ PelvisDown = $pelvisDown.refPath; PelvisCrouch = $pelvisCrouch.refPath; IkLeft = $ikLeft.refPath; IkRight = $ikRight.refPath;
