@@ -7,9 +7,9 @@
   (bind pawn (Animation|TryGetPawnOwner))
   (Utilities|IsValid pawn
     (:"Is Valid"
-      ; Knees: 35% bent standing still, fully bent from about 94 km/h; eased so they don't snap.
+      ; Crouch (knees and spine lean): 30% standing still, full from about 70 km/h; eased so it doesn't snap.
       (bind speed (Math|Vector|VectorLength (Transformation|GetVelocity :self pawn)))
-      (bind target (Math|Float|Clamp(Float) (+ 0.35 (/ speed 4000.0)) 0.0 1.0))
+      (bind target (Math|Float|Clamp(Float) (+ 0.3 (/ speed 2800.0)) 0.0 1.0))
       (Variables|Ski|SetSkiCrouch (Math|Interpolation|FInterpTo (Variables|Ski|GetSkiCrouch) target DeltaTimeX 4.0))
       ; Upper body: where the player aims (the camera), relative to where the skis point. Base Aim Rotation
       ; replicates, so other players see you aim too.

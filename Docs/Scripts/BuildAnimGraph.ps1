@@ -99,9 +99,9 @@ $FOOT_L = '13.0,4.0,8.5'
 $FOOT_R = '-13.0,4.0,8.5'
 $PELVIS_CROUCH = '0.0,-10.0,-34.0'
 # Spine lean at full crouch (rotators: pitch, yaw, roll; the spine bones' sideways axis is their local Z, so it's yaw):
-# spine_01 to spine_03 each bend forward CURL degrees. ABP_Skier.lisp adds the whole lean (3 x CURL x SkiCrouch, its
+# spine_01 to spine_03 each bend forward CURL degrees (24 in all). ABP_Skier.lisp adds the whole lean (3 x CURL x SkiCrouch, its
 # LeanDegrees) to the aim offset's pitch, so the arms and gun come up by what the torso leans: shots go where you aim.
-$CURL = 6.0
+$CURL = 8.0
 function SetPin($node, $name, $value) { $null = Mcp-Call $script:BP 'set_pin_value' @{ pin = (PinId $node $name 'in'); value = $value } }
 SetPin $pelvisDown 'Translation' '0.0,0.0,-5.0'
 # Crouching sits the hips back as well as down (mesh -Y is back), so the knees go forward over the boots.
