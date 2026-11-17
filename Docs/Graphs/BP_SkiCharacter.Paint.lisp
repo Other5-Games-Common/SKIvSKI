@@ -69,6 +69,35 @@
         (Transformation|SetRelativeScale3D :self (Variables|Default|GetSkiRight) :NewScale3D (Math|Vector|MakeVector length 0.09 0.025))))
     (:"Is Not Valid")))
 
+; Every machine, every frame: keep the gun in the hand and the helmet on the head of the skin that's shown. A
+; retargeted skin (Countess, Gideon: Other5 Character Skins adds its own mesh under the character's mesh, which goes on
+; animating unseen) has its own arm lengths and head height, so the mannequin's weapon_r and head, where the gun and
+; helmet are attached, aren't where the skin's hand and head are. Both stay attached to the mannequin (so they turn and
+; aim with it) and are moved by how far the shown skin's hand_r / head is from the mannequin's, turned into the
+; socket's own space. With a mannequin skin that distance is nothing.
+(fn FitToSkin ()
+  (bind mesh (Variables|Character|GetMesh))
+  (Variables|Paint|SetShownSkin mesh)
+  (for c (Actor|GetComponentsByClass :ComponentClass "/Script/Engine.SkeletalMeshComponent")
+    (bind s (CallFunction|SkinOf :Component c))
+    (if (and (!= s mesh) (and (Rendering|IsVisible :self s) (== (Transformation|GetAttachParent :self s) mesh)))
+      (Variables|Paint|SetShownSkin s)))
+  (bind skin (Variables|Paint|GetShownSkin))
+  (bind hand (- (Transformation|GetSocketLocation :self skin :InSocketName "hand_r") (Transformation|GetSocketLocation :self mesh :InSocketName "hand_r")))
+  (bind head (- (Transformation|GetSocketLocation :self skin :InSocketName "head") (Transformation|GetSocketLocation :self mesh :InSocketName "head")))
+  (bind gun (CallFunction|GetCurrentGun))
+  (Transformation|SetRelativeLocation :self (Variables|Default|GetGunMesh) :NewLocation (+ (Class|BPPaintGunData|GetGripOffset :self gun) (Math|Vector|UnrotateVector hand (Transformation|GetSocketRotation :self mesh :InSocketName "weapon_r"))))
+  (Transformation|SetRelativeLocation :self (Variables|Default|GetHelmet) :NewLocation (Math|Vector|UnrotateVector head (Transformation|GetSocketRotation :self mesh :InSocketName "head"))))
+
+; Component as a skeletal mesh (the character's own mesh if it isn't one). A cast ends the flow, so it has its own
+; function.
+(fn SkinOf (Component)
+  (bind s (Utilities|Casting|CastToSkeletalMeshComponent :Object Component)
+    (:then
+      (return s))
+    (:CastFailed
+      (return (Variables|Character|GetMesh)))))
+
 ; Unused since the store (the gun shown follows the player state, UpdateGear); kept because GunIndex replicates.
 (fn OnRep_GunIndex ()
   (CallFunction|ShowGun))
@@ -420,6 +449,19 @@
 ; (the Other5 test runner: "call pawn DebugAim -15", "call pawn DebugFire").
 (fn DebugAim (Pitch)
   (Pawn|SetControlRotation :self (Pawn|GetController) :NewRotation (Math|Rotator|MakeRotator :Pitch Pitch :Yaw (Variables|Ski|State|GetSkiYaw))))
+
+; For tests: aim Yaw degrees off the skis (+ right) and Pitch up ("call pawn DebugAimAt 60 -5").
+(fn DebugAimAt (Yaw Pitch)
+  (Pawn|SetControlRotation :self (Pawn|GetController) :NewRotation (Math|Rotator|MakeRotator :Pitch Pitch :Yaw (+ (Variables|Ski|State|GetSkiYaw) Yaw))))
+
+; For tests: where the gun's barrel points (Other5Combat's guns point along their mesh's +Y: the component's right
+; vector) against where the camera aims, as pitch and yaw ("call pawn DebugGunAim"). They should be close.
+(fn DebugGunAim ()
+  (bind barrel (Math|Conversions|RotationFromXVector (Transformation|GetRightVector :self (Variables|Default|GetGunMesh))))
+  (bind aim (Pawn|GetControlRotation :self (Pawn|GetController)))
+  (bind a (Utilities|String|Append "SKI| gun aim: camera pitch " (Utilities|String|Append (Utilities|String|ToString(Float) (.pitch aim)) (Utilities|String|Append " yaw off skis " (Utilities|String|ToString(Float) (Math|Rotator|NormalizeAxis (- (.yaw aim) (Variables|Ski|State|GetSkiYaw))))))))
+  (bind b (Utilities|String|Append a (Utilities|String|Append "  barrel pitch " (Utilities|String|Append (Utilities|String|ToString(Float) (.pitch barrel)) (Utilities|String|Append " yaw off camera " (Utilities|String|ToString(Float) (Math|Rotator|NormalizeAxis (- (.yaw barrel) (.yaw aim)))))))))
+  (Development|PrintString :InString b :Duration 3.0))
 
 ; For tests: fire the last ball in the magazine, so it reloads ("call pawn DebugEmpty").
 (fn DebugEmpty ()

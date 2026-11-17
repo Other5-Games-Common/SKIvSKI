@@ -83,7 +83,7 @@ AddVars $C @(
 	@('Ammo', 'int', 'Paint', 'None', $false), @('bReloading', 'bool', 'Paint', 'None', $false), @('ReloadDoneAt', 'float', 'Paint', 'None', $false), @('bPrevFire', 'bool', 'Paint', 'None', $false),
 	@('bPrevReload', 'bool', 'Paint', 'None', $false), @('bPrevStore', 'bool', 'Paint', 'None', $false), @('GunShown', 'int', 'Paint', 'None', $false), @('SkisShown', 'int', 'Paint', 'None', $false),
 	@('Upgrades', '/SKIvSKI/Gear/BP_UpgradeData.BP_UpgradeData_C:Array', 'Store', 'None', $true), @('Spare', 'int', 'Paint', 'None', $false), @('BaseSpareMags', 'int', 'Paint', 'None', $true),
-	@('MagShown', 'int', 'Paint', 'None', $false), @('SpareShown', 'int', 'Paint', 'None', $false), @('PhaseShown', 'int', 'Paint', 'None', $false), @('UpgradeWork', 'float', 'Paint', 'None', $false), @('ReloadTake', 'int', 'Paint', 'None', $false))
+	@('ShownSkin', '/Script/Engine.SkeletalMeshComponent', 'Paint', 'None', $false), @('MagShown', 'int', 'Paint', 'None', $false), @('SpareShown', 'int', 'Paint', 'None', $false), @('PhaseShown', 'int', 'Paint', 'None', $false), @('UpgradeWork', 'float', 'Paint', 'None', $false), @('ReloadTake', 'int', 'Paint', 'None', $false))
 AddVars $S @(
 	@('Length', 'float', 'Slope|Layout', 'None', $true), @('TopWidth', 'float', 'Slope|Layout', 'None', $true), @('FinishWidth', 'float', 'Slope|Layout', 'None', $true),
 	@('LobbyLength', 'float', 'Slope|Layout', 'None', $true), @('CellSize', 'float', 'Slope|Layout', 'None', $true), @('BankHeight', 'float', 'Slope|Layout', 'None', $true),
@@ -146,7 +146,8 @@ AddFunctions $C @(
 	@('BuyGear', @(@('Kind', 'int'), @('Index', 'int'))), @('GearPrice', @(@('Kind', 'int'), @('Index', 'int'), @('Price', 'int', 'out'))), @('Equip', @(@('Kind', 'int'), @('Index', 'int'))),
 	@('IsStoreOpen', @(, @('Open', 'bool', 'out'))), @('ToggleMyStore', @()), @('DebugBuy', @(@('Kind', 'int'), @('Index', 'int'), @('Coins', 'int'))), @('DebugEmpty', @()),
 	@('HopperScale', @(, @('Scale', 'float', 'out'))), @('ExtraMags', @(, @('Mags', 'int', 'out'))), @('MagSizeFor', @(@('Gun', 'obj:/SKIvSKI/Guns/BP_PaintGunData.BP_PaintGunData_C'), @('Size', 'int', 'out'))),
-	@('SpareMax', @(@('Gun', 'obj:/SKIvSKI/Guns/BP_PaintGunData.BP_PaintGunData_C'), @('Balls', 'int', 'out'))), @('GearBlurb', @(@('Kind', 'int'), @('Index', 'int'), @('Blurb', 'string', 'out'))), @('DebugDrain', @())) | Out-Null
+	@('SpareMax', @(@('Gun', 'obj:/SKIvSKI/Guns/BP_PaintGunData.BP_PaintGunData_C'), @('Balls', 'int', 'out'))), @('GearBlurb', @(@('Kind', 'int'), @('Index', 'int'), @('Blurb', 'string', 'out'))), @('DebugDrain', @()),
+	@('FitToSkin', @()), @('DebugAimAt', @(@('Yaw', 'float'), @('Pitch', 'float'))), @('DebugGunAim', @()), @('SkinOf', @(@('Component', 'obj:/Script/Engine.ActorComponent'), @('Skin', 'obj:/Script/Engine.SkeletalMeshComponent', 'out')))) | Out-Null
 AddFunctions $D @(
 	@('Now', @(, @('Time', 'float', 'out'))), @('FindSlope', @(, @('Found', 'bool', 'out'))), @('SetupRounds', @()), @('ServerStep', @()), @('StartLobby', @()),
 	@('StartCountdown', @()), @('StartRace', @()), @('EndRace', @()), @('PlaceAll', @(@('bAtGate', 'bool'), @('bFreeze', 'bool'))),

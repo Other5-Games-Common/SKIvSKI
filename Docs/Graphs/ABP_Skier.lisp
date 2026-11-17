@@ -7,15 +7,18 @@
   (bind pawn (Animation|TryGetPawnOwner))
   (Utilities|IsValid pawn
     (:"Is Valid"
-      ; Knees: 35% bent standing still, fully bent from about 94 km/h; eased so they don't snap.
+      ; Crouch (knees and spine lean): 30% standing still, full from about 70 km/h; eased so it doesn't snap.
       (bind speed (Math|Vector|VectorLength (Transformation|GetVelocity :self pawn)))
-      (bind target (Math|Float|Clamp(Float) (+ 0.35 (/ speed 4000.0)) 0.0 1.0))
+      (bind target (Math|Float|Clamp(Float) (+ 0.3 (/ speed 2800.0)) 0.0 1.0))
       (Variables|Ski|SetSkiCrouch (Math|Interpolation|FInterpTo (Variables|Ski|GetSkiCrouch) target DeltaTimeX 4.0))
       ; Upper body: where the player aims (the camera), relative to where the skis point. Base Aim Rotation
       ; replicates, so other players see you aim too.
       (bind aim (Math|Rotator|Delta(Rotator) (Pawn|GetBaseAimRotation :self pawn) (Transformation|GetActorRotation :self pawn)))
       (Variables|Ski|SetAimYaw (Math|Float|Clamp(Float) (.yaw aim) -90.0 90.0))
-      (Variables|Ski|SetAimPitch (Math|Float|Clamp(Float) (.pitch aim) -90.0 90.0))
+      ; The crouch leans the spine forward by up to LeanDegrees (the Anim Graph's spine lean, after the aim offset):
+      ; aim that much higher, so the arms and gun come back up to where the player aims. Only when aiming ahead: the lean is
+      ; toward the skis' tips, so aimed 90 degrees to the side it only tilts the gun about its barrel (cos AimYaw).
+      (Variables|Ski|SetAimPitch (Math|Float|Clamp(Float) (+ (.pitch aim) (* (* (Variables|Ski|GetLeanDegrees) (Variables|Ski|GetSkiCrouch)) (Math|Trig|Cos(Degrees) (Variables|Ski|GetAimYaw)))) -90.0 90.0))
       ; How the gun in hand is held (its ArmsKind: 0 pistol, 1 rifle, 2 shotgun): the Anim Graph's upper body plays
       ; that kind's pose and aim offset.
       (bind skier (Utilities|Casting|CastToBP_SkiCharacter :Object pawn)
