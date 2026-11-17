@@ -52,10 +52,14 @@ def main():
         "BindingForward": 11.0,      # cm: the boots ahead of the capsule's middle (SetupSkiMesh.py's BINDING_FORWARD)
         "SnowProbeHalf": 55.0,       # cm: SampleSnow looks this far ahead of and behind the boots
         "SkiSettleSpeed": 12.0,      # how fast the skis tilt to the snow (VInterpTo speed)
+        "ExitCooldown": 10.0,        # seconds between one Exit fort (F) and the next, per skier
+        "JumpPush": 450.0,           # cm/s along the skis a jump adds when (nearly) stopped, to hop up a slope
+        "JumpPushBelow": 300.0,      # ...below this speed (cm/s)
         "SkiLift": 2.5,              # cm the skis ride above the snow plane (its look shows a little above its collision)
         "SkiNormal": unreal.Vector(0.0, 0.0, 1.0),   # the skis start flat
         "SnowNormal": unreal.Vector(0.0, 0.0, 1.0),
         "TeamShown": -1,             # no team colour shown yet
+        "MapShown": -2,              # nor a minimap marker: the first frame decides (UpdateMapMarker)
         "MaxAimYaw": 100.0,          # degrees the camera and shots may turn from the skis (as far as the body twists)
         "GunShown": -1,              # no gun or skis shown yet: the first frame shows the player's (UpdateGear)
         "SkisShown": -1,
@@ -85,6 +89,9 @@ def main():
     set_all(sl, {
         # Slope|Layout (cm)
         "Length": 40000.0,          # 400 m from the start gates to the bottom
+        "FortCount": 3,             # log forts down the second half of the run (BP_SkiFort)
+        "FortClear": 4.5,           # pines keep as far from a fort as from a pine this big (about 5.4 m more)
+        "FortCalmDistance": 1100.0, # the bumps are flat under a fort and back in full this far from its middle
         "TopWidth": 12000.0,        # the run is 120 m wide at the top...
         "FinishWidth": 4000.0,      # ...and 40 m at the finish
         "LobbyLength": 3000.0,      # flat waiting area behind the gates
@@ -158,8 +165,29 @@ def main():
     eal.save_loaded_asset(bp, False)
     log("player state defaults")
 
+    bp, fort = cdo("/SKIvSKI/Blueprints/BP_SkiFort")
+    set_all(fort, {
+        # Spawned by the server, seen by everyone, anywhere on the slope.
+        "replicates": True,
+        "always_relevant": True,
+        # Fort|Layout (cm, seconds): 6 m across inside, 4.2 m deep, walls of four rows of logs with a 12 cm slit under the top row.
+        "Width": 600.0,
+        "Depth": 420.0,
+        "FrontGap": 10.0,           # between the front wall's two logs
+        "CornerGap": 26.0,          # the side walls this far out from the front wall's ends
+        "RowHeights": [14.0, 42.0, 70.0, 110.0],
+        "CaptureSeconds": 10.0,     # one team alone in it, from flag down to flag up
+        "ExitDistance": 260.0,      # Exit fort puts you this far uphill of its open side
+        "PoleX": 150.0,
+        "FlagLow": 120.0,
+        "FlagHigh": 520.0,
+        "ProgressTeam": -1,
+        "CapturedBy": -1,
+        "FlagShown": -2,
+    })
     bp, hud = cdo("/SKIvSKI/Blueprints/BP_SkiHUD")
-    set_all(hud, {"PopupSeconds": 1.6})   # "Hit!" / "Bounce!" pop up, fly up and fade over this long
+    set_all(hud, {"PopupSeconds": 1.6,
+                  "MapRange": 10000.0})   # the minimap shows 100 m around you   # "Hit!" / "Bounce!" pop up, fly up and fade over this long
     eal.save_loaded_asset(bp, False)
 
     bp, gm = cdo("/SKIvSKI/Blueprints/BP_SkiGameMode")

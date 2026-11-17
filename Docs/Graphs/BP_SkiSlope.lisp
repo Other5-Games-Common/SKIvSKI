@@ -37,7 +37,7 @@
   ; 60% of the run's own downhill gradient here (which eases off in the run-out), so nobody gets stuck in a dip.
   (bind localTan (* (Variables|Slope|Work|GetSlopeTan) (- 1.0 (/ runout 0.15))))
   (bind bumpCap (Math|Float|Min(Float) 1.0 (/ (* 0.6 localTan) (Math|Float|Max(Float) (* (Variables|Slope|Work|GetBumpHeight) 0.0198) 0.001))))
-  (bind bumps (* (* (* (Variables|Slope|Work|GetBumpHeight) (+ moguls rollers)) fade) bumpCap))
+  (bind bumps (* (* (* (* (Variables|Slope|Work|GetBumpHeight) (+ moguls rollers)) fade) bumpCap) (CallFunction|FortCalm :X X :Y Y)))
   ; The run-out, past the run: flat where the run ends, rolling gently (15 cm, about 50 m apart: under 1 degree, so they never stop anyone), then rising as the
   ; cube of the way along it to RunoutRise at its end, so it stays nearly flat for its first half and stops even a
   ; skier at top speed (108 km/h needs about 45 m of climb).
@@ -133,6 +133,9 @@
   (Components|InstancedStaticMesh|ClearInstances :self (Variables|Default|GetTreeArt))
   (Components|InstancedStaticMesh|ClearInstances :self (Variables|Default|GetTreeArtTall))
   (Utilities|Array|Clear (Variables|Slope|Work|GetTreeSpots))
+  ; The forts first, as spots as big as a FortClear-size pine, so PlantTree keeps every pine that far off them.
+  (for fort (Variables|Slope|Work|GetFortSpots)
+    (Utilities|Array|Add (Variables|Slope|Work|GetTreeSpots) (Math|Vector|MakeVector (.x fort) (.y fort) (Variables|Slope|Layout|GetFortClear))))
   (bind length (Variables|Slope|Layout|GetLength))
   (bind count (Utilities|Array|Get(acopy) (Variables|Slope|Difficulty|GetTreeCountByLevel) (Variables|Slope|Build|GetDifficulty)))
   (for n (range count)
@@ -310,6 +313,57 @@
   (Variables|Slope|Work|SetFinishX (* (Variables|Slope|Layout|GetLength) 0.9))
   (CallFunction|PlaceArch :PostLeft (Variables|Default|GetFinishPostLeft) :PostRight (Variables|Default|GetFinishPostRight) :Banner (Variables|Default|GetFinishBanner) :X (Variables|Slope|Work|GetFinishX) :Y 0.0 :Width (* (Variables|Slope|Layout|GetFinishWidth) 0.9)))
 
+; ---- the forts (BP_SkiFort) -------------------------------------------------------------------------------------
+
+; Where this slope's FortCount forts go, every machine, from Seed (a stream of their own, so the run's pines and
+; bumps don't move when FortCount changes): down the second half of the run, where the teams' lines have met, on
+; alternate sides of the middle, out past the clear racing line, at a random distance across. X, Y of each in
+; FortSpots.
+(fn PlanForts ()
+  (Utilities|Array|Clear (Variables|Slope|Work|GetFortSpots))
+  (Variables|Slope|Work|SetFortStream (Math|Random|MakeRandomStream (+ (Variables|Slope|Build|GetSeed) 7919)))
+  (Variables|Slope|Work|SetFortSide (select (< (Math|Random|RandomFloatinRangefromStream :Stream (Variables|Slope|Work|GetFortStream) :Min 0.0 :Max 1.0) 0.5) -1.0 1.0))
+  (bind count (Variables|Slope|Layout|GetFortCount))
+  (for n (range count)
+    (Variables|Slope|Work|SetFortAcross (Math|Random|RandomFloatinRangefromStream :Stream (Variables|Slope|Work|GetFortStream) :Min 0.0 :Max 1.0))
+    (bind t (Math|Float|Lerp 0.5 0.78 (/ (Math|Conversions|ToFloat(Integer) n) (Math|Float|Max(Float) (Math|Conversions|ToFloat(Integer) (- count 1)) 1.0))))
+    (bind x (* t (Variables|Slope|Layout|GetLength)))
+    (bind halfWidth (Math|Float|Lerp (* (Variables|Slope|Layout|GetTopWidth) 0.5) (* (Variables|Slope|Layout|GetFinishWidth) 0.5) t))
+    (bind inner (+ (* (Variables|Slope|Layout|GetClearPathWidth) 0.5) 700.0))
+    (bind y (* (Variables|Slope|Work|GetFortSide) (+ inner (* (Variables|Slope|Work|GetFortAcross) (Math|Float|Max(Float) (- (- halfWidth inner) 600.0) 0.0)))))
+    (Utilities|Array|Add (Variables|Slope|Work|GetFortSpots) (Math|Vector|MakeVector x y 0.0))
+    (Variables|Slope|Work|SetFortSide (- 0.0 (Variables|Slope|Work|GetFortSide)))))
+
+; How much of the bumps (moguls, rollers) to keep at (X, Y): none under a fort, all of them FortCalmDistance away.
+; HeightAt asks this for every point of the snow, so it looks at one fort only, with no loop (a loop here ran
+; Blueprint's runaway-loop limit out while building the snow): the forts are PlanForts' evenly spaced X's, far
+; further apart than FortCalmDistance, so the one nearest in X is the only one that matters.
+(fn FortCalm (X Y)
+  (bind spots (Variables|Slope|Work|GetFortSpots))
+  (bind count (Utilities|Array|Length spots))
+  (if (== count 0)
+    (return 1.0))
+  (bind step (/ 0.28 (Math|Float|Max(Float) (Math|Conversions|ToFloat(Integer) (- count 1)) 1.0)))
+  (bind nearest (Math|Integer|Clamp(Integer) (Math|Float|Round (/ (- (/ X (Variables|Slope|Layout|GetLength)) 0.5) step)) 0 (- count 1)))
+  (bind d (Math|Vector|VectorLengthXY (- (Math|Vector|MakeVector X Y 0.0) (Utilities|Array|Get(acopy) spots nearest))))
+  (return (Math|Float|Clamp(Float) (/ (- d 500.0) (Math|Float|Max(Float) (- (Variables|Slope|Layout|GetFortCalmDistance) 500.0) 1.0)) 0.0 1.0)))
+
+; The server: this slope's forts (last slope's go), each tilted to the snow under it. They replicate to everyone.
+(fn SpawnForts ()
+  (for old (Variables|Slope|Work|GetForts)
+    (Actor|DestroyActor :self old))
+  (Utilities|Array|Clear (Variables|Slope|Work|GetForts))
+  (for spot (Variables|Slope|Work|GetFortSpots)
+    (bind x (.x spot))
+    (bind y (.y spot))
+    (bind dx (- (CallFunction|HeightAt :X (+ x 150.0) :Y y) (CallFunction|HeightAt :X (- x 150.0) :Y y)))
+    (bind dy (- (CallFunction|HeightAt :X x :Y (+ y 150.0)) (CallFunction|HeightAt :X x :Y (- y 150.0))))
+    (bind up (Math|Vector|Normalize (Math|Vector|MakeVector (- 0.0 dx) (- 0.0 dy) 300.0)))
+    (bind here (Math|Vector|MakeVector x y (- (CallFunction|HeightAt :X x :Y y) 4.0)))
+    (bind where (Math|Transform|ComposeTransforms (Math|Transform|MakeTransform here (Math|Rotator|MakeRotfromZX up (Math|Vector|MakeVector 1.0 0.0 0.0)) (Math|Vector|MakeVector 1.0 1.0 1.0)) (Transformation|GetActorTransform)))
+    (bind fort (Game|SpawnActorfromClass :Class "/SKIvSKI/Blueprints/BP_SkiFort.BP_SkiFort_C" :SpawnTransform where :CollisionHandlingOverride "AlwaysSpawn"))
+    (Utilities|Array|Add (Variables|Slope|Work|GetForts) fort)))
+
 ; Build everything from Seed and Difficulty (0 Easy, 1 Medium, 2 Hard). Runs on every machine.
 (fn Generate ()
   (bind level (Math|Integer|Clamp(Integer) (Variables|Slope|Build|GetDifficulty) 0 2))
@@ -320,11 +374,14 @@
   (Variables|Slope|Work|SetPhase2 (Math|Random|RandomFloatinRangefromStream :Stream (Variables|Slope|Work|GetStream) :Min 0.0 :Max 6.283))
   (Variables|Slope|Work|SetPhase3 (Math|Random|RandomFloatinRangefromStream :Stream (Variables|Slope|Work|GetStream) :Min 0.0 :Max 6.283))
   (CallFunction|ApplyLook)
+  (CallFunction|PlanForts)
   (CallFunction|BuildSnow)
   (CallFunction|PlantTrees)
   (CallFunction|PlaceGates)
   ; Scenery last: it draws from the stream after the run's own pines, so those are the same with or without the winter look.
-  (CallFunction|DressScene))
+  (CallFunction|DressScene)
+  (if (Networking|HasAuthority)
+    (CallFunction|SpawnForts)))
 
 ; Server only: a new slope. Setting BuildId (RepNotify) runs OnRep_BuildId here and on every client.
 (fn Rebuild (NewSeed NewDifficulty)

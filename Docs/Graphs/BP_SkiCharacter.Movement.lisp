@@ -35,6 +35,8 @@
 
 ; Where the snow is under one point of the skis' footprint: Along the skis and Across them from the skier's middle (cm).
 ; A line down from a little above it; on a miss (in the air, off the edge) SnowFound goes false for this frame.
+; On the Camera channel: the snow blocks it, but forts' logs don't (BP_SkiFort's Logs ignore it), so skis by a fort's
+; wall lie on the snow, not on the logs.
 (fn SnowPoint (Along Across)
   (bind yaw (.yaw (Transformation|GetActorRotation)))
   (bind forward (Math|Vector|MakeVector (Math|Trig|Cos(Degrees) yaw) (Math|Trig|Sin(Degrees) yaw) 0.0))
@@ -42,7 +44,7 @@
   (bind at (+ (Transformation|GetActorLocation) (+ (* forward Along) (* right Across))))
   (bind start (+ at (Math|Vector|MakeVector 0.0 0.0 60.0)))
   (bind end (- at (Math|Vector|MakeVector 0.0 0.0 260.0)))
-  (bind (hit didHit) (Collision|LineTraceByChannel :Start start :End end :TraceChannel "TraceTypeQuery1" :bIgnoreSelf true))
+  (bind (hit didHit) (Collision|LineTraceByChannel :Start start :End end :TraceChannel "TraceTypeQuery2" :bIgnoreSelf true))
   (bind (blocking overlap time dist loc impact normal impactNormal) (Collision|BreakHitResult hit))
   (if (not didHit)
     (Variables|Ski|State|SetSnowFound false))
@@ -186,6 +188,22 @@
   (bind pressing (* (Variables|Ski|Tuning|GetGravity) (Math|Trig|Cos(Degrees) (Variables|Ski|State|GetSlopeDegrees))))
   (Class|CharacterMovementComponent|SetBrakingDecelerationWalking :self cmc :BrakingDecelerationWalking (+ (* friction pressing) (* (* sideways (Variables|Ski|Tuning|GetSkidBraking)) brake)))
   (Class|CharacterMovementComponent|SetBrakingFriction :self cmc :BrakingFriction (* (* sideways (Variables|Ski|Tuning|GetSkidFriction)) brake)))
+
+; Where the movement is worked out (this player's machine and the server): keep the velocity to how far the skier
+; really moved last frame. Pressed against something that won't let them through (a fort's front wall, with gravity
+; and the skis pulling into it), Character Movement went on adding speed while the skier stood still: the HUD showed
+; 100 km/h, the crouch went deep, and the skier would have shot off at that speed once free. Moving freely the two
+; are the same, so this only acts when stuck.
+(fn MatchVelocityToMove (DeltaSeconds)
+  (bind here (Transformation|GetActorLocation))
+  (bind moved (/ (Math|Vector|VectorLengthXY (- here (Variables|Ski|State|GetLastPlace))) (Math|Float|Max(Float) DeltaSeconds 0.001)))
+  (Variables|Ski|State|SetLastPlace here)
+  (bind cmc (Variables|Character|GetCharacterMovement))
+  (bind vel (Class|MovementComponent|GetVelocity :self cmc))
+  (bind speed (Math|Vector|VectorLengthXY vel))
+  (if (and (or (Pawn|IsLocallyControlled) (Networking|HasAuthority)) (and (Pawn|Components|CharacterMovement|IsWalking :self cmc) (> speed (+ (* moved 1.5) 150.0))))
+    (bind keep (/ moved (Math|Float|Max(Float) speed 1.0)))
+    (Class|MovementComponent|SetVelocity :self cmc :Velocity (Math|Vector|MakeVector (* (.x vel) keep) (* (.y vel) keep) (.z vel)))))
 
 ; Looks only: lean the body into turns and lay the skis flat on the snow. Runs on every machine.
 (fn LeanIntoTurn (DeltaSeconds)

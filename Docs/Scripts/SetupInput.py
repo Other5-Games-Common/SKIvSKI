@@ -26,6 +26,8 @@ ACTIONS = [
     ("IA_SkiSwitchTeam", "SKIvSKI.SwitchTeam", "Switch team (lobby)", "T", "Gamepad_FaceButton_Left"),
     ("IA_SkiHarder", "SKIvSKI.Harder", "Admin: harder slope (lobby)", "RightBracket", "Gamepad_DPad_Up"),
     ("IA_SkiEasier", "SKIvSKI.Easier", "Admin: easier slope (lobby)", "LeftBracket", "Gamepad_DPad_Down"),
+    # F: E is Other5Combat's interact and Q its grenade, both on the skier too.
+    ("IA_SkiExitFort", "SKIvSKI.ExitFort", "Exit the fort (back uphill)", "F", "Gamepad_DPad_Left"),
 ]
 
 

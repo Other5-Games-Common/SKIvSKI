@@ -90,6 +90,8 @@
   (Variables|Round|State|SetPhase 0)
   (Variables|Round|State|SetPhaseEndsAt (+ (CallFunction|Now) (Variables|Round|Settings|GetLobbySeconds)))
   (Other5|Teams|SetTeamSwitchAllowed :bAllowed true)
+  ; Pings and quick chat: everyone hears everyone in the lobby; from the countdown to the results, only your team.
+  (Other5|Teams|SetTeamOnlyComms :bTeamOnly false)
   (Variables|Round|State|SetMessage "Lobby: T switches team")
   ; A new random slope; the lobby itself is always flat, so nobody falls while it rebuilds.
   (Class|BPSkiSlope|Rebuild :self (Variables|Round|Settings|GetSlope) :NewSeed (Math|Random|RandomIntegerinRange 1 999999) :NewDifficulty (Variables|Round|State|GetDifficulty))
@@ -104,6 +106,7 @@
   ; Practice in the lobby doesn't carry into the race: everyone back in, scores back to 0.
   (CallFunction|ResetRound)
   (Other5|Teams|SetTeamSwitchAllowed :bAllowed false)
+  (Other5|Teams|SetTeamOnlyComms :bTeamOnly true)
   (CallFunction|PlaceAll :bAtGate true :bFreeze true))
 
 (fn StartRace ()
@@ -123,6 +126,7 @@
   (bind score (Utilities|String|Append (Utilities|String|ToString(Integer) red) (Utilities|String|Append " - " (Utilities|String|ToString(Integer) blue))))
   (bind winner (Utilities|String|ToString(Text) (Other5|Teams|GetTeamName :Team (select (> red blue) 0 1))))
   (CallFunction|PaySurvivors)
+  (Other5|Teams|SetTeamOnlyComms :bTeamOnly false)
   (Variables|Round|State|SetMessage (select (== red blue) (Utilities|String|Append "A DRAW " score) (Utilities|String|Append (Utilities|String|ToUpper winner) (Utilities|String|Append " WINS " score)))))
 
 ; Everyone to the lobby (bAtGate false) or behind their team's start gate.
