@@ -70,12 +70,11 @@
         (Transformation|SetRelativeScale3D :self (Variables|Default|GetSkiRight) :NewScale3D (Math|Vector|MakeVector length 1.0 1.0))))
     (:"Is Not Valid")))
 
-; Every machine, every frame: keep the gun in the hand and the helmet on the head of the skin that's shown. A
-; retargeted skin (Countess, Gideon: Other5 Character Skins adds its own mesh under the character's mesh, which goes on
-; animating unseen) has its own arm lengths and head height, so the mannequin's weapon_r and head, where the gun and
-; helmet are attached, aren't where the skin's hand and head are. Both stay attached to the mannequin (so they turn and
-; aim with it) and are moved by how far the shown skin's hand_r / head is from the mannequin's, turned into the
-; socket's own space. With a mannequin skin that distance is nothing.
+; Every machine, every frame: keep the gun in the hand of the skin that's shown. A retargeted skin (Countess, Gideon:
+; Other5 Character Skins adds its own mesh under the character's mesh, which goes on animating unseen) has its own arm
+; lengths, so the mannequin's weapon_r, where the gun is attached, isn't where the skin's hand is. The gun stays
+; attached to the mannequin (so it turns and aims with it) and is moved by how far the shown skin's hand_r is from the
+; mannequin's, turned into the socket's own space. With a mannequin skin that distance is nothing.
 (fn FitToSkin ()
   (bind mesh (Variables|Character|GetMesh))
   (Variables|Paint|SetShownSkin mesh)
@@ -85,10 +84,8 @@
       (Variables|Paint|SetShownSkin s)))
   (bind skin (Variables|Paint|GetShownSkin))
   (bind hand (- (Transformation|GetSocketLocation :self skin :InSocketName "hand_r") (Transformation|GetSocketLocation :self mesh :InSocketName "hand_r")))
-  (bind head (- (Transformation|GetSocketLocation :self skin :InSocketName "head") (Transformation|GetSocketLocation :self mesh :InSocketName "head")))
   (bind gun (CallFunction|GetCurrentGun))
-  (Transformation|SetRelativeLocation :self (Variables|Default|GetGunMesh) :NewLocation (+ (Class|BPPaintGunData|GetGripOffset :self gun) (Math|Vector|UnrotateVector hand (Transformation|GetSocketRotation :self mesh :InSocketName "weapon_r"))))
-  (Transformation|SetRelativeLocation :self (Variables|Default|GetHelmet) :NewLocation (Math|Vector|UnrotateVector head (Transformation|GetSocketRotation :self mesh :InSocketName "head"))))
+  (Transformation|SetRelativeLocation :self (Variables|Default|GetGunMesh) :NewLocation (+ (Class|BPPaintGunData|GetGripOffset :self gun) (Math|Vector|UnrotateVector hand (Transformation|GetSocketRotation :self mesh :InSocketName "weapon_r")))))
 
 ; Component as a skeletal mesh (the character's own mesh if it isn't one). A cast ends the flow, so it has its own
 ; function.
@@ -118,7 +115,7 @@
     (:CastFailed
       (return ski))))
 
-; Helmet and skis in the team's colour (and the paintballs too), or grey once the skier is OUT. Team and out-ness live
+; Skis in the team's colour (and the paintballs too), or grey once the skier is OUT. Team and out-ness live
 ; on the player state, which can reach a client after the character, so this checks every frame and only repaints
 ; when they changed (LookShown = team * 2 + 1 if out).
 (fn UpdateTeamLook ()
@@ -133,10 +130,26 @@
         (Variables|Team|SetTeamColor (Other5|Teams|GetTeamColor :Team team))
         (bind shown (select out (Utilities|Struct|MakeLinearColor 0.25 0.25 0.25 1.0) (Variables|Team|GetTeamColor)))
         (bind tint (Math|Conversions|ToVector(LinearColor) shown))
-        (Rendering|Material|SetVectorParameterValueonMaterials :self (Variables|Default|GetHelmet) :ParameterName "Color" :ParameterValue tint)
         (Rendering|Material|SetVectorParameterValueonMaterials :self (Variables|Default|GetSkiLeft) :ParameterName "Color" :ParameterValue tint)
         (Rendering|Material|SetVectorParameterValueonMaterials :self (Variables|Default|GetSkiRight) :ParameterName "Color" :ParameterValue tint)))
     (:"Is Not Valid")))
+
+; Every machine, every frame: this skier on the minimap (MapMarker, an Other5 Compass Marker) only for its teammates
+; on this machine: the team's colour (grey once out) with the player's initial. Other players' skiers show to you
+; only when someone on your team tags them (middle mouse at them: Other5's comms puts them on the map for a while).
+; MapShown remembers what's shown (-1: hidden, else TeamShown), so the marker only changes when that does.
+(fn UpdateMapMarker ()
+  (bind me (Game|GetPlayerPawn :PlayerIndex 0))
+  (bind ski (CallFunction|GetSkiPlayerState))
+  (bind mate (and (not (Pawn|IsLocallyControlled)) (Other5|Teams|SameTeam :A ski :B me)))
+  (bind shown (select (and mate (>= (Variables|Team|GetTeamShown) 0)) (Variables|Team|GetTeamShown) -1))
+  (if (!= shown (Variables|Team|GetMapShown))
+    (Variables|Team|SetMapShown shown)
+    (if (>= shown 0)
+      (bind initial (Utilities|String|ToUpper (Utilities|String|GetSubstring :SourceString (PlayerState|GetPlayerName :self ski) :StartIndex 0 :Length 1)))
+      (bind tint (select (Class|BPSkiPlayerState|GetOut :self ski) (Utilities|Struct|MakeLinearColor 0.45 0.45 0.45 1.0) (Variables|Team|GetTeamColor)))
+      (Compass|SetMarker :self (Variables|Default|GetMapMarker) :NewMarker (Utilities|Struct|MakeOther5CompassMarker :Shape "Pip" :Color tint :Label (Utilities|Text|ToText(String) initial))))
+    (Compass|SetShowonCompass :self (Variables|Default|GetMapMarker) :bShow (>= shown 0))))
 
 ; Is this skier out of the race (hit by paint)? Out skiers can't fire.
 (fn IsOut ()

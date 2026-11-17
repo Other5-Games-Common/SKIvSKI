@@ -6,8 +6,8 @@
 ; player names there), and the graph DSL can't add a call to the parent's BeginPlay.
 (fn SkiBeginPlay ()
   (CallFunction|SetupSkiMovement)
-  ; Helmet on the head, paintball gun in the right hand (sockets on the Other5 mannequin skeleton).
-  (Transformation|AttachComponentToComponent :self (Variables|Default|GetHelmet) :Parent (Variables|Character|GetMesh) :SocketName "head" :LocationRule "SnapToTarget" :RotationRule "KeepRelative" :ScaleRule "KeepRelative")
+  ; Paintball gun in the right hand (a socket on the Other5 mannequin skeleton). (The team shows on the skis; the old
+  ; helmet sphere hid the characters' heads.)
   (Transformation|AttachComponentToComponent :self (Variables|Default|GetGunMesh) :Parent (Variables|Character|GetMesh) :SocketName "weapon_r" :LocationRule "SnapToTarget" :RotationRule "SnapToTarget" :ScaleRule "KeepRelative")
   ; Other5Combat's gun meshes point their barrels along +Y; turned -90 degrees they point where the hand points
   ; (Other5Combat holds them the same way, with its weapons' Attach Offset).
@@ -33,6 +33,7 @@
   (CallFunction|UpdateSlope)
   (CallFunction|UpdateGlide)
   (CallFunction|UpdateTeamLook)
+  (CallFunction|UpdateMapMarker)
   (CallFunction|UpdateGear)
   (CallFunction|FitToSkin)
   (if (Pawn|IsLocallyControlled)

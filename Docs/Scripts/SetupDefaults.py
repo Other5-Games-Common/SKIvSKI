@@ -56,6 +56,7 @@ def main():
         "SkiNormal": unreal.Vector(0.0, 0.0, 1.0),   # the skis start flat
         "SnowNormal": unreal.Vector(0.0, 0.0, 1.0),
         "TeamShown": -1,             # no team colour shown yet
+        "MapShown": -2,              # nor a minimap marker: the first frame decides (UpdateMapMarker)
         "MaxAimYaw": 100.0,          # degrees the camera and shots may turn from the skis (as far as the body twists)
         "GunShown": -1,              # no gun or skis shown yet: the first frame shows the player's (UpdateGear)
         "SkisShown": -1,
@@ -159,7 +160,8 @@ def main():
     log("player state defaults")
 
     bp, hud = cdo("/SKIvSKI/Blueprints/BP_SkiHUD")
-    set_all(hud, {"PopupSeconds": 1.6})   # "Hit!" / "Bounce!" pop up, fly up and fade over this long
+    set_all(hud, {"PopupSeconds": 1.6,
+                  "MapRange": 10000.0})   # the minimap shows 100 m around you   # "Hit!" / "Bounce!" pop up, fly up and fade over this long
     eal.save_loaded_asset(bp, False)
 
     bp, gm = cdo("/SKIvSKI/Blueprints/BP_SkiGameMode")

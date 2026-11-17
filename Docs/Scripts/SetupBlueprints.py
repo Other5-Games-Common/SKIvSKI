@@ -123,7 +123,7 @@ def main():
     pm.set_editor_property("projectile_gravity_scale", 1.0)
     pm.set_editor_property("auto_activate", False)
 
-    # The skier: Other5Combat's character (camera, skins, health) with skis, a helmet and a paintball gun.
+    # The skier: Other5Combat's character (camera, skins, health) with skis and a paintball gun.
     ch = make_bp("BP_SkiCharacter", "/Other5Combat/Characters/BP_Other5ProjectileCharacter.BP_Other5ProjectileCharacter_C")
     # The skis: SM_Ski (SetupSkiMesh.py makes it, with its materials, and places them; a plain box until then).
     ski_mesh = unreal.load_asset("/SKIvSKI/Meshes/SM_Ski") if unreal.EditorAssetLibrary.does_asset_exist("/SKIvSKI/Meshes/SM_Ski") else None
@@ -135,11 +135,14 @@ def main():
         s.set_collision_profile_name("NoCollision")
         if not ski_mesh:
             s.set_material(0, unreal.load_asset("/SKIvSKI/Materials/M_SkiColor"))
-    hm = add_comp(ch, "Helmet", unreal.StaticMeshComponent)
-    hm.set_editor_property("static_mesh", sphere)
-    hm.set_editor_property("relative_scale3d", unreal.Vector(0.27, 0.25, 0.22))
-    hm.set_collision_profile_name("NoCollision")
-    hm.set_material(0, unreal.load_asset("/SKIvSKI/Materials/M_SkiColor"))
+    # (The team-coloured helmet sphere is gone: it hid the characters' heads, and the skis show the team.)
+    h, o = find(ch, "Helmet")
+    if o:
+        sub.delete_subobject(handles(ch)[0], h, ch)
+        log("removed the old Helmet")
+    # On the minimap, only for teammates (UpdateMapMarker turns it on per machine).
+    mm = add_comp(ch, "MapMarker", unreal.Other5CompassMarkerComponent)
+    mm.set_editor_property("show_on_compass", False)
     gm = add_comp(ch, "GunMesh", unreal.StaticMeshComponent)
     gm.set_collision_profile_name("NoCollision")
     # Character select: the skier's look (Other5's character skins, the same three as CubeEscape, from

@@ -79,7 +79,7 @@ AddVars $C @(
 	@('PlaceId', 'int', 'Ski|State', 'RepNotify', $false), @('PlacedYaw', 'float', 'Ski|State', 'Replicated', $false), @('bSkiStarted', 'bool', 'Ski|State', 'None', $false),
 	@('Guns', '/SKIvSKI/Guns/BP_PaintGunData.BP_PaintGunData_C:Array', 'Paint', 'None', $true), @('GunIndex', 'int', 'Paint', 'RepNotify', $false),
 	@('NextFireTime', 'float', 'Paint', 'None', $false), @('MaxAimYaw', 'float', 'Paint', 'None', $true), @('ShotSeed', 'int', 'Paint', 'None', $false), @('ShotDir', 'Vector', 'Paint', 'None', $false), @('bPrevSwitchGun', 'bool', 'Paint', 'None', $false), @('ShotStream', '/Script/CoreUObject.RandomStream', 'Paint', 'None', $false),
-	@('TeamShown', 'int', 'Team', 'None', $false), @('TeamColor', 'LinearColor', 'Team', 'None', $false),
+	@('TeamShown', 'int', 'Team', 'None', $false), @('MapShown', 'int', 'Team', 'None', $false), @('TeamColor', 'LinearColor', 'Team', 'None', $false),
 	@('bPrevSwitchTeam', 'bool', 'Team', 'None', $false), @('bPrevHarder', 'bool', 'Team', 'None', $false), @('bPrevEasier', 'bool', 'Team', 'None', $false),
 	@('Skis', '/SKIvSKI/Gear/BP_SkiData.BP_SkiData_C:Array', 'Store', 'None', $true), @('Waxes', '/SKIvSKI/Gear/BP_WaxData.BP_WaxData_C:Array', 'Store', 'None', $true),
 	@('Ammo', 'int', 'Paint', 'None', $false), @('bReloading', 'bool', 'Paint', 'None', $false), @('ReloadDoneAt', 'float', 'Paint', 'None', $false), @('bPrevFire', 'bool', 'Paint', 'None', $false),
@@ -115,7 +115,7 @@ AddVars $D @(
 	@('RaceStartedAt', 'float', 'Round|Work', 'None', $false), @('NextPlace', 'int', 'Round|Work', 'None', $false), @('bAllFinished', 'bool', 'Round|Work', 'None', $false),
 	@('RedPlaced', 'int', 'Round|Work', 'None', $false), @('BluePlaced', 'int', 'Round|Work', 'None', $false), @('LobbyPlaced', 'int', 'Round|Work', 'None', $false), @('HitResult', 'int', 'Round|Work', 'None', $false))
 AddVars $B @(@('Shooter', '/Script/Engine.Pawn', 'Paintball', 'None', $false), @('bScores', 'bool', 'Paintball', 'None', $false), @('BallColor', 'LinearColor', 'Paintball', 'None', $false))
-AddVars $H @(@('PopupTexts', 'string:Array', 'Popups', 'None', $false), @('PopupPlaces', 'Vector:Array', 'Popups', 'None', $false), @('PopupColors', 'LinearColor:Array', 'Popups', 'None', $false),
+AddVars $H @(@('Minimap', '/Script/Other5Compass.Other5MinimapWidget', 'Map', 'None', $false), @('MapRange', 'float', 'Map', 'None', $true), @('PopupTexts', 'string:Array', 'Popups', 'None', $false), @('PopupPlaces', 'Vector:Array', 'Popups', 'None', $false), @('PopupColors', 'LinearColor:Array', 'Popups', 'None', $false),
 	@('PopupStarts', 'float:Array', 'Popups', 'None', $false), @('PopupSizes', 'float:Array', 'Popups', 'None', $false), @('PopupTargets', '/Script/Engine.Actor:Array', 'Popups', 'None', $false), @('PopupSeconds', 'float', 'Popups', 'None', $true),
 	@('ScreenW', 'float', 'Layout', 'None', $false), @('ScreenH', 'float', 'Layout', 'None', $false), @('U', 'float', 'Layout', 'None', $false), @('Row', 'int', 'Layout', 'None', $false),
 	@('LastPhase', 'int', 'Sound', 'None', $false), @('LastSecond', 'int', 'Sound', 'None', $false), @('GoUntil', 'float', 'Sound', 'None', $false),
@@ -150,7 +150,7 @@ AddFunctions $C @(
 	@('IsStoreOpen', @(, @('Open', 'bool', 'out'))), @('ToggleMyStore', @()), @('DebugBuy', @(@('Kind', 'int'), @('Index', 'int'), @('Coins', 'int'))), @('DebugEmpty', @()),
 	@('HopperScale', @(, @('Scale', 'float', 'out'))), @('ExtraMags', @(, @('Mags', 'int', 'out'))), @('MagSizeFor', @(@('Gun', 'obj:/SKIvSKI/Guns/BP_PaintGunData.BP_PaintGunData_C'), @('Size', 'int', 'out'))),
 	@('SpareMax', @(@('Gun', 'obj:/SKIvSKI/Guns/BP_PaintGunData.BP_PaintGunData_C'), @('Balls', 'int', 'out'))), @('GearBlurb', @(@('Kind', 'int'), @('Index', 'int'), @('Blurb', 'string', 'out'))), @('DebugDrain', @()),
-	@('FitToSkin', @()), @('DebugAimAt', @(@('Yaw', 'float'), @('Pitch', 'float'))), @('DebugGunAim', @()), @('SkinOf', @(@('Component', 'obj:/Script/Engine.ActorComponent'), @('Skin', 'obj:/Script/Engine.SkeletalMeshComponent', 'out')))) | Out-Null
+	@('FitToSkin', @()), @('UpdateMapMarker', @()), @('DebugAimAt', @(@('Yaw', 'float'), @('Pitch', 'float'))), @('DebugGunAim', @()), @('SkinOf', @(@('Component', 'obj:/Script/Engine.ActorComponent'), @('Skin', 'obj:/Script/Engine.SkeletalMeshComponent', 'out')))) | Out-Null
 AddFunctions $D @(
 	@('Now', @(, @('Time', 'float', 'out'))), @('FindSlope', @(, @('Found', 'bool', 'out'))), @('SetupRounds', @()), @('ServerStep', @()), @('StartLobby', @()),
 	@('StartCountdown', @()), @('StartRace', @()), @('EndRace', @()), @('PlaceAll', @(@('bAtGate', 'bool'), @('bFreeze', 'bool'))),
@@ -159,6 +159,7 @@ AddFunctions $D @(
 	@('ResolvePaintHit', @(@('Shooter', $PAWN), @('Victim', $PAWN), @('Result', 'int', 'out'))), @('JudgePaintHit', @(@('Shooter', $PAWN), @('Victim', $PAWN))), @('ResetRound', @()),
 	@('ChangeDifficulty', @(@('Player', $PS), @('Step', 'int'))), @('PaySurvivors', @())) | Out-Null
 AddFunctions $H @(
+	@('EnsureMinimap', @()),
 	@('DrawRound', @(, @('Director', 'obj:/SKIvSKI/Blueprints/BP_SkiDirector.BP_SkiDirector_C'))), @('DrawSkier', @(, @('Skier', 'obj:/SKIvSKI/Blueprints/BP_SkiCharacter.BP_SkiCharacter_C'))),
 	@('AddPopup', @(@('Text', 'string'), @('Where', 'Vector'), @('Color', 'LinearColor'), @('Size', 'float'), @('Target', 'obj:/Script/Engine.Actor'))), @('DrawPopups', @()),
 	@('AddPopupLook', @(@('Color', 'LinearColor'), @('Size', 'float'))), @('PopupSpot', @(@('Index', 'int'), @('Spot', 'Vector', 'out'))),

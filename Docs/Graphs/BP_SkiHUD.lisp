@@ -17,12 +17,28 @@
   (Variables|Layout|SetScreenW SizeX)
   (Variables|Layout|SetScreenH SizeY)
   (Variables|Layout|SetU (/ SizeY 1080.0))
+  (CallFunction|EnsureMinimap)
   (CallFunction|DrawPopups)
   (bind director (Actor|GetActorOfClass :ActorClass "/SKIvSKI/Blueprints/BP_SkiDirector.BP_SkiDirector_C"))
   (Utilities|IsValid director
    (:"Is Valid"
     (CallFunction|DrawRound :Director director))
    (:"Is Not Valid")))
+
+; ---- the minimap -------------------------------------------------------------------------------------------------
+
+; Other5's minimap (Other5Compass's Other5 Minimap Widget), top right, out to MapRange. It shows markers only, not every
+; other player: your teammates (each skier's MapMarker shows to its own team, BP_SkiCharacter UpdateMapMarker) and the
+; enemies your team tags with middle mouse (Other5's comms marks them for a few seconds). Made once, on the first frame.
+(fn EnsureMinimap ()
+  (Utilities|IsValid (Variables|Map|GetMinimap)
+    (:"Is Valid")
+    (:"Is Not Valid"
+      (bind map (UserInterface|CreateWidget :Class "/Script/Other5Compass.Other5MinimapWidget" :OwningPlayer (HUD|GetOwningPlayerController)))
+      (Variables|Map|SetMinimap map)
+      (Class|Other5CompassWidget|SetShowOtherPlayers :self map :bShowOtherPlayers false)
+      (Minimap|SetRange :self map :NewRange (Variables|Map|GetMapRange))
+      (UserInterface|Viewport|AddtoViewport :self map))))
 
 ; ---- the round ---------------------------------------------------------------------------------------------------
 

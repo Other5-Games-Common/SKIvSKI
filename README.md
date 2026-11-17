@@ -243,7 +243,14 @@ The server-only parts check the player's **Has Valid Admin PIN** (Other5's playe
 
 Both are Other5's, for every Creation. Pings and quick chat work as in CubeEscape: middle mouse pings the spot under
 the crosshair (hold it for the quick-chat wheel), with markers, the chat line and sound (Other5Comms, keys in
-Settings > Controls). Character select is Other5's "Choose your fighter" screen: the skier has an **Other5 Character
+Settings > Controls). In the lobby everyone hears everyone; from the countdown to the results, only your team
+(`BP_SkiDirector` sets Other5's **Set Team Only Comms**). Pinging a skier of the other team (at them, or close to
+them) **tags** them: they show on your team's minimap for 8 seconds.
+
+**The minimap** (top right, 100 m round you, `MapRange` on `BP_SkiHUD`) is Other5Compass's minimap: your teammates
+(each skier's `MapMarker` shows only to its own team, `UpdateMapMarker`) in the team's colour with their initial, grey
+once they're out, and the enemies your team tagged. The skis show which team a skier is on (the old helmet sphere is
+gone). Character select is Other5's "Choose your fighter" screen: the skier has an **Other5 Character
 Skins** component (Manny, Quinn, the Countess, from Other5Characters) with **Choose On Join** (a player who hasn't picked
 a fighter picks one when they join) and **Menu Button** (a Fighter button in the game menu) ticked.
 
