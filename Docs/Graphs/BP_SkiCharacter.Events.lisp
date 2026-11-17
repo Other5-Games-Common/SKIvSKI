@@ -32,6 +32,7 @@
     (CallFunction|SkiBeginPlay))
   (CallFunction|UpdateSlope)
   (CallFunction|UpdateGlide)
+  (CallFunction|MatchVelocityToMove :DeltaSeconds DeltaSeconds)
   (CallFunction|UpdateTeamLook)
   (CallFunction|UpdateMapMarker)
   (CallFunction|UpdateGear)
@@ -55,3 +56,10 @@
 (event Custom|ServerSetSkiYaw (NewYaw)
   (Variables|Ski|State|SetSkiYaw NewYaw)
   (Transformation|SetActorRotation :NewRotation (Math|Rotator|MakeRotator :Yaw NewYaw)))
+
+; Jumping while (nearly) stopped also pushes the skier along their skis (JumpPush), so a stuck skier can hop up a
+; slope a little at a time: out of a fort's open side, say. Runs where the jump does (the player's machine and the
+; server), like the jump itself.
+(event Character|EventOnJumped
+  (if (< (Math|Vector|VectorLengthXY (Transformation|GetVelocity)) (Variables|Fort|GetJumpPushBelow))
+    (Character|LaunchCharacter :LaunchVelocity (* (Transformation|GetActorForwardVector) (Variables|Fort|GetJumpPush)) :bXYOverride false :bZOverride false)))

@@ -79,6 +79,7 @@
   (bind skier (Utilities|Casting|CastToBP_SkiCharacter :Object (HUD|GetOwningPawn))
     (:then
       (CallFunction|DrawSkier :Skier skier)
+      (CallFunction|DrawFort :Skier skier)
       (if (Variables|Store|GetStoreOpen)
         (CallFunction|DrawStore :Skier skier)))
     (:CastFailed)))
@@ -197,6 +198,34 @@
       (bind coins (Class|BPSkiCharacter|GetCoins :self Skier))
       (CallFunction|DrawLeft :Text (Utilities|String|Append "coins  " (Utilities|String|ToString(Integer) coins)) :X (+ gx (* 20.0 u)) :Y (- bottom (* 54.0 u)) :Color (CallFunction|Gold) :Size 1.8 :bTitle true)
       (CallFunction|DrawLeft :Text "B  store" :X (+ gx (* 300.0 u)) :Y (- bottom (* 52.0 u)) :Color (CallFunction|Muted) :Size 1.4 :bTitle false))
+    (:"Is Not Valid")))
+
+; Above your skier, while you're in a fort (BP_SkiFort): whose flag is going up (or who holds it) with a bar, and the
+; Exit fort key, or how long until you can use it again.
+(fn DrawFort (Skier)
+  (bind fort (Class|BPSkiCharacter|CurrentFort :self Skier))
+  (Utilities|IsValid fort
+    (:"Is Valid"
+      (bind u (Variables|Layout|GetU))
+      (bind w (Variables|Layout|GetScreenW))
+      (bind bottom (Variables|Layout|GetScreenH))
+      (bind captured (Class|BPSkiFort|GetCapturedBy :self fort))
+      (bind progress (Class|BPSkiFort|GetProgress :self fort))
+      (bind team (select (>= captured 0) captured (Class|BPSkiFort|GetProgressTeam :self fort)))
+      (bind shown (and (>= team 0) (or (>= captured 0) (> progress 0.0))))
+      (bind color (select shown (Other5|Teams|GetTeamColor :Team team) (CallFunction|Muted)))
+      (bind teamName (Utilities|String|ToUpper (Utilities|String|ToString(Text) (Other5|Teams|GetTeamName :Team team))))
+      (bind percent (Utilities|String|Append (Utilities|String|ToString(Integer) (Math|Float|Round (* progress 100.0))) "%"))
+      (bind status (select (>= captured 0) (Utilities|String|Append "FORT HELD BY " teamName) (select shown (Utilities|String|Append (Utilities|String|Append "RAISING " teamName) (Utilities|String|Append " FLAG  " percent)) "FORT: STAY IN TO RAISE YOUR FLAG")))
+      (bind fx (- (* w 0.5) (* 200.0 u)))
+      (bind fy (- bottom (* 262.0 u)))
+      (CallFunction|DrawPanel :X fx :Y fy :W (* 400.0 u) :H (* 90.0 u) :Accent color)
+      (CallFunction|DrawLeft :Text status :X (+ fx (* 20.0 u)) :Y (+ fy (* 12.0 u)) :Color color :Size 1.7 :bTitle true)
+      (HUD|DrawRect :RectColor (Utilities|Struct|MakeLinearColor 1.0 1.0 1.0 0.12) :ScreenX (+ fx (* 20.0 u)) :ScreenY (+ fy (* 42.0 u)) :ScreenW (* 360.0 u) :ScreenH (* 8.0 u))
+      (HUD|DrawRect :RectColor color :ScreenX (+ fx (* 20.0 u)) :ScreenY (+ fy (* 42.0 u)) :ScreenW (* (* 360.0 u) progress) :ScreenH (* 8.0 u))
+      (bind wait (- (Class|BPSkiCharacter|GetExitReadyAt :self Skier) (GameState|GetServerWorldTimeSeconds :self (Game|GetGameState))))
+      (bind exitText (select (> wait 0.0) (Utilities|String|Append "exit fort in " (Utilities|String|Append (Utilities|String|ToString(Integer) (Math|Float|Ceil wait)) " s")) "F  exit fort"))
+      (CallFunction|DrawLeft :Text exitText :X (+ fx (* 20.0 u)) :Y (+ fy (* 58.0 u)) :Color (CallFunction|Ink) :Size 1.5 :bTitle false))
     (:"Is Not Valid")))
 
 ; ---- sounds ----------------------------------------------------------------------------------------------------------

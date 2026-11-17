@@ -151,6 +151,24 @@
       (Compass|SetMarker :self (Variables|Default|GetMapMarker) :NewMarker (Utilities|Struct|MakeOther5CompassMarker :Shape "Pip" :Color tint :Label (Utilities|Text|ToText(String) initial))))
     (Compass|SetShowonCompass :self (Variables|Default|GetMapMarker) :bShow (>= shown 0))))
 
+; The fort (BP_SkiFort) this skier is in, if any (in its Zone; none otherwise). There are only a few forts.
+(fn CurrentFort ()
+  (for fort (Actor|GetAllActorsOfClass :ActorClass "/SKIvSKI/Blueprints/BP_SkiFort.BP_SkiFort_C")
+    (if (Collision|IsOverlappingActor :self (Class|BPSkiFort|GetZone :self fort) :Other self)
+      (return fort))))
+
+; The server, when the player presses F: out of the fort they're in, just uphill of its open side (the fort's
+; TakeExitSpot), no more often than every ExitCooldown seconds (ExitReadyAt replicates, for the HUD's countdown).
+(event Custom|ServerExitFort
+  (bind fort (CallFunction|CurrentFort))
+  (bind now (GameState|GetServerWorldTimeSeconds :self (Game|GetGameState)))
+  (if (>= now (Variables|Fort|GetExitReadyAt))
+    (Utilities|IsValid fort
+      (:"Is Valid"
+        (Variables|Fort|SetExitReadyAt (+ now (Variables|Fort|GetExitCooldown)))
+        (CallFunction|PlaceAt :Spot (Class|BPSkiFort|TakeExitSpot :self fort)))
+      (:"Is Not Valid"))))
+
 ; Is this skier out of the race (hit by paint)? Out skiers can't fire.
 (fn IsOut ()
   (bind ski (CallFunction|GetSkiPlayerState))
@@ -323,7 +341,8 @@
     (Variables|Paint|SetAmmo (+ (Variables|Paint|GetAmmo) (Variables|Paint|GetReloadTake)))
     (Variables|Paint|SetSpare (- (Variables|Paint|GetSpare) (Variables|Paint|GetReloadTake)))))
 
-; Buttons that act once per press (this player's own machine): R reload, B store, T switch team, ] harder, [ easier.
+; Buttons that act once per press (this player's own machine): R reload, B store, T switch team, ] harder, [ easier,
+; F exit fort.
 ; Fire: a semi-automatic gun fires once per press, a full-automatic one (bFullAuto) keeps firing while it's held, both
 ; at most ShotsPerSecond.
 (fn ReadButtons ()
@@ -348,6 +367,11 @@
   (if (and easierKey (not (Variables|Team|GetPrevEasier)))
     (CallFunction|ServerChangeDifficulty :Step -1))
   (Variables|Team|SetPrevEasier easierKey)
+  ; F: out of the fort you're in (the server checks you're in one and ExitCooldown).
+  (bind exitKey (Input|EnhancedActionValues|IA_SkiExitFort))
+  (if (and exitKey (not (Variables|Fort|GetPrevExitFort)))
+    (CallFunction|ServerExitFort))
+  (Variables|Fort|SetPrevExitFort exitKey)
   (bind fireKey (Input|EnhancedActionValues|IA_SkiFire))
   (bind gun (CallFunction|GetCurrentGun))
   (if (and fireKey (or (Class|BPPaintGunData|GetFullAuto :self gun) (not (Variables|Paint|GetPrevFire))))
@@ -575,6 +599,15 @@
 (fn DebugHitMe ()
   (if (Networking|HasAuthority)
     (CallFunction|MulticastPaintResult :bHit true :Where (+ (Transformation|GetActorLocation) (Math|Vector|MakeVector 30.0 0.0 40.0)) :Bounce (Math|Vector|MakeVector 0.0 0.0 0.0) :Tint (Math|Vector|MakeVector 1.0 0.1 0.1) :Size 14.0)))
+
+; For tests: put this skier in fort number Index of the slope, just inside its open side, facing its front wall
+; ("call pawn DebugGoToFort 0"). Only where the round is run (the server, or a standalone game).
+(fn DebugGoToFort (Index)
+  (bind slope (Actor|GetActorOfClass :ActorClass "/SKIvSKI/Blueprints/BP_SkiSlope.BP_SkiSlope_C"))
+  (bind forts (Class|BPSkiSlope|GetForts :self slope))
+  (if (and (Networking|HasAuthority) (Utilities|Array|IsValidIndex :TargetArray forts :IndexToTest Index))
+    (bind fort (Utilities|Array|Get(acopy) forts Index))
+    (CallFunction|PlaceAt :Spot (Math|Transform|ComposeTransforms (Math|Transform|MakeTransform (Math|Vector|MakeVector -60.0 0.0 120.0) (Math|Rotator|MakeRotator :Yaw 0.0) (Math|Vector|MakeVector 1.0 1.0 1.0)) (Transformation|GetActorTransform :self fort)))))
 
 ; For tests: show both pop-ups over this skier on this machine, with their sounds ("call pawn DebugPopup").
 (fn DebugPopup ()

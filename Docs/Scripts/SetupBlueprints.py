@@ -211,7 +211,39 @@ def main():
             c.set_collision_profile_name("BlockAll")
     make_bp("BP_SkiDirector", "/Script/Other5.Other5GameCoordinator")
 
-    for bp in (ball, ch, slope):
+    # A log fort (BP_SkiFort.lisp): its walls are SM_SkiLog instances (SetupFortMesh.py; LayLogs places them), a pole
+    # and a flag (tinted with the team's colour), the Zone you stand in to capture it, and its minimap marker.
+    fort = make_bp("BP_SkiFort", "/Script/Engine.Actor")
+    logs = add_comp(fort, "Logs", unreal.InstancedStaticMeshComponent)
+    log_mesh = "/SKIvSKI/Meshes/SM_SkiLog"
+    if eal.does_asset_exist(log_mesh):
+        logs.set_editor_property("static_mesh", unreal.load_asset(log_mesh))
+    logs.set_collision_profile_name("BlockAll")
+    # The camera (and the skis' snow sampling, which traces on the Camera channel) goes through the logs.
+    logs.set_collision_response_to_channel(unreal.CollisionChannel.ECC_CAMERA, unreal.CollisionResponseType.ECR_IGNORE)
+    pole = add_comp(fort, "Pole", unreal.StaticMeshComponent)
+    pole.set_editor_property("static_mesh", cylinder)
+    pole.set_material(0, unreal.load_asset("/SKIvSKI/Materials/MI_SkiPineBark"))
+    pole.set_editor_property("relative_location", unreal.Vector(150.0, 0.0, 300.0))
+    pole.set_editor_property("relative_scale3d", unreal.Vector(0.08, 0.08, 6.0))
+    pole.set_collision_profile_name("NoCollision")
+    flag = add_comp(fort, "Flag", unreal.StaticMeshComponent)
+    flag.set_editor_property("static_mesh", cube)
+    flag.set_material(0, unreal.load_asset("/SKIvSKI/Materials/M_SkiColor"))
+    flag.set_editor_property("relative_location", unreal.Vector(150.0, 58.0, 120.0))
+    flag.set_editor_property("relative_scale3d", unreal.Vector(0.03, 1.1, 0.7))
+    flag.set_collision_profile_name("NoCollision")
+    zone = add_comp(fort, "Zone", unreal.BoxComponent)
+    zone.set_editor_property("box_extent", unreal.Vector(200.0, 290.0, 200.0))
+    zone.set_editor_property("relative_location", unreal.Vector(0.0, 0.0, 200.0))
+    zone.set_collision_profile_name("OverlapOnlyPawn")
+    # Not in the way of traces: the skis' snow sampling starts inside it (and would read a flat plane), and pings.
+    zone.set_collision_response_to_channel(unreal.CollisionChannel.ECC_VISIBILITY, unreal.CollisionResponseType.ECR_IGNORE)
+    zone.set_collision_response_to_channel(unreal.CollisionChannel.ECC_CAMERA, unreal.CollisionResponseType.ECR_IGNORE)
+    zone.set_editor_property("generate_overlap_events", True)
+    add_comp(fort, "MapMarker", unreal.Other5CompassMarkerComponent)
+
+    for bp in (ball, ch, slope, fort):
         unreal.BlueprintEditorLibrary.compile_blueprint(bp)
     eal.save_directory("/SKIvSKI", only_if_is_dirty=True, recursive=True)
     for h in handles(ch):

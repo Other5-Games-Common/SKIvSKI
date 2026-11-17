@@ -30,10 +30,11 @@ A round: **Lobby** (15 s on the flat snow behind the gates; the clock waits for 
 | Mouse | Look and aim (the upper body follows; the skis don't). |
 | Left mouse (right trigger) | Fire: once per click (semi-auto), or held (full-auto markers), up to the gun's rate. |
 | R (Y) | Reload (an empty magazine reloads by itself). |
+| F (d-pad left) | Exit fort: out of the fort you're in, just uphill of it (every 10 s at most). |
 | B (Start) | The store (lobby and results; it opens by itself with the results). Click an item to buy it. |
 | T (X) | Switch team (lobby only). |
 | [ / ] (d-pad) | Admin: easier / harder slope (lobby or results; regenerates the slope). Without an AdminPIN on the server everyone is an admin. |
-| Space | Jump (from Other5Combat). |
+| Space | Jump (from Other5Combat). Nearly stopped, a jump also pushes you along your skis: hop up a slope. |
 | Esc / F10 | Other5's game menu. |
 
 ### Paint, outs and scoring
@@ -253,6 +254,25 @@ once they're out, and the enemies your team tagged. The skis show which team a s
 gone). Character select is Other5's "Choose your fighter" screen: the skier has an **Other5 Character
 Skins** component (Manny, Quinn, the Countess, from Other5Characters) with **Choose On Join** (a player who hasn't picked
 a fighter picks one when they join) and **Menu Button** (a Fighter button in the game menu) ticked.
+
+### Forts (BP_SkiFort): a reason not to just race to the bottom
+
+Each slope has **FortCount** (3) log forts down the second half of the run, on alternate sides past the racing
+lines, placed from the slope's Seed (`PlanForts`; pines keep clear of them and the bumps flatten under them) and
+spawned by the server (`SpawnForts`). A fort is open uphill: ski in from above and stop against its front wall. Its
+walls are logs (`SM_SkiLog`, made by `Docs/Scripts/SetupFortMesh.py` with the pines' bark) four rows high, with a slit
+under the top row, a gap in the middle of the front wall and gaps at the front corners: shots get in only by luck.
+
+- **Capture** (the race only): while skiers of one team (not out) are in it alone, its flag rises, **CaptureSeconds**
+  (10 s) from bottom to top; the other team alone pulls it back down first; both teams in it hold it still. At the
+  top it's that team's for the rest of the race: **+1 point** for the team and the hit coins (`HitCoins`, 3) for each
+  of its skiers in the fort. "FORT TAKEN!" pops up in the team's colour.
+- **Getting out:** ski back up the open side; or **jump** while (nearly) stopped, which also pushes you along your
+  skis (`JumpPush`, 4.5 m/s), to hop up a slope; or press **F** (gamepad d-pad left), **Exit fort**: the server puts
+  you just uphill of the fort, skis across the slope, at most every 10 s (`ExitCooldown`). The HUD shows a fort panel
+  while you're in one: whose flag is going up (or who holds it), and F or how long until you can use it again.
+- On the minimap a fort is a tick: grey, pulsing in a team's colour while its flag rises, then that team's colour.
+- Tests: `call pawn DebugGoToFort 0` puts you in the first fort (standalone or the server).
 
 ### The slope's trees and run-out
 

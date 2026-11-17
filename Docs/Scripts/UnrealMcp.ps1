@@ -163,6 +163,19 @@ function SetRpc($w, $mode, [bool]$reliable) {
 	$null = Mcp-Call $script:SI 'SelectOption' @{ ref = $combo; value = $mode }
 	Start-Sleep 1
 	$s = Snap $w
+	# On the Mac SelectOption can leave the combo as it was: open it and click the entry instead.
+	$i = ($s | Select-String 'text "Replicates"' | Select-Object -First 1).LineNumber
+	if ($s[$i + 2] -notmatch ('text "' + [regex]::Escape($mode) + '"')) {
+		$null = UiClick (RefOf $s[$i + 1])
+		Start-Sleep 2
+		$option = $null
+		for ($try = 0; $try -lt 3 -and -not $option; $try++) {
+			$option = Snap '' 150 | Where-Object { $_ -match ('generic "' + [regex]::Escape($mode) + '"') } | Select-Object -First 1
+			if (-not $option) { Start-Sleep 1 }
+		}
+		if ($option) { $null = UiClick (RefOf $option); Start-Sleep 2 }
+		$s = Snap $w
+	}
 	$cbLine = $s | Where-Object { $_ -match 'checkbox "Reliable"' } | Select-Object -First 1
 	$isChecked = $cbLine -match '\bchecked\b' -and $cbLine -notmatch 'unchecked'
 	if ($reliable -ne $isChecked) { $null = UiClick (RefOf $cbLine) }

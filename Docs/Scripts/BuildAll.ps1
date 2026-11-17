@@ -31,6 +31,8 @@ $SK = '/SKIvSKI/Gear/BP_SkiData'
 $WX = '/SKIvSKI/Gear/BP_WaxData'
 $UP = '/SKIvSKI/Gear/BP_UpgradeData'
 $A = '/SKIvSKI/Animation/ABP_Skier'
+$F = '/SKIvSKI/Blueprints/BP_SkiFort'
+$FORT = 'obj:/SKIvSKI/Blueprints/BP_SkiFort.BP_SkiFort_C'
 $PS = 'obj:/SKIvSKI/Blueprints/BP_SkiPlayerState.BP_SkiPlayerState_C'
 $PAWN = 'obj:/Script/Engine.Pawn'
 $SM = 'obj:/Script/Engine.StaticMeshComponent'
@@ -39,11 +41,20 @@ $ISM = 'obj:/Script/Engine.InstancedStaticMeshComponent'
 Step 'input, materials, Blueprint shells and components'
 Py (Join-Path $Scripts 'SetupInput.py')
 Py (Join-Path $Scripts 'SetupMaterials.py')
+Py (Join-Path $Scripts 'SetupFortMesh.py')
 Py (Join-Path $Scripts 'SetupAudio.py')
 Py (Join-Path $Scripts 'SetupFonts.py')
 Py (Join-Path $Scripts 'SetupBlueprints.py') | Select-String -NotMatch 'char comp'
 
 Step 'variables'
+AddVars $F @(
+	@('Width', 'float', 'Fort|Layout', 'None', $true), @('Depth', 'float', 'Fort|Layout', 'None', $true), @('FrontGap', 'float', 'Fort|Layout', 'None', $true),
+	@('CornerGap', 'float', 'Fort|Layout', 'None', $true), @('RowHeights', 'float:Array', 'Fort|Layout', 'None', $true), @('CaptureSeconds', 'float', 'Fort|Layout', 'None', $true),
+	@('ExitDistance', 'float', 'Fort|Layout', 'None', $true), @('PoleX', 'float', 'Fort|Layout', 'None', $true), @('FlagLow', 'float', 'Fort|Layout', 'None', $true),
+	@('FlagHigh', 'float', 'Fort|Layout', 'None', $true),
+	@('Progress', 'float', 'Fort|State', 'Replicated', $false), @('ProgressTeam', 'int', 'Fort|State', 'Replicated', $false), @('CapturedBy', 'int', 'Fort|State', 'RepNotify', $false),
+	@('FlagShown', 'int', 'Fort|State', 'None', $false),
+	@('RedInside', 'int', 'Fort|Work', 'None', $false), @('BlueInside', 'int', 'Fort|Work', 'None', $false), @('Exits', 'int', 'Fort|Work', 'None', $false)) | Out-Null
 AddVars $G @(
 	@('GunName', 'text', 'Gun', 'None', $true), @('Mesh', '/Script/Engine.StaticMesh', 'Gun', 'None', $true), @('MuzzleOffset', 'Vector', 'Gun', 'None', $true),
 	@('MuzzleSpeed', 'float', 'Paintball', 'None', $true), @('BallGravityScale', 'float', 'Paintball', 'None', $true), @('BallSize', 'float', 'Paintball', 'None', $true),
@@ -75,7 +86,8 @@ AddVars $C @(
 	@('LastSentYaw', 'float', 'Ski|State', 'None', $false), @('Lean', 'float', 'Ski|State', 'None', $false), @('LastYaw', 'float', 'Ski|State', 'None', $false),
 	@('SpeedKmh', 'float', 'Ski|State', 'None', $false), @('FloorNormal', 'Vector', 'Ski|State', 'None', $false),
 	@('SkiStance', 'float', 'Ski|Tuning', 'None', $true), @('BindingForward', 'float', 'Ski|Tuning', 'None', $true), @('SnowProbeHalf', 'float', 'Ski|Tuning', 'None', $true), @('SkiSettleSpeed', 'float', 'Ski|Tuning', 'None', $true), @('SkiLift', 'float', 'Ski|Tuning', 'None', $true),
-	@('bSnowFound', 'bool', 'Ski|State', 'None', $false), @('SnowNormal', 'Vector', 'Ski|State', 'None', $false), @('SnowCentre', 'Vector', 'Ski|State', 'None', $false), @('SkiNormal', 'Vector', 'Ski|State', 'None', $false),
+	@('ExitReadyAt', 'float', 'Fort', 'Replicated', $false), @('ExitCooldown', 'float', 'Fort', 'None', $true), @('JumpPush', 'float', 'Fort', 'None', $true), @('JumpPushBelow', 'float', 'Fort', 'None', $true), @('bPrevExitFort', 'bool', 'Fort', 'None', $false),
+	@('bSnowFound', 'bool', 'Ski|State', 'None', $false), @('SnowNormal', 'Vector', 'Ski|State', 'None', $false), @('SnowCentre', 'Vector', 'Ski|State', 'None', $false), @('SkiNormal', 'Vector', 'Ski|State', 'None', $false), @('LastPlace', 'Vector', 'Ski|State', 'None', $false),
 	@('PlaceId', 'int', 'Ski|State', 'RepNotify', $false), @('PlacedYaw', 'float', 'Ski|State', 'Replicated', $false), @('bSkiStarted', 'bool', 'Ski|State', 'None', $false),
 	@('Guns', '/SKIvSKI/Guns/BP_PaintGunData.BP_PaintGunData_C:Array', 'Paint', 'None', $true), @('GunIndex', 'int', 'Paint', 'RepNotify', $false),
 	@('NextFireTime', 'float', 'Paint', 'None', $false), @('MaxAimYaw', 'float', 'Paint', 'None', $true), @('ShotSeed', 'int', 'Paint', 'None', $false), @('ShotDir', 'Vector', 'Paint', 'None', $false), @('bPrevSwitchGun', 'bool', 'Paint', 'None', $false), @('ShotStream', '/Script/CoreUObject.RandomStream', 'Paint', 'None', $false),
@@ -87,6 +99,9 @@ AddVars $C @(
 	@('Upgrades', '/SKIvSKI/Gear/BP_UpgradeData.BP_UpgradeData_C:Array', 'Store', 'None', $true), @('Spare', 'int', 'Paint', 'None', $false), @('BaseSpareMags', 'int', 'Paint', 'None', $true),
 	@('ShownSkin', '/Script/Engine.SkeletalMeshComponent', 'Paint', 'None', $false), @('MagShown', 'int', 'Paint', 'None', $false), @('SpareShown', 'int', 'Paint', 'None', $false), @('PhaseShown', 'int', 'Paint', 'None', $false), @('UpgradeWork', 'float', 'Paint', 'None', $false), @('ReloadTake', 'int', 'Paint', 'None', $false))
 AddVars $S @(
+	@('FortCount', 'int', 'Slope|Layout', 'None', $true), @('FortClear', 'float', 'Slope|Layout', 'None', $true), @('FortCalmDistance', 'float', 'Slope|Layout', 'None', $true),
+	@('FortSpots', 'Vector:Array', 'Slope|Work', 'None', $false), @('Forts', '/SKIvSKI/Blueprints/BP_SkiFort.BP_SkiFort_C:Array', 'Slope|Work', 'None', $false), @('FortStream', '/Script/CoreUObject.RandomStream', 'Slope|Work', 'None', $false),
+	@('FortSide', 'float', 'Slope|Work', 'None', $false), @('FortAcross', 'float', 'Slope|Work', 'None', $false),
 	@('Length', 'float', 'Slope|Layout', 'None', $true), @('TopWidth', 'float', 'Slope|Layout', 'None', $true), @('FinishWidth', 'float', 'Slope|Layout', 'None', $true),
 	@('LobbyLength', 'float', 'Slope|Layout', 'None', $true), @('CellSize', 'float', 'Slope|Layout', 'None', $true), @('BankHeight', 'float', 'Slope|Layout', 'None', $true),
 	@('BankWidth', 'float', 'Slope|Layout', 'None', $true), @('RidgeHeight', 'float', 'Slope|Layout', 'None', $true), @('GateSpread', 'float', 'Slope|Layout', 'None', $true),
@@ -124,7 +139,11 @@ AddVars $H @(@('Minimap', '/Script/Other5Compass.Other5MinimapWidget', 'Map', 'N
 foreach ($asset in $G, $SK, $WX, $UP, $P, $C, $S, $D, $B, $H) { Compile $asset | Out-Null }
 
 Step 'functions (with typed inputs/outputs)'
+AddFunctions $F @(
+	@('LayLogs', @()), @('AddLog', @(@('At', 'Vector'), @('Yaw', 'float'), @('Length', 'float'))), @('ServerStep', @(, @('DeltaSeconds', 'float'))),
+	@('Capture', @(@('Team', 'int'), @('Director', 'obj:/SKIvSKI/Blueprints/BP_SkiDirector.BP_SkiDirector_C'))), @('ShowFlag', @()), @('TakeExitSpot', @(, @('Spot', 'Transform', 'out')))) | Out-Null
 AddFunctions $S @(
+	@('PlanForts', @()), @('FortCalm', @(@('X', 'float'), @('Y', 'float'), @('Calm', 'float', 'out'))), @('SpawnForts', @()),
 	@('HeightAt', @(@('X', 'float'), @('Y', 'float'), @('Height', 'float', 'out'))), @('BuildSnow', @()), @('PlantTrees', @()), @('PlantTree', @(@('X', 'float'), @('Y', 'float'), @('Size', 'float'), @('Spin', 'float'))), @('PlaceGates', @()), @('Generate', @()),
 	@('PlaceArch', @(@('PostLeft', $SM), @('PostRight', $SM), @('Banner', $SM), @('X', 'float'), @('Y', 'float'), @('Width', 'float'))),
 	@('Rebuild', @(@('NewSeed', 'int'), @('NewDifficulty', 'int'))), @('GetStartSpot', @(@('Team', 'int'), @('Index', 'int'), @('Spot', 'Transform', 'out'))),
@@ -136,7 +155,7 @@ AddFunctions $S @(
 	@('LookMaterialOn', @(@('Target', 'obj:/Script/Engine.PrimitiveComponent'), @('Path', 'string'), @('Found', 'bool', 'out'))), @('StartSnowfall', @()), @('ApplyLook', @()), @('DressScene', @())) | Out-Null
 AddFunctions $C @(
 	@('SkiBeginPlay', @()), @('SetupSkiMovement', @()), @('UpdateGlide', @()), @('UpdateSlope', @()), @('SteerSkis', @(, @('DeltaSeconds', 'float'))), @('PushDownSlope', @()), @('LeanIntoTurn', @(, @('DeltaSeconds', 'float'))),
-	@('SnowPoint', @(@('Along', 'float'), @('Across', 'float'), @('Point', 'Vector', 'out'))), @('SampleSnow', @()), @('SnowHeightAt', @(@('Where', 'Vector'), @('Height', 'float', 'out'))), @('PlaceSkis', @(, @('DeltaSeconds', 'float'))),
+	@('SnowPoint', @(@('Along', 'float'), @('Across', 'float'), @('Point', 'Vector', 'out'))), @('SampleSnow', @()), @('SnowHeightAt', @(@('Where', 'Vector'), @('Height', 'float', 'out'))), @('PlaceSkis', @(, @('DeltaSeconds', 'float'))), @('MatchVelocityToMove', @(, @('DeltaSeconds', 'float'))),
 	@('DebugReport', @()), @('PlaceAt', @(, @('Spot', 'Transform'))),
 	@('PaintedBy', @(@('Shooter', $PAWN), @('Where', 'Vector'), @('Direction', 'Vector'), @('Normal', 'Vector'), @('Color', 'LinearColor'), @('Size', 'float'))),
 	@('IsOut', @(, @('Out', 'bool', 'out'))), @('AddCoins', @(, @('Amount', 'int'))), @('GetCoins', @(, @('Coins', 'int', 'out'))),
@@ -150,7 +169,7 @@ AddFunctions $C @(
 	@('IsStoreOpen', @(, @('Open', 'bool', 'out'))), @('ToggleMyStore', @()), @('DebugBuy', @(@('Kind', 'int'), @('Index', 'int'), @('Coins', 'int'))), @('DebugEmpty', @()),
 	@('HopperScale', @(, @('Scale', 'float', 'out'))), @('ExtraMags', @(, @('Mags', 'int', 'out'))), @('MagSizeFor', @(@('Gun', 'obj:/SKIvSKI/Guns/BP_PaintGunData.BP_PaintGunData_C'), @('Size', 'int', 'out'))),
 	@('SpareMax', @(@('Gun', 'obj:/SKIvSKI/Guns/BP_PaintGunData.BP_PaintGunData_C'), @('Balls', 'int', 'out'))), @('GearBlurb', @(@('Kind', 'int'), @('Index', 'int'), @('Blurb', 'string', 'out'))), @('DebugDrain', @()),
-	@('FitToSkin', @()), @('UpdateMapMarker', @()), @('DebugAimAt', @(@('Yaw', 'float'), @('Pitch', 'float'))), @('DebugGunAim', @()), @('SkinOf', @(@('Component', 'obj:/Script/Engine.ActorComponent'), @('Skin', 'obj:/Script/Engine.SkeletalMeshComponent', 'out')))) | Out-Null
+	@('FitToSkin', @()), @('CurrentFort', @(, @('Fort', $FORT, 'out'))), @('DebugGoToFort', @(, @('Index', 'int'))), @('UpdateMapMarker', @()), @('DebugAimAt', @(@('Yaw', 'float'), @('Pitch', 'float'))), @('DebugGunAim', @()), @('SkinOf', @(@('Component', 'obj:/Script/Engine.ActorComponent'), @('Skin', 'obj:/Script/Engine.SkeletalMeshComponent', 'out')))) | Out-Null
 AddFunctions $D @(
 	@('Now', @(, @('Time', 'float', 'out'))), @('FindSlope', @(, @('Found', 'bool', 'out'))), @('SetupRounds', @()), @('ServerStep', @()), @('StartLobby', @()),
 	@('StartCountdown', @()), @('StartRace', @()), @('EndRace', @()), @('PlaceAll', @(@('bAtGate', 'bool'), @('bFreeze', 'bool'))),
@@ -159,7 +178,7 @@ AddFunctions $D @(
 	@('ResolvePaintHit', @(@('Shooter', $PAWN), @('Victim', $PAWN), @('Result', 'int', 'out'))), @('JudgePaintHit', @(@('Shooter', $PAWN), @('Victim', $PAWN))), @('ResetRound', @()),
 	@('ChangeDifficulty', @(@('Player', $PS), @('Step', 'int'))), @('PaySurvivors', @())) | Out-Null
 AddFunctions $H @(
-	@('EnsureMinimap', @()),
+	@('EnsureMinimap', @()), @('DrawFort', @(, @('Skier', 'obj:/SKIvSKI/Blueprints/BP_SkiCharacter.BP_SkiCharacter_C'))),
 	@('DrawRound', @(, @('Director', 'obj:/SKIvSKI/Blueprints/BP_SkiDirector.BP_SkiDirector_C'))), @('DrawSkier', @(, @('Skier', 'obj:/SKIvSKI/Blueprints/BP_SkiCharacter.BP_SkiCharacter_C'))),
 	@('AddPopup', @(@('Text', 'string'), @('Where', 'Vector'), @('Color', 'LinearColor'), @('Size', 'float'), @('Target', 'obj:/Script/Engine.Actor'))), @('DrawPopups', @()),
 	@('AddPopupLook', @(@('Color', 'LinearColor'), @('Size', 'float'))), @('PopupSpot', @(@('Index', 'int'), @('Spot', 'Vector', 'out'))),
@@ -183,7 +202,7 @@ foreach ($asset in $C, $S, $D, $B, $H) { Compile $asset | Out-Null }
 Py (Join-Path $Scripts 'SetupPureFunctions.py')
 
 Step 'RPC events (inputs and Replicates through the Blueprint editor UI)'
-$rpcs = @('ServerSetSkiYaw', 'ServerFire', 'MulticastFire', 'ServerBuy', 'ServerChangeDifficulty', 'MulticastPaintResult')
+$rpcs = @('ServerSetSkiYaw', 'ServerFire', 'MulticastFire', 'ServerBuy', 'ServerChangeDifficulty', 'MulticastPaintResult', 'ServerExitFort')
 # An RPC event is there if the event graph has an entry node of that name.
 $missing = $rpcs | Where-Object { -not (Mcp-Call $script:BP 'find_nodes' @{ graph = (GraphRef $C); title = $_; entry_points_only = $true } | ConvertFrom-Json).returnValue }
 if ($missing -and -not $SkipRpcUi) {
@@ -227,6 +246,7 @@ if ((Mcp-Call $script:BP 'find_nodes' @{ graph = (GraphRef $B); title = 'On Proj
 }
 WriteAll $B 'BP_Paintball.lisp'
 WriteAll $H 'BP_SkiHUD.lisp'
+WriteAll $F 'BP_SkiFort.lisp'
 
 Step 'ski mesh'
 Py (Join-Path $Scripts 'SetupSkiMesh.py')
@@ -239,7 +259,7 @@ AddFunctions $A @(, @('PlaceFeet', @(, @('Skier', 'obj:/SKIvSKI/Blueprints/BP_Sk
 WriteAll $A 'ABP_Skier.lisp'
 
 Step 'compile (warnings as errors)'
-foreach ($asset in $G, $SK, $WX, $UP, $P, $S, $D, $B, $C, $H, $A) {
+foreach ($asset in $G, $SK, $WX, $UP, $P, $S, $D, $B, $C, $H, $A, $F) {
 	$n = $asset.Split('/')[-1]
 	"$n " + (Mcp-Call $script:BP 'compile_blueprint' @{ blueprint = @{ refPath = "$asset.$n" }; warnings_as_errors = $true })
 }
