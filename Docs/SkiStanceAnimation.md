@@ -129,6 +129,7 @@ the montage and check which slot it uses.
    `spine_01`, `spine_02` and `spine_03`. Each: Rotation Mode **Add to Existing**, Rotation Space **Component Space**,
    Rotation **Roll 8** (X 8, Y 0, Z 0), Translation and Scale **Ignore**, **Alpha** = SkiCrouch. Then **Component to
    Local** into the **Output Pose**.
+   ![The Layered Blend per Bone into Local to Component and the spine_01 / spine_02 lean nodes: Rotation X 8, Ski Crouch into Alpha](Images/SkiStance/03-SpineLean.jpg)
 2. Why Component Space and Roll: in component space X is the character's sideways axis, and a positive Roll tips the
    spine toward +Y, forward. Don't use Bone Space here: a spine bone's own axes are tilted (about 23 degrees on the
    mannequin), so a bone-space lean also tips the torso sideways, and the gun then aims low to one side and high to the
