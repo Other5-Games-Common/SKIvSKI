@@ -48,6 +48,13 @@ def main():
         "MaxLean": 25.0,             # degrees the body leans into a turn
         "EdgeGrip": 0.55,           # the edges hold skis across the slope up to about 29 degrees; steeper, they side-slip
         "SkateSpeed": 600.0,        # cm/s W skates up to on flat snow (22 km/h)
+        "SkiStance": 12.0,           # cm: each ski's middle either side of the skier's (SetupSkiMesh.py's STANCE)
+        "BindingForward": 11.0,      # cm: the boots ahead of the capsule's middle (SetupSkiMesh.py's BINDING_FORWARD)
+        "SnowProbeHalf": 55.0,       # cm: SampleSnow looks this far ahead of and behind the boots
+        "SkiSettleSpeed": 12.0,      # how fast the skis tilt to the snow (VInterpTo speed)
+        "SkiLift": 2.5,              # cm the skis ride above the snow plane (its look shows a little above its collision)
+        "SkiNormal": unreal.Vector(0.0, 0.0, 1.0),   # the skis start flat
+        "SnowNormal": unreal.Vector(0.0, 0.0, 1.0),
         "TeamShown": -1,             # no team colour shown yet
         "MaxAimYaw": 100.0,          # degrees the camera and shots may turn from the skis (as far as the body twists)
         "GunShown": -1,              # no gun or skis shown yet: the first frame shows the player's (UpdateGear)

@@ -113,8 +113,12 @@ Team Name, Team Score, Add Team Score, Request Team, Set Team Switch Allowed...)
 The skis point along `SkiYaw`; the body faces the same way, the camera is free. Every frame (on the player's own
 machine) the character:
 
-1. **Looks down** (`UpdateSlope`): a line trace gives the snow's normal. Its flat part points down the fall line
-   (`FallLineYaw`) and its length is sin(slope) (`SlopeDegrees`).
+1. **Looks down** (`UpdateSlope`, `SampleSnow`): four line traces under the corners of the skis' footprint
+   (`SnowProbeHalf` ahead of and behind the boots, under each ski) and a plane through the four points give the
+   snow's normal. Its flat part points down the fall line (`FallLineYaw`) and its length is sin(slope)
+   (`SlopeDegrees`). One trace straight down used to follow the snow mesh's flat triangles: creeping across the crease
+   between two of them, the slope snapped from one to the other and back, the skis flickered and the fall line jumped.
+   Points on the snow move smoothly, so the plane never snaps.
 2. **Steers** (`SteerSkis`): W turns toward the fall line, S away from it (pausing `AcrossHoldSeconds` across the
    slope), A/D directly, at `TurnRate` degrees a second. The new yaw goes to the server with `ServerSetSkiYaw` (a
    Run on Server event), which turns the character there so everyone else sees it.
@@ -125,6 +129,12 @@ machine) the character:
      standing still; on a slope steep enough to beat the edges (about 29° with EdgeGrip 0.55) you side-slip down.
    Each pull becomes **Add Movement Input** (backwards when the skis point uphill), scaled by `FullInputAccel`.
    On flat snow, W skates up to `SkateSpeed`.
+
+The skis (`SM_Ski`, made by `Docs/Scripts/SetupSkiMesh.py`: sidecut, upturned tip and tail, a dark binding) are
+laid on that plane every frame on every machine (`PlaceSkis`, in `LeanIntoTurn`): tilted to it, eased by
+`SkiSettleSpeed`, each at the plane's height under its own middle plus `SkiLift`, `SkiStance` either side and
+`BindingForward` ahead. `ABP_Skier` then puts each foot on its ski's binding (`PlaceFeet`), so the boots stay on
+the skis as they tilt and as the body leans into turns.
 
 Character Movement does the rest, and because only Add Movement Input drives it, its client prediction and server
 correction work as for walking:
