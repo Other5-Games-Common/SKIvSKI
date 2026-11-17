@@ -30,7 +30,8 @@ AddVars $A @(
 	@('AimYaw', 'float', 'Ski', 'None', $false),
 	@('AimPitch', 'float', 'Ski', 'None', $false),
 	@('bArmsPistol', 'bool', 'Ski', 'None', $false),
-	@('bArmsShotgun', 'bool', 'Ski', 'None', $false)
+	@('bArmsShotgun', 'bool', 'Ski', 'None', $false),
+	@('LeanDegrees', 'float', 'Ski', 'None', $true)
 )
 Compile $A | Out-Null
 
@@ -50,6 +51,14 @@ $footLeft = NewNode $g 'Animation|SkeletalControls|Transform(Modify)Bone' -1150 
 $footRight = NewNode $g 'Animation|SkeletalControls|Transform(Modify)Bone' -900 -100
 $legs = NewNode $g 'Animation|ConvertSpaces|ComponentToLocal' -650 -100
 $layer = NewNode $g 'Animation|Blends|Layeredblendperbone' -300 150
+# After the layers: the spine leans forward as you crouch (the aim offset lifts the arms and gun by as much, in
+# ABP_Skier.lisp, so the aim holds).
+$curlIn = NewNode $g 'Animation|ConvertSpaces|LocalToComponent' -50 150
+$curl1 = NewNode $g 'Animation|SkeletalControls|Transform(Modify)Bone' 200 150
+$curl2 = NewNode $g 'Animation|SkeletalControls|Transform(Modify)Bone' 450 150
+$curl3 = NewNode $g 'Animation|SkeletalControls|Transform(Modify)Bone' 700 150
+$curlOut = NewNode $g 'Animation|ConvertSpaces|ComponentToLocal' 950 150
+$curlAmount = NewNode $g 'Variables|Ski|GetSkiCrouch' 200 450
 $fire = NewNode $g "Animation|Montage|Slot'DefaultSlot'" -650 450
 $reload = NewNode $g "Animation|Montage|Slot'DefaultSlot'" -450 450
 $pickPistol = NewNode $g 'Animation|Blends|BlendPosesbybool' -800 450
@@ -88,9 +97,15 @@ $null = Link $footRight 'Pose' $legs 'ComponentPose'
 # Their numbers (component space, cm and degrees; pins, so set here). The bones and the modes are SetupAnimation.py's.
 $FOOT_L = '13.0,4.0,8.5'
 $FOOT_R = '-13.0,4.0,8.5'
+$PELVIS_CROUCH = '0.0,-10.0,-34.0'
+# Spine lean at full crouch (rotators: pitch, yaw, roll; the spine bones' sideways axis is their local Z, so it's yaw):
+# spine_01 to spine_03 each bend forward CURL degrees. ABP_Skier.lisp adds the whole lean (3 x CURL x SkiCrouch, its
+# LeanDegrees) to the aim offset's pitch, so the arms and gun come up by what the torso leans: shots go where you aim.
+$CURL = 6.0
 function SetPin($node, $name, $value) { $null = Mcp-Call $script:BP 'set_pin_value' @{ pin = (PinId $node $name 'in'); value = $value } }
 SetPin $pelvisDown 'Translation' '0.0,0.0,-5.0'
-SetPin $pelvisCrouch 'Translation' '0.0,0.0,-28.0'
+# Crouching sits the hips back as well as down (mesh -Y is back), so the knees go forward over the boots.
+SetPin $pelvisCrouch 'Translation' $PELVIS_CROUCH
 SetPin $ikLeft 'EffectorLocation' $FOOT_L
 SetPin $ikLeft 'JointTargetLocation' '15.0,60.0,50.0'
 SetPin $ikRight 'EffectorLocation' $FOOT_R
@@ -98,9 +113,12 @@ SetPin $ikRight 'JointTargetLocation' '-15.0,60.0,50.0'
 # Rotators are pitch, yaw, roll: MM_Idle's foot rotations turned about Z so the toes point down mesh +Y.
 SetPin $footLeft 'Rotation' '85.608,63.771,66.755'
 SetPin $footRight 'Rotation' '-86.070,-109.248,-69.363'
-# Which node is which, for SetupAnimation.py (bones, spaces, modes and the slots' names).
+foreach ($c in $curl1, $curl2, $curl3) { SetPin $c 'Rotation' "0.0,$CURL,0.0" }
+# Which node is which, for SetupAnimation.py (bones, spaces, modes, the layers and the slots' names). By their exact
+# names: a guess by number found nodes an earlier rebuild had deleted (still in memory) and set those up instead.
 $which = @{ PelvisDown = $pelvisDown.refPath; PelvisCrouch = $pelvisCrouch.refPath; IkLeft = $ikLeft.refPath; IkRight = $ikRight.refPath;
-	FootLeft = $footLeft.refPath; FootRight = $footRight.refPath; FireSlot = $fire.refPath; ReloadSlot = $reload.refPath }
+	FootLeft = $footLeft.refPath; FootRight = $footRight.refPath; FireSlot = $fire.refPath; ReloadSlot = $reload.refPath;
+	LayerBlend = $layer.refPath; Curl1 = $curl1.refPath; Curl2 = $curl2.refPath; Curl3 = $curl3.refPath; LeanDegrees = 3 * $CURL }
 $whichFile = Join-Path ([IO.Path]::GetTempPath()) 'SKIvSKI\AnimNodes.json'
 New-Item -ItemType Directory -Force (Split-Path $whichFile) | Out-Null
 $which | ConvertTo-Json | Set-Content -Encoding utf8 $whichFile
@@ -115,5 +133,11 @@ $null = Link $pickPistol 'Pose' $fire 'Source'
 $null = Link $fire 'Pose' $reload 'Source'
 $null = Link $legs 'Pose' $layer 'BasePose'
 $null = Link $reload 'Pose' $layer 'BlendPoses_0'
-$null = Link $layer 'Pose' $root 'Result'
-"anim graph wired; now run SetupAnimation.py for the layer filter and the slot name"
+$null = Link $layer 'Pose' $curlIn 'LocalPose'
+$null = Link $curlIn 'ComponentPose' $curl1 'ComponentPose'
+$null = Link $curl1 'Pose' $curl2 'ComponentPose'
+$null = Link $curl2 'Pose' $curl3 'ComponentPose'
+$null = Link $curl3 'Pose' $curlOut 'ComponentPose'
+foreach ($c in $curl1, $curl2, $curl3) { $null = Link $curlAmount 'SkiCrouch' $c 'Alpha' }
+$null = Link $curlOut 'Pose' $root 'Result'
+"anim graph wired; now run SetupAnimation.py for the layer filter, the bones and the slot names"

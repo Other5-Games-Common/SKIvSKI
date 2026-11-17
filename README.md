@@ -284,15 +284,21 @@ Size**, so it fits any resolution.
 ### Animation (`Animation/ABP_Skier`)
 
 Legs: on the skis, side by side, toes along them. Every mannequin pose stands staggered with the feet turned out (even
-`MM_Idle`), so the legs are placed rather than played: `MM_Idle` in component space, the pelvis lowered 5 cm and up to
-28 cm more as you crouch (`SkiCrouch`: deeper the faster you go), **Two Bone IK** puts each foot on its ski with the knee
+`MM_Idle`), so the legs are placed rather than played: `MM_Idle` in component space, the pelvis lowered 5 cm and, as you
+crouch, up to 34 cm more and 10 cm back (`SkiCrouch`: 0.35 standing still, 1 from about 94 km/h, so the knees bend more
+the faster you go), **Two Bone IK** puts each foot on its ski with the knee
 aimed forward, and **Transform (Modify) Bone** turns each foot to point along its ski. Upper body: the rifle
 pose and aim offset of the gun in hand: pistol (`MM_Pistol_Idle_ADS`, `AO_MM_Pistol_Idle_ADS`), rifle (`MM_Rifle_Idle_Hipfire`,
 `AO_MM_Rifle_Idle_Hipfire`) or shotgun (`MM_Shotgun_Idle_Hipfire` with the rifle's aim offset), picked by two Blend Poses by
 Bool (`bArmsPistol`, `bArmsShotgun`, from the gun's `ArmsKind`), then the `FullBodyAdditivePreAim` montage slot (the guns'
 fire recoil) and the `UpperBody` slot (their reloads). The aim offsets use `AimYaw`, `AimPitch` (where the player aims relative to the skis). A
-Layered Blend per Bone joins them from `spine_01` up (mesh-space rotation). No walking legs: on skis the feet stay put.
+Layered Blend per Bone joins them from `spine_01` up (mesh-space rotation; without that branch filter the whole body
+plays the legs' idle and the upper body freezes, as happened in SKIvSKI 1.18-1.21). Then the spine leans forward with the
+crouch (`spine_01` to `spine_03`, 6 degrees each at full crouch, Alpha `SkiCrouch`), and the event graph adds that lean
+(`LeanDegrees` x `SkiCrouch`) to `AimPitch`, so the aim offset lifts the arms and gun back to where the player aims.
+No walking legs: on skis the feet stay put. How to build it yourself in the editor: `Docs/SkiStanceAnimation.md`.
 The Anim Graph is built by `Docs/Scripts/BuildAnimGraph.ps1`; the event graph is `Docs/Graphs/ABP_Skier.lisp`.
+Known issue: with a retargeted skin (Countess, Gideon) the gun follows the hidden mannequin's hand, not the skin's.
 
 ## Tuning
 

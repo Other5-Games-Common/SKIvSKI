@@ -34,6 +34,7 @@
   (CallFunction|UpdateGlide)
   (CallFunction|UpdateTeamLook)
   (CallFunction|UpdateGear)
+  (CallFunction|FitToSkin)
   (if (Pawn|IsLocallyControlled)
     (CallFunction|UpdateReload)
     (CallFunction|ReadButtons)

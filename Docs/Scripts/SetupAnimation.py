@@ -35,16 +35,25 @@ except Exception:
     log("ERROR " + traceback.format_exc().replace("\n", " / "))
 
 
+def which_nodes():
+    # BuildAnimGraph.ps1 leaves which node is which in %TEMP%/SKIvSKI/AnimNodes.json, by their exact names. (Guessing
+    # a node by its number once set up one an earlier rebuild had deleted, still in memory, and the upper body stayed
+    # frozen in the idle pose.)
+    import json, os, tempfile
+    which_file = os.path.join(tempfile.gettempdir(), "SKIvSKI", "AnimNodes.json")
+    if not os.path.exists(which_file):
+        return None
+    with open(which_file, encoding="utf-8-sig") as f:
+        return json.load(f)
+
+
 def setup_layer_blend():
     # Upper body (spine_01 and everything above it) from Other5's own animation, so aiming and holding the gun work
     # as usual; the legs from the ski stance. Mesh-space rotation keeps the chest facing where the camera aims even
-    # though the crouched pelvis tilts forward.
-    # BuildAnimGraph.ps1 makes a new node each run, so its number changes: take the highest that exists.
-    node = None
-    for i in range(64):
-        found = unreal.find_object(None, FOLDER + "/ABP_Skier.ABP_Skier:AnimGraph.AnimGraphNode_LayeredBoneBlend_%d" % i)
-        if found:
-            node = found
+    # though the crouched pelvis tilts forward. Without this filter the layer adds nothing: the whole body plays the
+    # legs' idle pose (no aiming, firing or reloading).
+    which = which_nodes()
+    node = unreal.find_object(None, which["LayerBlend"]) if which and "LayerBlend" in which else None
     if not node:
         log("no layered blend node yet: run BuildAnimGraph.ps1 first")
         return
@@ -88,14 +97,10 @@ def bone(name):
 
 
 def setup_nodes():
-    # BuildAnimGraph.ps1 leaves which node is which in %TEMP%/SKIvSKI/AnimNodes.json.
-    import json, os, tempfile
-    which_file = os.path.join(tempfile.gettempdir(), "SKIvSKI", "AnimNodes.json")
-    if not os.path.exists(which_file):
+    which = which_nodes()
+    if not which:
         log("no AnimNodes.json yet: run BuildAnimGraph.ps1 first")
         return
-    with open(which_file, encoding="utf-8-sig") as f:
-        which = json.load(f)
     # The montage slots: Other5Combat's fire montages (AM_MM_*_Fire, set on each gun in SetupGuns.py) are additive
     # recoil in FullBodyAdditivePreAim, applied before the aim offset as Other5Combat does; its reload montages
     # (AM_MM_*_Reload) are on UpperBody.
@@ -117,10 +122,20 @@ def setup_nodes():
         set_anim_node(which[key], bone_to_modify=bone(name),
                       rotation_mode=unreal.BoneModificationMode.BMM_REPLACE, rotation_space=cs,
                       translation_mode=ignore, scale_mode=ignore)
+    # The spine curl after the layers: each bone's rotation added in its own (bone) space, Alpha = SkiCrouch.
+    for key, name in (("Curl1", "spine_01"), ("Curl2", "spine_02"), ("Curl3", "spine_03")):
+        if key in which:
+            set_anim_node(which[key], bone_to_modify=bone(name),
+                          rotation_mode=unreal.BoneModificationMode.BMM_ADDITIVE,
+                          rotation_space=unreal.BoneControlSpace.BCS_BONE_SPACE,
+                          translation_mode=ignore, scale_mode=ignore)
     abp = unreal.load_asset(FOLDER + "/ABP_Skier")
     unreal.BlueprintEditorLibrary.compile_blueprint(abp)
+    # The whole spine lean (BuildAnimGraph.ps1's 3 x CURL), which the event graph adds to the aim offset's pitch.
+    if "LeanDegrees" in which:
+        unreal.get_default_object(abp.generated_class()).set_editor_property("LeanDegrees", float(which["LeanDegrees"]))
     unreal.EditorAssetLibrary.save_asset(FOLDER + "/ABP_Skier", only_if_is_dirty=False)
-    log("slots, pelvis, foot IK and foot turns set")
+    log("slots, pelvis, foot IK, foot turns and spine lean set")
 
 
 try:

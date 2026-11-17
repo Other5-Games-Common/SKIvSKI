@@ -15,7 +15,9 @@
       ; replicates, so other players see you aim too.
       (bind aim (Math|Rotator|Delta(Rotator) (Pawn|GetBaseAimRotation :self pawn) (Transformation|GetActorRotation :self pawn)))
       (Variables|Ski|SetAimYaw (Math|Float|Clamp(Float) (.yaw aim) -90.0 90.0))
-      (Variables|Ski|SetAimPitch (Math|Float|Clamp(Float) (.pitch aim) -90.0 90.0))
+      ; The crouch leans the spine forward by up to LeanDegrees (the Anim Graph's spine lean, after the aim offset):
+      ; aim that much higher, so the arms and gun come back up to where the player aims.
+      (Variables|Ski|SetAimPitch (Math|Float|Clamp(Float) (+ (.pitch aim) (* (Variables|Ski|GetLeanDegrees) (Variables|Ski|GetSkiCrouch))) -90.0 90.0))
       ; How the gun in hand is held (its ArmsKind: 0 pistol, 1 rifle, 2 shotgun): the Anim Graph's upper body plays
       ; that kind's pose and aim offset.
       (bind skier (Utilities|Casting|CastToBP_SkiCharacter :Object pawn)
