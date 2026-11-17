@@ -12,10 +12,11 @@
 ;           with a new random slope.
 ; Paint:    a paintball hit on the other team during the race puts the victim OUT for the rest of the race (grey helmet,
 ;           can't fire, no finish points) and gives HitPoints to the shooter's team, unless the ball bounces: each hit
-;           bounces with the shooter's BounceChance (10% with standard paint; better paint from the shop will lower it).
+;           bounces with the shooter's BounceChance (10% with standard paint).
 ; Scoring:  HitPoints per out, FinishPoints[place - 1] for crossing the finish not out (10, 8, 6, 5, 4, 3, 2, 1).
-;           Most points wins. Every point is also CoinsPerPoint coins for the player (Other5's inventory currency, for
-;           the shop between runs).
+;           Most points wins.
+; Coins:    for the store between runs (each player's BP_SkiPlayerState Coins): HitCoins for each opponent you put
+;           out, and SurviveCoins for getting through the race without being put out.
 ; Phases:   0 Lobby, 1 Countdown, 2 Race, 3 Results.
 
 (event Coordinator|EventOnCoordinatorStarted
@@ -121,6 +122,7 @@
   (bind blue (Other5|Teams|GetTeamScore :Team 1))
   (bind score (Utilities|String|Append (Utilities|String|ToString(Integer) red) (Utilities|String|Append " - " (Utilities|String|ToString(Integer) blue))))
   (bind winner (Utilities|String|ToString(Text) (Other5|Teams|GetTeamName :Team (select (> red blue) 0 1))))
+  (CallFunction|PaySurvivors)
   (Variables|Round|State|SetMessage (select (== red blue) (Utilities|String|Append "A DRAW " score) (Utilities|String|Append (Utilities|String|ToUpper winner) (Utilities|String|Append " WINS " score)))))
 
 ; Everyone to the lobby (bAtGate false) or behind their team's start gate.
@@ -204,14 +206,19 @@
   (bind points (select (<= place (Utilities|Array|Length table)) (Utilities|Array|Get(acopy) table (- place 1)) 0))
   (CallFunction|AddPoints :Player Player :Points points))
 
-; Points for a player's team, and the same number of coins (times CoinsPerPoint) for the player.
+; Points for a player and their team.
 (fn AddPoints (Player Points)
   (Class|BPSkiPlayerState|SetPoints :self Player :Points (+ (Class|BPSkiPlayerState|GetPoints :self Player) Points))
-  (Other5|Teams|AddTeamScore :Team (Other5|Teams|GetTeam :Player Player) :Points Points)
-  (bind skier (Utilities|Casting|CastToBP_SkiCharacter :Object (PlayerState|GetPawn :self Player))
-    (:then
-      (Class|BPSkiCharacter|AddCoins :self skier :Amount (* Points (Variables|Round|Settings|GetCoinsPerPoint))))
-    (:CastFailed)))
+  (Other5|Teams|AddTeamScore :Team (Other5|Teams|GetTeam :Player Player) :Points Points))
+
+; The race is over: SurviveCoins for everyone who wasn't put out.
+(fn PaySurvivors ()
+  (for player (Coordinator|GetTrackedPlayers)
+    (bind ski (Utilities|Casting|CastToBP_SkiPlayerState :Object player)
+      (:then
+        (if (not (Class|BPSkiPlayerState|GetOut :self ski))
+          (Class|BPSkiPlayerState|SetCoins :self ski :Coins (+ (Class|BPSkiPlayerState|GetCoins :self ski) (Variables|Round|Settings|GetSurviveCoins)))))
+      (:CastFailed))))
 
 ; A scoring paintball from Shooter hit Victim (server). Returns 0 when it doesn't count (not racing, same team,
 ; either already out), 1 for a hit (Victim is out), 2 for a bounce (the shooter's BounceChance came up).
@@ -237,6 +244,7 @@
                 (Variables|Round|Work|SetHitResult 1)
                 (Class|BPSkiPlayerState|SetOut :self to :bOut true)
                 (Class|BPSkiPlayerState|SetHits :self from :Hits (+ (Class|BPSkiPlayerState|GetHits :self from) 1))
+                (Class|BPSkiPlayerState|SetCoins :self from :Coins (+ (Class|BPSkiPlayerState|GetCoins :self from) (Variables|Round|Settings|GetHitCoins)))
                 (CallFunction|AddPoints :Player from :Points (Variables|Round|Settings|GetHitPoints))))))
         (:CastFailed)))
     (:CastFailed)))

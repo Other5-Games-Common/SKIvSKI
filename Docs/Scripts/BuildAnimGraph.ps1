@@ -3,14 +3,21 @@
   Rebuilds ABP_Skier's Anim Graph over Unreal MCP (the editor must be open). The DSL writes event graphs only, so
   the anim nodes are made and wired here. Rerunnable: it clears the Anim Graph (except the Output Pose) first.
 
-  Legs:       MM_Rifle_Idle_Hipfire (standing) -> Two Way Blend <- MM_Rifle_Crouch_Idle (knees bent); Alpha = SkiCrouch
-              (set from the speed in the event graph, Docs/Graphs/ABP_Skier.lisp).
+  Legs:       on skis: both feet side by side on their skis, pointing along them, knees bent forward. The mannequin's
+              poses all stand staggered with the feet turned out (even MM_Idle: the right foot 30 cm back and 47
+              degrees out), so the legs are placed, not played: MM_Idle in component space, the pelvis lowered 5 cm
+              (PelvisDown) and up to 28 cm more as you crouch (PelvisCrouch, Alpha = SkiCrouch, from the speed in the
+              event graph, Docs/Graphs/ABP_Skier.lisp), then Two Bone IK puts each foot on its ski (FOOT_L / FOOT_R:
+              13 cm either side, mesh +Y is forward, mesh +X the skier's left) with the knee aimed forward, and two
+              Transform (Modify) Bone nodes turn the feet to point along the skis (their idle rotation turned about
+              Z until the toes point down mesh +Y: worked out from MM_Idle's foot and ball bones).
   Upper body: how the gun in hand is held, from Other5Characters' poses: a pistol (MM_Pistol_Idle_ADS through
               AO_MM_Pistol_Idle_ADS), a rifle (MM_Rifle_Idle_Hipfire through AO_MM_Rifle_Idle_Hipfire) or a shotgun
               (MM_Shotgun_Idle_Hipfire through the rifle's aim offset), each aim offset by X = AimYaw, Y = AimPitch so
               the chest and arms follow the camera while the skis point elsewhere. Two Blend Poses by Bool pick one
               (bArmsPistol, else bArmsShotgun, else the rifle; set from the gun's ArmsKind in ABP_Skier.lisp), then the
-              FullBodyAdditivePreAim montage slot plays the guns' fire recoil (Other5Combat's fire montages).
+              FullBodyAdditivePreAim montage slot plays the guns' fire recoil (Other5Combat's fire montages) and the
+              UpperBody slot their reloads (Other5Combat's reload montages are on UpperBody).
   Output:     Layered blend per bone: legs as the base, upper body from spine_01 up, mesh-space rotation
               (set by SetupAnimation.py).
 #>
@@ -32,12 +39,19 @@ $nodes = (Mcp-Call $script:BP 'find_nodes' @{ graph = $g; title = '' } | Convert
 foreach ($n in $nodes) { if ($n.refPath -notmatch 'AnimGraphNode_Root') { $null = Mcp-Call $script:BP 'delete_node' @{ node = $n } } }
 $root = (Mcp-Call $script:BP 'find_nodes' @{ graph = $g; title = '' } | ConvertFrom-Json).returnValue | Select-Object -First 1
 
-$stand = NewNode $g "Animation|Sequences|Play'MM_Rifle_Idle_Hipfire'" -1300 -100
-$crouch = NewNode $g "Animation|Sequences|Play'MM_Rifle_Crouch_Idle'" -1300 100
-$crouchAmount = NewNode $g 'Variables|Ski|GetSkiCrouch' -1250 300
-$legs = NewNode $g 'Animation|Blends|TwoWayBlend' -950 0
+$idle = NewNode $g "Animation|Sequences|Play'MM_Idle'" -2600 -100
+$toComponent = NewNode $g 'Animation|ConvertSpaces|LocalToComponent' -2350 -100
+$pelvisDown = NewNode $g 'Animation|SkeletalControls|Transform(Modify)Bone' -2150 -100
+$pelvisCrouch = NewNode $g 'Animation|SkeletalControls|Transform(Modify)Bone' -1900 -100
+$crouchAmount = NewNode $g 'Variables|Ski|GetSkiCrouch' -2100 150
+$ikLeft = NewNode $g 'Animation|SkeletalControls|TwoBoneIK' -1650 -100
+$ikRight = NewNode $g 'Animation|SkeletalControls|TwoBoneIK' -1400 -100
+$footLeft = NewNode $g 'Animation|SkeletalControls|Transform(Modify)Bone' -1150 -100
+$footRight = NewNode $g 'Animation|SkeletalControls|Transform(Modify)Bone' -900 -100
+$legs = NewNode $g 'Animation|ConvertSpaces|ComponentToLocal' -650 -100
 $layer = NewNode $g 'Animation|Blends|Layeredblendperbone' -300 150
-$fire = NewNode $g "Animation|Montage|Slot'DefaultSlot'" -550 450
+$fire = NewNode $g "Animation|Montage|Slot'DefaultSlot'" -650 450
+$reload = NewNode $g "Animation|Montage|Slot'DefaultSlot'" -450 450
 $pickPistol = NewNode $g 'Animation|Blends|BlendPosesbybool' -800 450
 $pickShotgun = NewNode $g 'Animation|Blends|BlendPosesbybool' -1050 650
 $isPistol = NewNode $g 'Variables|Ski|GetArmsPistol' -1050 900
@@ -60,9 +74,36 @@ foreach ($kind in @(
 	$row += 250
 }
 
-$null = Link $stand 'Pose' $legs 'A'
-$null = Link $crouch 'Pose' $legs 'B'
-$null = Link $crouchAmount 'SkiCrouch' $legs 'Alpha'
+# Legs: idle -> component space -> pelvis down (always) -> pelvis down more (Alpha = SkiCrouch) -> left / right foot IK
+# -> left / right foot turned along the skis -> local space.
+$null = Link $idle 'Pose' $toComponent 'LocalPose'
+$null = Link $toComponent 'ComponentPose' $pelvisDown 'ComponentPose'
+$null = Link $pelvisDown 'Pose' $pelvisCrouch 'ComponentPose'
+$null = Link $crouchAmount 'SkiCrouch' $pelvisCrouch 'Alpha'
+$null = Link $pelvisCrouch 'Pose' $ikLeft 'ComponentPose'
+$null = Link $ikLeft 'Pose' $ikRight 'ComponentPose'
+$null = Link $ikRight 'Pose' $footLeft 'ComponentPose'
+$null = Link $footLeft 'Pose' $footRight 'ComponentPose'
+$null = Link $footRight 'Pose' $legs 'ComponentPose'
+# Their numbers (component space, cm and degrees; pins, so set here). The bones and the modes are SetupAnimation.py's.
+$FOOT_L = '13.0,4.0,8.5'
+$FOOT_R = '-13.0,4.0,8.5'
+function SetPin($node, $name, $value) { $null = Mcp-Call $script:BP 'set_pin_value' @{ pin = (PinId $node $name 'in'); value = $value } }
+SetPin $pelvisDown 'Translation' '0.0,0.0,-5.0'
+SetPin $pelvisCrouch 'Translation' '0.0,0.0,-28.0'
+SetPin $ikLeft 'EffectorLocation' $FOOT_L
+SetPin $ikLeft 'JointTargetLocation' '15.0,60.0,50.0'
+SetPin $ikRight 'EffectorLocation' $FOOT_R
+SetPin $ikRight 'JointTargetLocation' '-15.0,60.0,50.0'
+# Rotators are pitch, yaw, roll: MM_Idle's foot rotations turned about Z so the toes point down mesh +Y.
+SetPin $footLeft 'Rotation' '85.608,63.771,66.755'
+SetPin $footRight 'Rotation' '-86.070,-109.248,-69.363'
+# Which node is which, for SetupAnimation.py (bones, spaces, modes and the slots' names).
+$which = @{ PelvisDown = $pelvisDown.refPath; PelvisCrouch = $pelvisCrouch.refPath; IkLeft = $ikLeft.refPath; IkRight = $ikRight.refPath;
+	FootLeft = $footLeft.refPath; FootRight = $footRight.refPath; FireSlot = $fire.refPath; ReloadSlot = $reload.refPath }
+$whichFile = Join-Path ([IO.Path]::GetTempPath()) 'SKIvSKI\AnimNodes.json'
+New-Item -ItemType Directory -Force (Split-Path $whichFile) | Out-Null
+$which | ConvertTo-Json | Set-Content -Encoding utf8 $whichFile
 # Blend Poses by Bool: BlendPose_0 when true, BlendPose_1 when false.
 $null = Link $chains['Shotgun'] 'Pose' $pickShotgun 'BlendPose_0'
 $null = Link $chains['Rifle'] 'Pose' $pickShotgun 'BlendPose_1'
@@ -71,7 +112,8 @@ $null = Link $chains['Pistol'] 'Pose' $pickPistol 'BlendPose_0'
 $null = Link $pickShotgun 'Pose' $pickPistol 'BlendPose_1'
 $null = Link $isPistol 'bArmsPistol' $pickPistol 'bActiveValue'
 $null = Link $pickPistol 'Pose' $fire 'Source'
+$null = Link $fire 'Pose' $reload 'Source'
 $null = Link $legs 'Pose' $layer 'BasePose'
-$null = Link $fire 'Pose' $layer 'BlendPoses_0'
+$null = Link $reload 'Pose' $layer 'BlendPoses_0'
 $null = Link $layer 'Pose' $root 'Result'
 "anim graph wired; now run SetupAnimation.py for the layer filter and the slot name"

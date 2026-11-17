@@ -8,7 +8,8 @@
 ; On screen:  top     your team scores either side of the round panel (what's happening, time left, the slope);
 ;             middle  the GET READY countdown, GO!, and the results scoreboard;
 ;             bottom  your skier (speed, team, outs, place) in the middle (Other5's chat is bottom left), your gear
-;                     (gun, paint, skis, coins) on the right, and the keys above your skier in the lobby.
+;                     (gun and ammo, skis, wax, coins) on the right, and the keys above your skier in the lobby;
+;             the store between runs (B, and by itself with the results): see "the store" below.
 ; Sounds (this machine only): a beep each countdown second, a higher one at GO!, a chime when a team scores and a
 ; fanfare with the results. Hit and bounce sounds come with the pop-ups (BP_SkiCharacter MulticastPaintResult).
 
@@ -49,12 +50,21 @@
   (CallFunction|DrawGo)
   (if (== phase 3)
     (CallFunction|DrawResults :Director Director))
-  (if (or (== phase 0) (== phase 1))
-    (CallFunction|DrawCentered :Text "T  switch team      Q  switch gun      [  ]  slope (admin)      Esc  menu" :CenterX cx :Y (- (Variables|Layout|GetScreenH) (* 200.0 u)) :Color (CallFunction|Muted) :Size 1.6 :bTitle false))
-  ; Your own skier.
+  (if (and (or (== phase 0) (== phase 1)) (not (Variables|Store|GetStoreOpen)))
+    (CallFunction|DrawCentered :Text "B  store      R  reload      T  switch team      [  ]  slope (admin)      Esc  menu" :CenterX cx :Y (- (Variables|Layout|GetScreenH) (* 200.0 u)) :Color (CallFunction|Muted) :Size 1.6 :bTitle false))
+  ; The store opens by itself with the results, and closes when the countdown starts.
+  (if (!= phase (Variables|Store|GetStorePhase))
+    (Variables|Store|SetStorePhase phase)
+    (if (== phase 3)
+      (CallFunction|SetStoreOpen :bOpen true))
+    (if (and (or (== phase 1) (== phase 2)) (Variables|Store|GetStoreOpen))
+      (CallFunction|SetStoreOpen :bOpen false)))
+  ; Your own skier, and the store.
   (bind skier (Utilities|Casting|CastToBP_SkiCharacter :Object (HUD|GetOwningPawn))
     (:then
-      (CallFunction|DrawSkier :Skier skier))
+      (CallFunction|DrawSkier :Skier skier)
+      (if (Variables|Store|GetStoreOpen)
+        (CallFunction|DrawStore :Skier skier)))
     (:CastFailed)))
 
 ; One team's score box: the team's name over its score, in the team's colour, with a team-coloured top edge.
@@ -88,7 +98,8 @@
 (fn DrawResults (Director)
   (bind u (Variables|Layout|GetU))
   (bind cx (* (Variables|Layout|GetScreenW) 0.5))
-  (bind top (* (Variables|Layout|GetScreenH) 0.24))
+  ; Higher up while the store is open (it's in the middle of the screen).
+  (bind top (* (Variables|Layout|GetScreenH) (select (Variables|Store|GetStoreOpen) 0.135 0.24)))
   (bind players (Class|GameStateBase|GetPlayerArray :self (Game|GetGameState)))
   (bind rows (Utilities|Array|Length players))
   (CallFunction|DrawPanel :X (- cx (* 360.0 u)) :Y top :W (* 720.0 u) :H (* (+ 170.0 (* 40.0 rows)) u) :Accent (CallFunction|Neon))
@@ -124,8 +135,8 @@
 
 ; ---- your skier ----------------------------------------------------------------------------------------------------
 
-; Bottom middle: speed (big), team, OUT, outs scored and finish place. Bottom right: the gear (the shop will improve
-; the paint's bounce chance and the skis' friction) and coins. (Bottom left is Other5's chat.)
+; Bottom middle: speed (big), team, OUT, outs scored and finish place. Bottom right: the gear (the gun and what's in
+; its magazine, or RELOADING; the skis and wax) and coins. (Bottom left is Other5's chat.)
 (fn DrawSkier (Skier)
   (bind ski (Class|BPSkiCharacter|GetSkiPlayerState :self Skier))
   (Utilities|IsValid ski
@@ -150,13 +161,22 @@
       ; The gear, bottom right.
       (bind gx (- w (* 424.0 u)))
       (CallFunction|DrawPanel :X gx :Y (- bottom (* 160.0 u)) :W (* 400.0 u) :H (* 136.0 u) :Accent (CallFunction|Gold))
-      (bind gun (Utilities|String|ToString(Text) (Class|BPPaintGunData|GetGunName :self (Class|BPSkiCharacter|GetCurrentGun :self Skier))))
-      (CallFunction|DrawLeft :Text gun :X (+ gx (* 20.0 u)) :Y (- bottom (* 146.0 u)) :Color (CallFunction|Ink) :Size 2.6 :bTitle true)
-      (CallFunction|DrawLeft :Text "Q  next gun" :X (+ gx (* 20.0 u)) :Y (- bottom (* 110.0 u)) :Color (CallFunction|Muted) :Size 1.4 :bTitle false)
-      (bind bounce (Utilities|String|ToString(Integer) (Math|Float|Round (* (Class|BPSkiPlayerState|GetBounceChance :self ski) 100.0))))
-      (bind friction (Utilities|String|ToString(Float) (Class|BPSkiPlayerState|GetSnowFriction :self ski)))
-      (CallFunction|DrawLeft :Text (Utilities|String|Append "paint bounce " (Utilities|String|Append bounce (Utilities|String|Append "%      ski friction " friction))) :X (+ gx (* 20.0 u)) :Y (- bottom (* 86.0 u)) :Color (CallFunction|Muted) :Size 1.6 :bTitle false)
-      (CallFunction|DrawLeft :Text (Utilities|String|Append "coins  " (Utilities|String|ToString(Integer) (Class|BPSkiCharacter|GetCoins :self Skier))) :X (+ gx (* 20.0 u)) :Y (- bottom (* 58.0 u)) :Color (CallFunction|Gold) :Size 2.0 :bTitle true))
+      (bind gunData (Class|BPSkiCharacter|GetCurrentGun :self Skier))
+      (bind gun (Utilities|String|ToString(Text) (Class|BPPaintGunData|GetGunName :self gunData)))
+      (CallFunction|DrawLeft :Text gun :X (+ gx (* 20.0 u)) :Y (- bottom (* 150.0 u)) :Color (CallFunction|Ink) :Size 2.4 :bTitle true)
+      ; The magazine (what's left of it), or RELOADING, under the gun's name.
+      (bind reloading (Class|BPSkiCharacter|GetReloading :self Skier))
+      (bind ammo (Utilities|String|Append (Utilities|String|ToString(Integer) (Class|BPSkiCharacter|GetAmmo :self Skier)) (Utilities|String|Append " / " (Utilities|String|ToString(Integer) (Class|BPPaintGunData|GetMagSize :self gunData)))))
+      (bind empty (<= (Class|BPSkiCharacter|GetAmmo :self Skier) 0))
+      (bind ammoText (select reloading "RELOADING" ammo))
+      (CallFunction|DrawLeft :Text ammoText :X (+ gx (* 20.0 u)) :Y (- bottom (* 114.0 u)) :Color (select (or reloading empty) (CallFunction|Bad) (CallFunction|Gold)) :Size 1.9 :bTitle true)
+      (bind skisData (Class|BPSkiCharacter|CurrentSkis :self Skier))
+      (bind wax (Utilities|Array|Get(acopy) (Class|BPSkiCharacter|GetWaxes :self Skier) (Class|BPSkiPlayerState|GetWaxIndex :self ski)))
+      (bind skiLine (Utilities|String|Append (Utilities|String|ToString(Text) (Class|BPSkiData|GetSkiName :self skisData)) (Utilities|String|Append "  +  " (Utilities|String|ToString(Text) (Class|BPWaxData|GetWaxName :self wax)))))
+      (CallFunction|DrawLeft :Text skiLine :X (+ gx (* 20.0 u)) :Y (- bottom (* 82.0 u)) :Color (CallFunction|Muted) :Size 1.5 :bTitle false)
+      (bind coins (Class|BPSkiCharacter|GetCoins :self Skier))
+      (CallFunction|DrawLeft :Text (Utilities|String|Append "coins  " (Utilities|String|ToString(Integer) coins)) :X (+ gx (* 20.0 u)) :Y (- bottom (* 54.0 u)) :Color (CallFunction|Gold) :Size 1.8 :bTitle true)
+      (CallFunction|DrawLeft :Text "B  store" :X (+ gx (* 300.0 u)) :Y (- bottom (* 52.0 u)) :Color (CallFunction|Muted) :Size 1.4 :bTitle false))
     (:"Is Not Valid")))
 
 ; ---- sounds ----------------------------------------------------------------------------------------------------------
@@ -267,6 +287,124 @@
   (HUD|DrawText :Text Text :TextColor edge :ScreenX (- x o) :ScreenY (+ Y o) :Font "/SKIvSKI/UI/Font_SkiTitle.Font_SkiTitle" :Scale scale)
   (HUD|DrawText :Text Text :TextColor edge :ScreenX (+ x o) :ScreenY (+ Y o) :Font "/SKIvSKI/UI/Font_SkiTitle.Font_SkiTitle" :Scale scale)
   (HUD|DrawText :Text Text :TextColor Color :ScreenX x :ScreenY Y :Font "/SKIvSKI/UI/Font_SkiTitle.Font_SkiTitle" :Scale scale))
+
+; ---- the store -------------------------------------------------------------------------------------------------------
+; Between runs (the lobby and the results) B opens and closes the store; it also opens by itself when the results come
+; up, and closes when the countdown starts. While it's open the mouse pointer shows: click an item to buy it, or to put
+; back on one you already have. Three columns: guns, skis, wax (the character's Guns, Skis and Waxes, in that order).
+; Each item is a hit box (Add Hit Box) named by its column's letter and its number (G0, S2, W1...); a click on one
+; comes to Event Hit Box Clicked, which asks the server (the character's ServerBuy): the server checks the phase and
+; the coins, and the player state brings the result back (coins, what's owned, what's on).
+
+; B (BP_SkiCharacter ToggleMyStore): open the store, or close it; it only opens between runs.
+(fn ToggleStore ()
+  (bind director (Actor|GetActorOfClass :ActorClass "/SKIvSKI/Blueprints/BP_SkiDirector.BP_SkiDirector_C"))
+  (Utilities|IsValid director
+    (:"Is Valid"
+      (bind phase (Class|BPSkiDirector|GetPhase :self director))
+      (CallFunction|SetStoreOpen :bOpen (and (not (Variables|Store|GetStoreOpen)) (or (== phase 0) (== phase 3)))))
+    (:"Is Not Valid")))
+
+; Open: the mouse pointer shows and clicks reach the hit boxes (Enable Click Events), the game keeps its keys (Game and
+; UI). Closed: back to the game alone (the mouse aims again).
+(fn SetStoreOpen (bOpen)
+  (Variables|Store|SetStoreOpen bOpen)
+  (bind pc (HUD|GetOwningPlayerController))
+  (Class|PlayerController|SetShowMouseCursor :self pc :bShowMouseCursor bOpen)
+  (Class|PlayerController|SetEnableClickEvents :self pc :bEnableClickEvents bOpen)
+  (if bOpen
+    (Input|SetInputModeGameAndUI :PlayerController pc :bHideCursorDuringCapture false)
+    (else
+      (Input|SetInputModeGameOnly :PlayerController pc))))
+
+; The store panel, in the middle of the screen: coins, the three columns, and what the item under the mouse is. With
+; the results it sits under their list (DrawResults: 170 + 40 per player, from 13.5% down).
+(fn DrawStore (Skier)
+  (bind u (Variables|Layout|GetU))
+  (bind cx (* (Variables|Layout|GetScreenW) 0.5))
+  (bind screenH (Variables|Layout|GetScreenH))
+  (bind director (Actor|GetActorOfClass :ActorClass "/SKIvSKI/Blueprints/BP_SkiDirector.BP_SkiDirector_C"))
+  (bind results (== (Class|BPSkiDirector|GetPhase :self director) 3))
+  (bind rows (Math|Conversions|ToFloat(Integer) (Utilities|Array|Length (Class|GameStateBase|GetPlayerArray :self (Game|GetGameState)))))
+  (bind under (+ (* screenH 0.135) (* (+ 186.0 (* 40.0 rows)) u)))
+  (bind top (select results (Math|Float|Max(Float) (* screenH 0.32) under) (* screenH 0.32)))
+  (Variables|Store|SetStoreHint "")
+  (CallFunction|DrawPanel :X (- cx (* 570.0 u)) :Y top :W (* 1140.0 u) :H (* 420.0 u) :Accent (CallFunction|Gold))
+  (CallFunction|DrawLeft :Text "STORE" :X (- cx (* 545.0 u)) :Y (+ top (* 16.0 u)) :Color (CallFunction|Ink) :Size 3.0 :bTitle true)
+  (bind coins (Class|BPSkiCharacter|GetCoins :self Skier))
+  (CallFunction|DrawLeft :Text (Utilities|String|Append "coins  " (Utilities|String|ToString(Integer) coins)) :X (- cx (* 330.0 u)) :Y (+ top (* 22.0 u)) :Color (CallFunction|Gold) :Size 2.2 :bTitle true)
+  (CallFunction|DrawLeft :Text "earn coins: 3 for each opponent you put out, 10 for getting through a race" :X (- cx (* 80.0 u)) :Y (+ top (* 28.0 u)) :Color (CallFunction|Muted) :Size 1.4 :bTitle false)
+  (CallFunction|DrawStoreColumn :Skier Skier :Kind 0 :X (- cx (* 550.0 u)) :Y (+ top (* 76.0 u)))
+  (CallFunction|DrawStoreColumn :Skier Skier :Kind 1 :X (- cx (* 180.0 u)) :Y (+ top (* 76.0 u)))
+  (CallFunction|DrawStoreColumn :Skier Skier :Kind 2 :X (+ cx (* 190.0 u)) :Y (+ top (* 76.0 u)))
+  ; The item under the mouse, in a sentence; otherwise how to use the store.
+  (bind hint (Variables|Store|GetStoreHint))
+  (CallFunction|DrawCentered :Text (select (> (Utilities|String|Len hint) 0) hint "click an item to buy it, or to put it back on      B  closes") :CenterX cx :Y (+ top (* 380.0 u)) :Color (CallFunction|Ink) :Size 1.6 :bTitle false))
+
+; One column: its heading and its items, each with a line of what it does.
+(fn DrawStoreColumn (Skier Kind X Y)
+  (bind u (Variables|Layout|GetU))
+  (CallFunction|DrawLeft :Text (select (== Kind 0) "MARKERS" (select (== Kind 1) "SKIS" "WAX")) :X X :Y Y :Color (CallFunction|Muted) :Size 1.6 :bTitle true)
+  (Variables|Store|SetStoreRow 0)
+  (if (== Kind 0)
+    (for gun (Class|BPSkiCharacter|GetGuns :self Skier)
+      (bind auto (select (Class|BPPaintGunData|GetFullAuto :self gun) "full-auto" "semi-auto"))
+      (bind shots (Utilities|String|Append (Utilities|String|ToString(Integer) (Class|BPPaintGunData|GetMagSize :self gun)) " shots"))
+      (bind pellets (select (> (Class|BPPaintGunData|GetPelletsPerShot :self gun) 1) (Utilities|String|Append (Utilities|String|ToString(Integer) (Class|BPPaintGunData|GetPelletsPerShot :self gun)) " balls a shot   ") ""))
+      (bind detail (Utilities|String|Append (Utilities|String|Append pellets auto) (Utilities|String|Append "   " (Utilities|String|Append shots (Utilities|String|Append "   reload " (Utilities|String|Append (Utilities|String|ToString(Float) (Class|BPPaintGunData|GetReloadSeconds :self gun)) " s"))))))
+      (CallFunction|DrawStoreItem :Skier Skier :Kind 0 :Index (Variables|Store|GetStoreRow) :Name (Utilities|String|ToString(Text) (Class|BPPaintGunData|GetGunName :self gun)) :Detail detail :Price (Class|BPPaintGunData|GetPrice :self gun) :X X :Y (+ Y (* 34.0 u)))
+      (Variables|Store|SetStoreRow (+ (Variables|Store|GetStoreRow) 1))))
+  (if (== Kind 1)
+    (for skis (Class|BPSkiCharacter|GetSkis :self Skier)
+      (bind speed (Utilities|String|Append "speed " (Utilities|String|Append (Utilities|String|ToString(Integer) (Math|Float|Round (* (Class|BPSkiData|GetSpeedScale :self skis) 100.0))) "%")))
+      (bind turn (Utilities|String|Append "   turning " (Utilities|String|Append (Utilities|String|ToString(Integer) (Math|Float|Round (* (Class|BPSkiData|GetTurnScale :self skis) 100.0))) "%")))
+      (bind stop (Utilities|String|Append "   stopping " (Utilities|String|Append (Utilities|String|ToString(Integer) (Math|Float|Round (* (Class|BPSkiData|GetBrakeScale :self skis) 100.0))) "%")))
+      (CallFunction|DrawStoreItem :Skier Skier :Kind 1 :Index (Variables|Store|GetStoreRow) :Name (Utilities|String|ToString(Text) (Class|BPSkiData|GetSkiName :self skis)) :Detail (Utilities|String|Append speed (Utilities|String|Append turn stop)) :Price (Class|BPSkiData|GetPrice :self skis) :X X :Y (+ Y (* 34.0 u)))
+      (Variables|Store|SetStoreRow (+ (Variables|Store|GetStoreRow) 1))))
+  (if (== Kind 2)
+    (for wax (Class|BPSkiCharacter|GetWaxes :self Skier)
+      (bind detail (Utilities|String|Append "snow friction " (Utilities|String|ToString(Float) (Class|BPWaxData|GetSnowFriction :self wax))))
+      (CallFunction|DrawStoreItem :Skier Skier :Kind 2 :Index (Variables|Store|GetStoreRow) :Name (Utilities|String|ToString(Text) (Class|BPWaxData|GetWaxName :self wax)) :Detail detail :Price (Class|BPWaxData|GetPrice :self wax) :X X :Y (+ Y (* 34.0 u)))
+      (Variables|Store|SetStoreRow (+ (Variables|Store|GetStoreRow) 1)))))
+
+; One item (row Index of the column): a box with its name, its line of numbers and, on the right, ON (what you have
+; on), OWNED (yours: click to put it back on), or its price (gold if you can afford it). Brighter under the mouse.
+(fn DrawStoreItem (Skier Kind Index Name Detail Price X Y)
+  (bind u (Variables|Layout|GetU))
+  (bind ski (Class|BPSkiCharacter|GetSkiPlayerState :self Skier))
+  (bind y (+ Y (* (* 72.0 u) (Math|Conversions|ToFloat(Integer) Index))))
+  (bind w (* 350.0 u))
+  (bind h (* 64.0 u))
+  (bind on (== Index (select (== Kind 0) (Class|BPSkiPlayerState|GetGunIndex :self ski) (select (== Kind 1) (Class|BPSkiPlayerState|GetSkisIndex :self ski) (Class|BPSkiPlayerState|GetWaxIndex :self ski)))))
+  (bind owned (or (== Price 0) (Utilities|Array|ContainsItem (Class|BPSkiPlayerState|GetOwned :self ski) (+ (* Kind 100) Index))))
+  (bind coins (Class|BPSkiPlayerState|GetCoins :self ski))
+  (bind (mx my found) (Game|Player|GetMousePosition :self (HUD|GetOwningPlayerController)))
+  (bind over (and (and (>= mx X) (<= mx (+ X w))) (and (>= my y) (<= my (+ y h)))))
+  (HUD|DrawRect :RectColor (Utilities|Struct|MakeLinearColor 0.2 0.18 0.45 (select over 0.55 0.25)) :ScreenX X :ScreenY y :ScreenW w :ScreenH h)
+  (if on
+    (HUD|DrawRect :RectColor (CallFunction|Neon) :ScreenX X :ScreenY y :ScreenW (* 5.0 u) :ScreenH h))
+  (CallFunction|DrawLeft :Text Name :X (+ X (* 16.0 u)) :Y (+ y (* 8.0 u)) :Color (CallFunction|Ink) :Size 2.0 :bTitle false)
+  (CallFunction|DrawLeft :Text Detail :X (+ X (* 16.0 u)) :Y (+ y (* 38.0 u)) :Color (CallFunction|Muted) :Size 1.2 :bTitle false)
+  (bind label (select on "ON" (select owned "OWNED" (Utilities|String|ToString(Integer) Price))))
+  (bind labelColor (select on (CallFunction|Neon) (select owned (CallFunction|Ink) (select (>= coins Price) (CallFunction|Gold) (CallFunction|Muted)))))
+  (bind (lw lh) (HUD|GetTextSize :Text label :Font "/SKIvSKI/UI/Font_SkiTitle.Font_SkiTitle" :Scale (* (* 1.8 u) 0.125)))
+  (CallFunction|DrawLeft :Text label :X (- (+ X w) (+ lw (* 14.0 u))) :Y (+ y (* 10.0 u)) :Color labelColor :Size 1.8 :bTitle true)
+  ; Under the mouse: the item's sentence goes to the bottom of the store (DrawStore shows it).
+  (if over
+    (bind blurb (select (== Kind 0) (Class|BPPaintGunData|GetBlurb :self (Utilities|Array|Get(acopy) (Class|BPSkiCharacter|GetGuns :self Skier) Index)) (select (== Kind 1) (Class|BPSkiData|GetBlurb :self (Utilities|Array|Get(acopy) (Class|BPSkiCharacter|GetSkis :self Skier) Index)) (Class|BPWaxData|GetBlurb :self (Utilities|Array|Get(acopy) (Class|BPSkiCharacter|GetWaxes :self Skier) Index)))))
+    (Variables|Store|SetStoreHint (Utilities|String|Append Name (Utilities|String|Append ":  " blurb))))
+  (HUD|AddHitBox :Position (Math|Vector2D|MakeVector2D X y) :Size (Math|Vector2D|MakeVector2D w h) :InName (Utilities|String|StringToName (Utilities|String|Append (select (== Kind 0) "G" (select (== Kind 1) "S" "W")) (Utilities|String|ToString(Integer) Index))) :bConsumesInput true :Priority 0))
+
+; A click on a store item: its hit box's name says which (G, S or W, then its number). The server decides (ServerBuy).
+(event EventHitBoxClicked (BoxName)
+  (bind name (Utilities|String|ToString(Name) BoxName))
+  (bind letter (Utilities|String|GetSubstring :SourceString name :StartIndex 0 :Length 1))
+  (bind kind (select (Utilities|String|Equal,CaseInsensitive(String) letter "G") 0 (select (Utilities|String|Equal,CaseInsensitive(String) letter "S") 1 2)))
+  (bind index (Utilities|String|StringToInteger (Utilities|String|GetSubstring :SourceString name :StartIndex 1 :Length 3)))
+  (bind skier (Utilities|Casting|CastToBP_SkiCharacter :Object (HUD|GetOwningPawn))
+    (:then
+      (Class|BPSkiCharacter|ServerBuy :self skier :Kind kind :Index index))
+    (:CastFailed)))
 
 ; ---- drawing helpers -------------------------------------------------------------------------------------------------
 

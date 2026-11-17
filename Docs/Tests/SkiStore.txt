@@ -1,0 +1,56 @@
+﻿# 2026-11-16 (standalone, one player, L_SkiVSki): the store, buying gear, ammo and reloads, coins for a race.
+#   UnrealEditor.exe Other5.uproject /SKIvSKI/Maps/L_SkiVSki -game -windowed -log -NoEOS -Other5NoFighterScreen -Other5TestScript=<this file>
+# Check: each "call pawn DebugScore" logs a SKI| line (coins, gun, ammo, skis, friction); the run prints them all.
+wait 8
+log the store: B opens it in the lobby (starting gear: Splat Pistol, Rental Skis, Factory Wax, no coins)
+call pawn DebugScore
+key B
+wait 1
+shot StoreLobby
+log buying: with 40 coins, the Stream Marker (20), then the Slalom Skis (15); Race Wax (14) is too dear after that
+call pawn DebugBuy 0 2 40
+wait 0.5
+call pawn DebugScore
+call pawn DebugBuy 1 1 25
+wait 0.5
+call pawn DebugScore
+call pawn DebugBuy 2 2 5
+wait 0.5
+call pawn DebugScore
+shot StoreBought
+log back to the Splat Pistol: free, it's everyone's
+call pawn DebugBuy 0 0 5
+wait 0.5
+call pawn DebugScore
+log owned: the Stream Marker again costs nothing
+call pawn DebugBuy 0 2 0
+wait 0.5
+call pawn DebugScore
+key B
+wait 0.5
+log ammo: 30 balls, then it reloads by itself (2.4 s)
+call pawn DebugAim -10
+call pawn DebugFire
+call pawn DebugFire
+call pawn DebugFire
+wait 0.3
+call pawn DebugScore
+shot StoreFiring
+log empty the magazine
+call pawn DebugEmpty
+wait 0.3
+call pawn DebugScore
+shot StoreReloading
+wait 2.6
+call pawn DebugScore
+log a race: 10 coins for not being put out, and the store opens with the results
+call pawn DebugPhase 1
+wait 1
+call pawn DebugPhase 2
+wait 2
+call pawn DebugPhase 3
+wait 1.5
+call pawn DebugScore
+shot StoreResults
+wait 1
+quit

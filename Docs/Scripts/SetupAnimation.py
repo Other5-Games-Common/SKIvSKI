@@ -69,28 +69,62 @@ except Exception:
     log("ERROR " + traceback.format_exc().replace("\n", " / "))
 
 
-def setup_fire_slot():
-    # The upper body's montage slot: Other5Combat's fire montages (AM_MM_*_Fire, set on each gun in SetupGuns.py)
-    # are additive recoil in the FullBodyAdditivePreAim slot, applied before the aim offset as Other5Combat does.
-    node = None
-    for i in range(64):
-        found = unreal.find_object(None, FOLDER + "/ABP_Skier.ABP_Skier:AnimGraph.AnimGraphNode_Slot_%d" % i)
-        if found:
-            node = found
+def set_anim_node(path, **values):
+    # An Anim Graph node's settings live in its "node" struct (a copy): change it, then put it back.
+    node = unreal.find_object(None, path)
     if not node:
-        log("no slot node yet: run BuildAnimGraph.ps1 first")
+        log("no node " + path)
         return
     anim_node = node.get_editor_property("node")
-    anim_node.set_editor_property("slot_name", "FullBodyAdditivePreAim")
+    for k, v in values.items():
+        anim_node.set_editor_property(k, v)
     node.set_editor_property("node", anim_node)
+
+
+def bone(name):
+    ref = unreal.BoneReference()
+    ref.set_editor_property("bone_name", name)
+    return ref
+
+
+def setup_nodes():
+    # BuildAnimGraph.ps1 leaves which node is which in %TEMP%/SKIvSKI/AnimNodes.json.
+    import json, os, tempfile
+    which_file = os.path.join(tempfile.gettempdir(), "SKIvSKI", "AnimNodes.json")
+    if not os.path.exists(which_file):
+        log("no AnimNodes.json yet: run BuildAnimGraph.ps1 first")
+        return
+    with open(which_file, encoding="utf-8-sig") as f:
+        which = json.load(f)
+    # The montage slots: Other5Combat's fire montages (AM_MM_*_Fire, set on each gun in SetupGuns.py) are additive
+    # recoil in FullBodyAdditivePreAim, applied before the aim offset as Other5Combat does; its reload montages
+    # (AM_MM_*_Reload) are on UpperBody.
+    set_anim_node(which["FireSlot"], slot_name="FullBodyAdditivePreAim")
+    set_anim_node(which["ReloadSlot"], slot_name="UpperBody")
+    # The legs (see BuildAnimGraph.ps1): the pelvis lowered (its translation added, in component space), the feet put on
+    # the skis by Two Bone IK (targets in component space, no stretching), then turned along the skis (their rotation
+    # replaced, in component space).
+    cs = unreal.BoneControlSpace.BCS_COMPONENT_SPACE
+    ignore = unreal.BoneModificationMode.BMM_IGNORE
+    for key in ("PelvisDown", "PelvisCrouch"):
+        set_anim_node(which[key], bone_to_modify=bone("pelvis"),
+                      translation_mode=unreal.BoneModificationMode.BMM_ADDITIVE, translation_space=cs,
+                      rotation_mode=ignore, scale_mode=ignore)
+    for key, name in (("IkLeft", "foot_l"), ("IkRight", "foot_r")):
+        set_anim_node(which[key], ik_bone=bone(name), effector_location_space=cs,
+                      joint_target_location_space=cs, allow_stretching=False)
+    for key, name in (("FootLeft", "foot_l"), ("FootRight", "foot_r")):
+        set_anim_node(which[key], bone_to_modify=bone(name),
+                      rotation_mode=unreal.BoneModificationMode.BMM_REPLACE, rotation_space=cs,
+                      translation_mode=ignore, scale_mode=ignore)
     abp = unreal.load_asset(FOLDER + "/ABP_Skier")
     unreal.BlueprintEditorLibrary.compile_blueprint(abp)
     unreal.EditorAssetLibrary.save_asset(FOLDER + "/ABP_Skier", only_if_is_dirty=False)
-    log("fire slot: FullBodyAdditivePreAim")
+    log("slots, pelvis, foot IK and foot turns set")
 
 
 try:
-    setup_fire_slot()
+    setup_nodes()
 except Exception:
     log("ERROR " + traceback.format_exc().replace("\n", " / "))
 log("END")

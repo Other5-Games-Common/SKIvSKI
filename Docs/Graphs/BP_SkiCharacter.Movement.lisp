@@ -52,8 +52,10 @@
       (Variables|Ski|State|SetFloorNormal (Math|Vector|MakeVector 0.0 0.0 1.0)))))
 
 ; Turn the skis from the keys. Runs only on the player's own machine; the server hears the result (ServerSetSkiYaw).
+; The skis' TurnScale (slalom skis turn faster, downhill skis slower) scales the turn rate.
 (fn SteerSkis (DeltaSeconds)
-  (bind step (* (Variables|Ski|Tuning|GetTurnRate) DeltaSeconds))
+  (bind skis (CallFunction|CurrentSkis))
+  (bind step (* (* (Variables|Ski|Tuning|GetTurnRate) DeltaSeconds) (Class|BPSkiData|GetTurnScale :self skis)))
   (bind yaw (Variables|Ski|State|GetSkiYaw))
   ; A / D: steer left / right.
   (if (Variables|Ski|Input|GetHoldLeft)
@@ -95,6 +97,8 @@
 ; - The pull is the input's size (FullInputAccel = input 1); Min Analog Walk Speed is TopSpeed, so a small pull still
 ;   builds up speed (it used to cap the speed at TopSpeed x input, which made skiing slow).
 (fn PushDownSlope ()
+  (bind skis (CallFunction|CurrentSkis))
+  (bind friction (CallFunction|GetSnowFriction))
   (bind yaw (Variables|Ski|State|GetSkiYaw))
   (bind skiForward (Math|Vector|MakeVector (Math|Trig|Cos(Degrees) yaw) (Math|Trig|Sin(Degrees) yaw) 0.0))
   (bind fallYaw (Variables|Ski|State|GetFallLineYaw))
@@ -108,11 +112,11 @@
   (bind pressing (* gravity (Math|Trig|Cos(Degrees) slope)))
   ; Along the skis: positive pulls them forward, negative (pointing uphill) backwards.
   (bind along (* downhill (Math|Trig|Cos(Degrees) off)))
-  (bind alongPull (- (Math|Float|Absolute(Float) along) (* (CallFunction|GetSnowFriction) pressing)))
+  (bind alongPull (- (Math|Float|Absolute(Float) along) (* friction pressing)))
   (if (> alongPull 0.0)
     (Pawn|Input|AddMovementInput :WorldDirection (select (>= along 0.0) skiForward (Math|Vector|NegateVector skiForward)) :ScaleValue (Math|Float|Clamp(Float) (/ alongPull full) 0.0 1.0)))
-  ; Across the skis: the edges hold until the slope beats them.
-  (bind acrossPull (- (Math|Float|Absolute(Float) (* downhill (Math|Trig|Sin(Degrees) off))) (* (Variables|Ski|Tuning|GetEdgeGrip) pressing)))
+  ; Across the skis: the edges hold until the slope beats them (the skis' GripScale: slalom skis hold better).
+  (bind acrossPull (- (Math|Float|Absolute(Float) (* downhill (Math|Trig|Sin(Degrees) off))) (* (* (Variables|Ski|Tuning|GetEdgeGrip) (Class|BPSkiData|GetGripScale :self skis)) pressing)))
   (if (> acrossPull 0.0)
     (Pawn|Input|AddMovementInput :WorldDirection (Math|Vector|Normalize (- fallDir (* skiForward (Math|Vector|DotProduct fallDir skiForward)))) :ScaleValue (Math|Float|Clamp(Float) (/ acrossPull full) 0.0 1.0)))
   ; Nearly flat (the finish, the lobby): W skates forward, up to SkateSpeed.
@@ -123,8 +127,17 @@
 ; How hard the snow slows the skier when gravity isn't pulling them on (Character Movement's braking). Gliding along
 ; the skis only the snow friction slows you; the more the skis are sideways to where you're going, the harder they
 ; skid you to a stop. Runs on every machine, so the server's copy of the movement brakes the same way.
+; The skis on (BP_SkiData) scale it all: top speed (SpeedScale), carving grip (GripScale), how hard a skid stops you
+; (BrakeScale), and the snow friction (FrictionScale, with the player's wax, in GetSnowFriction).
 (fn UpdateGlide ()
   (bind cmc (Variables|Character|GetCharacterMovement))
+  (bind skis (CallFunction|CurrentSkis))
+  (bind friction (CallFunction|GetSnowFriction))
+  (bind top (* (Variables|Ski|Tuning|GetTopSpeed) (Class|BPSkiData|GetSpeedScale :self skis)))
+  (bind brake (Class|BPSkiData|GetBrakeScale :self skis))
+  (Class|CharacterMovementComponent|SetMaxWalkSpeed :self cmc :MaxWalkSpeed top)
+  (Class|CharacterMovementComponent|SetMinAnalogWalkSpeed :self cmc :MinAnalogWalkSpeed top)
+  (Class|CharacterMovementComponent|SetGroundFriction :self cmc :GroundFriction (* (Variables|Ski|Tuning|GetCarveGrip) (Class|BPSkiData|GetGripScale :self skis)))
   (bind vel (Transformation|GetVelocity))
   (bind speed (Math|Vector|VectorLengthXY vel))
   (bind yaw (Variables|Ski|State|GetSkiYaw))
@@ -132,8 +145,8 @@
   ; sides, so the division never sees a speed of 0.)
   (bind sideways (select (> speed 10.0) (Math|Float|Absolute(Float) (/ (- (* (.x vel) (Math|Trig|Sin(Degrees) yaw)) (* (.y vel) (Math|Trig|Cos(Degrees) yaw))) (Math|Float|Max(Float) speed 1.0))) 0.0))
   (bind pressing (* (Variables|Ski|Tuning|GetGravity) (Math|Trig|Cos(Degrees) (Variables|Ski|State|GetSlopeDegrees))))
-  (Class|CharacterMovementComponent|SetBrakingDecelerationWalking :self cmc :BrakingDecelerationWalking (+ (* (CallFunction|GetSnowFriction) pressing) (* sideways (Variables|Ski|Tuning|GetSkidBraking))))
-  (Class|CharacterMovementComponent|SetBrakingFriction :self cmc :BrakingFriction (* sideways (Variables|Ski|Tuning|GetSkidFriction))))
+  (Class|CharacterMovementComponent|SetBrakingDecelerationWalking :self cmc :BrakingDecelerationWalking (+ (* friction pressing) (* (* sideways (Variables|Ski|Tuning|GetSkidBraking)) brake)))
+  (Class|CharacterMovementComponent|SetBrakingFriction :self cmc :BrakingFriction (* (* sideways (Variables|Ski|Tuning|GetSkidFriction)) brake)))
 
 ; Looks only: lean the body into turns and lay the skis flat on the snow. Runs on every machine.
 (fn LeanIntoTurn (DeltaSeconds)
@@ -160,12 +173,14 @@
   (bind e (Utilities|String|Append d (Utilities|String|Append " at " (Utilities|String|ToString(Vector) (Transformation|GetActorLocation)))))
   (Development|PrintString :InString e :Duration 5.0))
 
-; The friction between this skier's skis and the snow: the player's own (BP_SkiPlayerState SnowFriction, which the
-; shop's ski wax will lower between runs), or the character's SnowFriction before the player state arrives.
+; The friction between this skier's skis and the snow: their wax's (BP_SkiPlayerState SnowFriction, from the store),
+; or the character's SnowFriction before the player state arrives, times the skis' FrictionScale (downhill skis glide).
 (fn GetSnowFriction ()
+  (bind skis (CallFunction|CurrentSkis))
+  (bind scale (Class|BPSkiData|GetFrictionScale :self skis))
   (bind ski (CallFunction|GetSkiPlayerState))
   (Utilities|IsValid ski
     (:"Is Valid"
-      (return (Class|BPSkiPlayerState|GetSnowFriction :self ski)))
+      (return (* (Class|BPSkiPlayerState|GetSnowFriction :self ski) scale)))
     (:"Is Not Valid"
-      (return (Variables|Ski|Tuning|GetSnowFriction)))))
+      (return (* (Variables|Ski|Tuning|GetSnowFriction) scale)))))

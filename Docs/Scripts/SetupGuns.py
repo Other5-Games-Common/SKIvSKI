@@ -18,17 +18,34 @@ eal = unreal.EditorAssetLibrary
 
 # name: (shown name, mesh, muzzle offset, speed cm/s, gravity scale, ball cm, shots/s, pellets, spread degrees, fire montage)
 # Other5Combat's gun meshes point their barrels along +Y (the skier holds them turned -90 degrees, as Other5Combat
-# does), so the muzzle offsets are along Y, in the mesh's own space.
+# does), so the muzzle offsets are along Y, in the mesh's own space. The order is the store's order; the first is
+# what everyone starts with (price 0).
 GUNS = {
-    # Quick and light: fast, flat-flying small balls, many shots.
-    "DA_PaintPistol": ("Splat Pistol", "/Other5Combat/Weapons/Pistol/Mesh/SM_Pistol", (0, 14, 3), 7000.0, 0.5, 7.0, 6.0, 1, 0.6,
+    # Everyone's first gun: one ball per click, quick and flat-flying, a small magazine.
+    "DA_PaintPistol": ("Splat Pistol", "/Other5Combat/Weapons/Pistol/Mesh/SM_Pistol", (0, 14, 3), 7000.0, 0.5, 7.0, 5.0, 1, 0.8,
                        "/Other5Combat/Weapons/Pistol/Animations/AM_MM_Pistol_Fire"),
-    # Heavy marker: big, slow, loopy balls (lead your target), two shots a second.
-    "DA_PaintMarker": ("Big Marker", "/Other5Combat/Weapons/Rifle/Mesh/SM_Rifle", (0, 54, 6), 4200.0, 1.0, 14.0, 2.0, 1, 0.2,
+    # Fast semi-auto: as quick as you can click (up to 8 a second), the most accurate and the fastest balls.
+    "DA_PaintMarker": ("Snap Marker", "/Other5Combat/Weapons/Rifle/Mesh/SM_Rifle", (0, 54, 6), 8500.0, 0.4, 7.0, 8.0, 1, 0.3,
                        "/Other5Combat/Weapons/Rifle/Animations/AM_MM_Rifle_Fire"),
-    # Spread gun: six balls in a cone, slow to reload; hard to miss up close.
-    "DA_PaintSpread": ("Splatter Gun", "/Other5Combat/Weapons/Rifle/Mesh/SM_Rifle", (0, 36, 4), 5000.0, 0.8, 7.0, 1.2, 6, 5.0,
+    # Full-auto: hold the trigger for a stream of balls, less accurate, a big magazine and a long reload.
+    "DA_PaintStream": ("Stream Marker", "/Other5Combat/Weapons/Rifle/Mesh/SM_Rifle", (0, 54, 6), 7500.0, 0.5, 6.0, 11.0, 1, 2.5,
+                       "/Other5Combat/Weapons/Rifle/Animations/AM_MM_Rifle_Fire"),
+    # Scattergun: six balls in a cone per pump, hard to miss up close, few shells and a slow reload.
+    "DA_PaintSpread": ("Scattergun", "/Other5Combat/Weapons/Rifle/Mesh/SM_Rifle", (0, 36, 4), 5500.0, 0.8, 7.0, 1.3, 6, 6.0,
                        "/Other5Combat/Weapons/Shotgun/Animations/AM_MM_Shotgun_Fire"),
+}
+# name: (price in coins, magazine, reload seconds, full-auto, the store's one-line description)
+STORE = {
+    "DA_PaintPistol": (0, 10, 1.4, False, "Everyone's first marker. One ball per click."),
+    "DA_PaintMarker": (12, 16, 1.8, False, "Fast semi-auto: as quick as you click. The most accurate, the fastest balls."),
+    "DA_PaintStream": (20, 30, 2.4, True, "Full-auto: hold to spray. Less accurate, big magazine, long reload."),
+    "DA_PaintSpread": (16, 5, 2.6, False, "Six balls a pump: hard to miss up close. Few shells, slow reload."),
+}
+# Each kind of gun's reload: Other5Combat's reload montage for its kind (ArmsKind 0 pistol, 1 rifle, 2 shotgun).
+RELOADS = {
+    0: "/Other5Combat/Weapons/Pistol/Animations/AM_MM_Pistol_Reload",
+    1: "/Other5Combat/Weapons/Rifle/Animations/AM_MM_Rifle_Reload",
+    2: "/Other5Combat/Weapons/Shotgun/Animations/AM_MM_Shotgun_Reload",
 }
 # How each kind of gun is held: Other5Combat's skeletal mesh (its pivot is the grip, which sits in the hand) and
 # ArmsKind, which picks the upper body's pose and aim offset in ABP_Skier (0 pistol, 1 rifle, 2 shotgun). The static
@@ -36,6 +53,7 @@ GUNS = {
 HOLDS = {
     "DA_PaintPistol": ("/Other5Combat/Weapons/Pistol/Mesh/SK_Pistol", 0),
     "DA_PaintMarker": ("/Other5Combat/Weapons/Rifle/Mesh/SK_Rifle", 1),
+    "DA_PaintStream": ("/Other5Combat/Weapons/Rifle/Mesh/SK_Rifle", 1),
     "DA_PaintSpread": ("/Other5Combat/Weapons/Shotgun/Mesh/SKM_Shotgun", 2),
 }
 
@@ -79,11 +97,22 @@ def main():
         grip = grip_offset(da.get_editor_property("Mesh"), unreal.load_asset(skeletal))
         da.set_editor_property("GripOffset", grip)
         da.set_editor_property("ArmsKind", kind)
+        price, mag, reload, auto, blurb = STORE[name]
+        da.set_editor_property("Price", price)
+        da.set_editor_property("MagSize", mag)
+        da.set_editor_property("ReloadSeconds", reload)
+        da.set_editor_property("bFullAuto", auto)
+        da.set_editor_property("Blurb", blurb)
+        montage = unreal.load_asset(RELOADS[kind])
+        if montage:
+            da.set_editor_property("ReloadMontage", montage)
+        else:
+            log("no reload montage " + RELOADS[kind])
         log("%s grip %.1f %.1f %.1f" % (name, grip.x, grip.y, grip.z))
         eal.save_loaded_asset(da, False)
         guns.append(da)
         log("gun " + name)
-    # The skier carries all three, in this order (Q switches).
+    # The store sells them in this order (BP_SkiCharacter Guns; the first is everyone's starting gun).
     bp = unreal.load_asset("/SKIvSKI/Blueprints/BP_SkiCharacter")
     unreal.BlueprintEditorLibrary.compile_blueprint(bp)
     cdo = unreal.get_default_object(bp.generated_class())

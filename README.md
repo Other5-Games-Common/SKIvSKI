@@ -28,8 +28,9 @@ A round: **Lobby** (15 s on the flat snow behind the gates; the clock waits for 
 | S (left stick down) | Turn the skis away from the fall line the short way: across the slope (a quick stop, held there for a moment), then on round until they point uphill, and you slide backwards. |
 | A / D (left stick) | Steer left / right. |
 | Mouse | Look and aim (the upper body follows; the skis don't). |
-| Left mouse (right trigger) | Fire. Hold for the gun's rate. |
-| Q (Y) | Next paintball gun. |
+| Left mouse (right trigger) | Fire: once per click (semi-auto), or held (full-auto markers), up to the gun's rate. |
+| R (Y) | Reload (an empty magazine reloads by itself). |
+| B (Start) | The store (lobby and results; it opens by itself with the results). Click an item to buy it. |
 | T (X) | Switch team (lobby only). |
 | [ / ] (d-pad) | Admin: easier / harder slope (lobby or results; regenerates the slope). Without an AdminPIN on the server everyone is an admin. |
 | Space | Jump (from Other5Combat). |
@@ -44,10 +45,35 @@ A round: **Lobby** (15 s on the flat snow behind the gates; the clock waits for 
   "Bounce!". Better paint, bought between runs, will lower it (and can look different).
 - Points: **1** (`HitPoints`) per opponent you put out; crossing the finish (not out) **10, 8, 6, 5, 4, 3, 2, 1**
   (`FinishPoints`) for 1st, 2nd... Points go to your team; most points wins the round.
-- **Coins:** every point you earn is also a coin (`CoinsPerPoint`), kept between rounds, for the shop.
-- Your gear (on your player state, shown on the HUD): **paint bounce chance** and **ski friction** (the snow friction
-  of your skis; wax will lower it). The shop between runs will sell better ones.
+- **Coins**, for the store: **3** (`HitCoins`) for each opponent you put out, **10** (`SurviveCoins`) for getting through a race
+  without being put out. You keep them while you're connected; everyone starts (or joins) with none and the basic gear.
+- Your **paint bounce chance** (10%) is on your player state too.
 - Paint doesn't hurt (no health loss, no deaths): this is a race.
+
+### The store (between runs)
+
+In the lobby and with the results (B, or it opens by itself with the results) the store sells markers, skis and ski
+wax for coins. You ski with what you bought: no switching guns mid-run. What you've bought stays yours while you're
+connected, so clicking it again puts it back on for free. The first of each is everyone's, free.
+
+| Markers | Price | Fire | Magazine, reload | |
+|---|---|---|---|---|
+| Splat Pistol | free | semi-auto, up to 5/s | 10, 1.4 s | Everyone's first marker. |
+| Snap Marker | 12 | semi-auto, up to 8/s | 16, 1.8 s | As quick as you click; the most accurate, the fastest balls. |
+| Stream Marker | 20 | full-auto, 11/s | 30, 2.4 s | Hold to spray; less accurate. |
+| Scattergun | 16 | 6 balls a pump, 1.3/s | 5, 2.6 s | Hard to miss up close. |
+
+| Skis | Price | Top speed | Turning | Grip (carving, edges) | Stopping (skids) | Snow friction |
+|---|---|---|---|---|---|---|
+| Rental Skis | free | 100% | 100% | 100% | 100% | 100% |
+| Slalom Skis | 15 | 95% | 135% | 130% | 150% | 100% |
+| Downhill Skis | 18 | 112% | 80% | 90% | 85% | 80% |
+
+| Wax | Price | Snow friction |
+|---|---|---|
+| Factory Wax | free | 0.02 |
+| Glide Wax | 6 | 0.014 |
+| Race Wax | 14 | 0.008 |
 
 ## How it works
 
@@ -61,9 +87,10 @@ Team Name, Team Score, Add Team Score, Request Team, Set Team Switch Allowed...)
 | `Blueprints/BP_SkiCharacter` | The skier: a child of Other5Combat's `BP_Other5ProjectileCharacter` (camera, health, skins, game menu) with skis, a team-coloured helmet and a paintball gun. Movement, firing, team colours. |
 | `Blueprints/BP_SkiSlope` | The random slope: builds snow, pines, start gates and the finish from `Seed` + `Difficulty`. |
 | `Blueprints/BP_SkiDirector` | Rounds and teams: a child of Other5's **Game Coordinator** (`AOther5GameCoordinator`), placed once in the level. |
-| `Blueprints/BP_SkiPlayerState` | Each player's outs scored (`Hits`), points, finish place, whether they're out (`bOut`), and gear: `SnowFriction`, `BounceChance` (child of `Other5BasePlayerStateGAS`, whose `TeamId` is the team). |
+| `Blueprints/BP_SkiPlayerState` | Each player's outs scored (`Hits`), points, finish place, whether they're out (`bOut`), coins, and gear: what they have on (`GunIndex`, `SkisIndex`, `WaxIndex`, the wax's `SnowFriction`), what they've bought (`Owned`), `BounceChance` (child of `Other5BasePlayerStateGAS`, whose `TeamId` is the team). |
 | `Blueprints/BP_Paintball` | One paintball. |
-| `Guns/BP_PaintGunData`, `Guns/DA_Paint*` | Gun data: a Blueprint Primary Data Asset class and the three guns. |
+| `Guns/BP_PaintGunData`, `Guns/DA_Paint*` | Gun data: a Blueprint Primary Data Asset class and the four markers. |
+| `Gear/BP_SkiData`, `Gear/BP_WaxData`, `Gear/DA_Skis*`, `Gear/DA_Wax*` | The store's skis and ski wax (`SetupGear.py`). |
 | `Blueprints/BP_SkiHUD` | The round panel and team scores, the GET READY countdown, GO!, the results scoreboard, your skier and gear panels, the "Hit!" / "Bounce!" pop-ups and the round sounds, drawn on the canvas in Other5's UI style (child of Other5's game HUD `BP_Other5GameHUD`: menu and chat, none of Combat's ammo, grenade, health or credits widgets). |
 | `Audio/S_Ski*` | The game's own sounds (hit, bounce, countdown beep, go, score chime, results fanfare), synthesised by `Docs/Scripts/SetupAudio.py` (sources in `Docs/Audio`). The shots are Other5Combat's rifle sounds. |
 | `Blueprints/BP_SkiGameMode` | Pawn, player state, controller and HUD classes, and the **Teams** list (child of `Other5GameModeBase`). |
@@ -134,9 +161,13 @@ rebuilds between rounds.
 ### Paintballs (`Docs/Graphs/BP_SkiCharacter.Paint.lisp`, `BP_Paintball.lisp`)
 
 A gun is a data asset: mesh, muzzle offset, `MuzzleSpeed`, `BallGravityScale`, `BallSize`, `ShotsPerSecond`,
-`PelletsPerShot`, `SpreadDegrees`, `FireSounds` (one is picked at random per shot) and `FireMontage`. Splat Pistol:
-fast, flat, 6 a second. Big Marker: big slow loopy balls. Splatter Gun: six balls in a cone. Add a gun by copying a
-`DA_Paint*` and adding it to the character's `Guns`.
+`PelletsPerShot`, `SpreadDegrees`, `FireSounds` (one is picked at random per shot), `FireMontage`, and for the store
+`Price`, `Blurb`, `MagSize`, `ReloadSeconds`, `bFullAuto` and `ReloadMontage` (see the store's table above). Add a
+gun by copying a `DA_Paint*` and adding it to the character's `Guns` (the store's list; the first is everyone's).
+
+**Ammo** is counted on the player's own machine: each shot takes one from the magazine; R, or the last ball out,
+reloads (`ReloadSeconds`, with Other5Combat's reload montage for the kind of gun, on the `UpperBody` slot). A
+semi-automatic gun fires once per click, a full-automatic one while the trigger is held; both at most `ShotsPerSecond`.
 
 The guns are Other5Combat's meshes in the `weapon_r` hand socket. Their barrels point along the mesh's +Y, so the
 character turns the gun -90 degrees (yaw) after attaching it, as Other5Combat's weapons do with their Attach Offset,
@@ -243,11 +274,14 @@ Size**, so it fits any resolution.
 
 ### Animation (`Animation/ABP_Skier`)
 
-Legs: a Two Way Blend from a standing to a crouched pose (`SkiCrouch`: deeper the faster you go). Upper body: the rifle
+Legs: on the skis, side by side, toes along them. Every mannequin pose stands staggered with the feet turned out (even
+`MM_Idle`), so the legs are placed rather than played: `MM_Idle` in component space, the pelvis lowered 5 cm and up to
+28 cm more as you crouch (`SkiCrouch`: deeper the faster you go), **Two Bone IK** puts each foot on its ski with the knee
+aimed forward, and **Transform (Modify) Bone** turns each foot to point along its ski. Upper body: the rifle
 pose and aim offset of the gun in hand: pistol (`MM_Pistol_Idle_ADS`, `AO_MM_Pistol_Idle_ADS`), rifle (`MM_Rifle_Idle_Hipfire`,
 `AO_MM_Rifle_Idle_Hipfire`) or shotgun (`MM_Shotgun_Idle_Hipfire` with the rifle's aim offset), picked by two Blend Poses by
 Bool (`bArmsPistol`, `bArmsShotgun`, from the gun's `ArmsKind`), then the `FullBodyAdditivePreAim` montage slot (the guns'
-fire recoil). The aim offsets use `AimYaw`, `AimPitch` (where the player aims relative to the skis). A
+fire recoil) and the `UpperBody` slot (their reloads). The aim offsets use `AimYaw`, `AimPitch` (where the player aims relative to the skis). A
 Layered Blend per Bone joins them from `spine_01` up (mesh-space rotation). No walking legs: on skis the feet stay put.
 The Anim Graph is built by `Docs/Scripts/BuildAnimGraph.ps1`; the event graph is `Docs/Graphs/ABP_Skier.lisp`.
 
@@ -260,8 +294,10 @@ the level):
   SkidFriction, SkateInput, SkateSpeed, EdgeGrip, AcrossHoldSeconds, MaxLean. (Keep the Character Movement defaults in step: see the gotcha.)
 - `BP_SkiSlope` **Slope|Layout** and **Slope|Difficulty**.
 - `BP_SkiDirector` **Round|Settings**: LobbySeconds, CountdownSeconds, RaceSeconds, ResultsSeconds, HitPoints,
-  FinishPoints, MinPlayers, CoinsPerPoint.
+  FinishPoints, MinPlayers, HitCoins, SurviveCoins.
 - `BP_SkiPlayerState` **Gear** (each player's starting gear): SnowFriction 0.02, BounceChance 0.10.
+- The store: `BP_SkiCharacter` **Store** (Skis, Waxes) and **Paint** (Guns): what it sells, in order; their prices and
+  numbers in the `DA_*` assets (`SetupGuns.py`, `SetupGear.py`).
 - `BP_SkiGameMode` **Other5|Teams**: the team names and colours, auto-balance, switching, friendly fire.
 - `BP_SkiHUD` **Popups**: PopupSeconds.
 - The guns: `Guns/DA_Paint*`.
@@ -301,6 +337,10 @@ The Other5 test runner (`-Other5TestScript=`) drives the scripts in `Docs/Tests`
 - `SkiLook.txt`: screenshots of the ski stance and aiming.
 - `SkiPolish.txt`: the HUD in every phase (moved on with `DebugPhase`), the gun in hand, recoil and the pop-ups.
 - `SkiFeatures.txt`: character select, a middle-mouse ping, each gun held, the game menu's Fighter button, the run-out.
+- `SkiStore.txt`: the store (B), buying with `DebugBuy` (enough coins, too few, free, owned), ammo and the reload
+  (`DebugEmpty`), and a race's coins with the store opening at the results. Each `DebugScore` logs coins, gun, ammo,
+  skis and friction; the server logs every request (`SKI| buy <kind x 100 + index> price coins phase`). Tested
+  2026-11-16 standalone; a listen-server host and a client: the client's `ServerBuy` reached the server.
 - A hit over the network: a listen-server host runs `call pawn DebugHitMe` (a real `MulticastPaintResult`) while a client
   screenshots it. (Editor Python can't test RPCs: its calls run them locally.) `DebugHitMe` skips the director, so it
   can't catch a scoring bug: for a real paintball hit, run a dedicated server (`-server -SkiPracticeHits`) with
@@ -334,15 +374,15 @@ compiles), and the controls in Settings > Controls.
   turned 90 degrees before). Every gun uses the rifle's shot sounds; no muzzle flash or splash particles yet.
 - The HUD is drawn on the canvas (Draw Rect / Draw Text), not a UMG widget, so it has no hover or click; fine for a
   read-only HUD.
-- No shop yet: gear (bounce chance, ski friction) and coins are in place for it. Better paint's looks (colours) not
-  started.
+- The store (2026-11-16): ammo is counted on the player's own machine (no cheat protection), and only the shooter sees
+  their reload animation. The store needs a mouse (no gamepad navigation yet). Better paint (bounce chance, colours)
+  isn't sold yet.
 - Finish and out-of-bounds are polled four times a second. Players stuck across the slope in a bowl must steer out.
 - No lag compensation: the server's ball starts from the shooter's muzzle when the RPC arrives.
 - No bots. Not tried on Mac, nor as a cooked creation pak (PAL_SKIvSKI is set up but nothing has been cooked).
 
 **Next / TODO:**
-- **Shop between runs** (Matt 2026-11-10): spend coins on better paint (lower bounce chance, colours and other
-  effects) and ski wax (lower ski friction). Other5's `AOther5Shop` / inventory currency is the likely base.
+- **Store**, more to come: better paint (lower bounce chance, colours and other effects); gamepad navigation.
 - **Ski compass** (Matt 2026-11-10, later): a compass-like HUD element showing which way your skis point relative to
   the fall line (straight downhill), like Other5Compass but for the hill.
 - A muzzle/splash effect (Niagara); each gun its own shot sound; nicer pines (Megascans are fine to use,
