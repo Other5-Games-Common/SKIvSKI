@@ -1,6 +1,6 @@
-﻿# 2026-11-16 (standalone, one player, L_SkiVSki): the store, buying gear, ammo and reloads, coins for a race.
+# 2026-11-16, upgrades 2026-11-17 (standalone, one player, L_SkiVSki): the store, buying gear, ammo and reloads, coins for a race.
 #   UnrealEditor.exe Other5.uproject /SKIvSKI/Maps/L_SkiVSki -game -windowed -log -NoEOS -Other5NoFighterScreen -Other5TestScript=<this file>
-# Check: each "call pawn DebugScore" logs a SKI| line (coins, gun, ammo, skis, friction); the run prints them all.
+# Check: each "call pawn DebugScore" logs a SKI| line (coins, gun, magazine, spare, ammo, skis, friction); the run prints them all.
 wait 8
 log the store: B opens it in the lobby (starting gear: Splat Pistol, Rental Skis, Factory Wax, no coins)
 call pawn DebugScore
@@ -26,9 +26,17 @@ log owned: the Stream Marker again costs nothing
 call pawn DebugBuy 0 2 0
 wait 0.5
 call pawn DebugScore
+log upgrades: the Extended Hopper (10) makes the Stream Marker's magazine 45; Extended Reloads (8) take its spare paint from 90 to 180
+call pawn DebugBuy 3 0 18
+wait 0.5
+call pawn DebugScore
+call pawn DebugBuy 3 1 8
+wait 0.5
+call pawn DebugScore
+shot StoreUpgrades
 key B
 wait 0.5
-log ammo: 30 balls, then it reloads by itself (2.4 s)
+log ammo: 45 balls (the hopper), then it reloads by itself (2.4 s)
 call pawn DebugAim -10
 call pawn DebugFire
 call pawn DebugFire
@@ -41,13 +49,22 @@ call pawn DebugEmpty
 wait 0.3
 call pawn DebugScore
 shot StoreReloading
-wait 2.6
+wait 3.5
 call pawn DebugScore
-log a race: 10 coins for not being put out, and the store opens with the results
+log a race: 10 coins for not being put out, the paint full again (45 + 180), and the store opens with the results
 call pawn DebugPhase 1
 wait 1
 call pawn DebugPhase 2
 wait 2
+log a reload in the race takes from the spare paint: 45 in the magazine, 135 spare
+call pawn DebugEmpty
+wait 3.5
+call pawn DebugScore
+log out of paint: no spare left, the last ball goes and nothing reloads (OUT OF PAINT)
+call pawn DebugDrain
+wait 3.5
+call pawn DebugScore
+shot StoreOutOfPaint
 call pawn DebugPhase 3
 wait 1.5
 call pawn DebugScore

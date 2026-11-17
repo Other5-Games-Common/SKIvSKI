@@ -52,6 +52,10 @@ def main():
         "MaxAimYaw": 100.0,          # degrees the camera and shots may turn from the skis (as far as the body twists)
         "GunShown": -1,              # no gun or skis shown yet: the first frame shows the player's (UpdateGear)
         "SkisShown": -1,
+        "MagShown": -1,              # nor a magazine, spare paint or phase: the first frame fills them (UpdateGear)
+        "SpareShown": -1,
+        "PhaseShown": -1,
+        "BaseSpareMags": 3,          # spare magazines everyone carries (the gun's own size); Extended Reloads add more
     })
     # The movement component's own defaults must match the tuning: Other5's Speed stat (fighter progression) sets
     # Max Walk Speed from the class default whenever it changes, so a value set only at Begin Play doesn't last.
