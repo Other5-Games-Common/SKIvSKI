@@ -7,8 +7,8 @@
               poses all stand staggered with the feet turned out (even MM_Idle: the right foot 30 cm back and 47
               degrees out), so the legs are placed, not played: MM_Idle in component space, the pelvis lowered 5 cm
               (PelvisDown) and up to 28 cm more as you crouch (PelvisCrouch, Alpha = SkiCrouch, from the speed in the
-              event graph, Docs/Graphs/ABP_Skier.lisp), then Two Bone IK puts each foot on its ski (FOOT_L / FOOT_R:
-              13 cm either side, mesh +Y is forward, mesh +X the skier's left) with the knee aimed forward, and two
+              event graph, Docs/Graphs/ABP_Skier.lisp), then Two Bone IK puts each foot on its ski's binding (FootLeftLocation /
+              FootRightLocation, worked out from the skis in ABP_Skier.lisp; mesh +Y is forward, mesh +X the skier's left) with the knee aimed forward, and two
               Transform (Modify) Bone nodes turn the feet to point along the skis (their idle rotation turned about
               Z until the toes point down mesh +Y: worked out from MM_Idle's foot and ball bones).
   Upper body: how the gun in hand is held, from Other5Characters' poses: a pistol (MM_Pistol_Idle_ADS through
@@ -31,7 +31,17 @@ AddVars $A @(
 	@('AimPitch', 'float', 'Ski', 'None', $false),
 	@('bArmsPistol', 'bool', 'Ski', 'None', $false),
 	@('bArmsShotgun', 'bool', 'Ski', 'None', $false),
-	@('LeanDegrees', 'float', 'Ski', 'None', $true)
+	@('LeanDegrees', 'float', 'Ski', 'None', $true),
+	# The feet on the skis' bindings (ABP_Skier.lisp works them out every frame; defaults in SetupAnimation.py).
+	@('FootLeftLocation', 'Vector', 'Ski', 'None', $false),
+	@('FootRightLocation', 'Vector', 'Ski', 'None', $false),
+	@('FootLeftRotation', 'Rotator', 'Ski', 'None', $false),
+	@('FootRightRotation', 'Rotator', 'Ski', 'None', $false),
+	@('FootLeftBase', 'Rotator', 'Ski', 'None', $true),
+	@('FootRightBase', 'Rotator', 'Ski', 'None', $true),
+	@('AnkleHeight', 'float', 'Ski', 'None', $true),
+	@('AnkleBack', 'float', 'Ski', 'None', $true),
+	@('SoleHeight', 'float', 'Ski', 'None', $true)
 )
 Compile $A | Out-Null
 
@@ -95,8 +105,6 @@ $null = Link $ikRight 'Pose' $footLeft 'ComponentPose'
 $null = Link $footLeft 'Pose' $footRight 'ComponentPose'
 $null = Link $footRight 'Pose' $legs 'ComponentPose'
 # Their numbers (component space, cm and degrees; pins, so set here). The bones and the modes are SetupAnimation.py's.
-$FOOT_L = '13.0,4.0,8.5'
-$FOOT_R = '-13.0,4.0,8.5'
 $PELVIS_CROUCH = '0.0,-10.0,-34.0'
 # Spine lean at full crouch: spine_01 to spine_03 each turn CURL degrees about the mesh's sideways axis (component
 # space, rotator Roll: +Roll tips up toward mesh +Y, forward). Not about each bone's own axis: on the mannequin that's
@@ -108,13 +116,15 @@ function SetPin($node, $name, $value) { $null = Mcp-Call $script:BP 'set_pin_val
 SetPin $pelvisDown 'Translation' '0.0,0.0,-5.0'
 # Crouching sits the hips back as well as down (mesh -Y is back), so the knees go forward over the boots.
 SetPin $pelvisCrouch 'Translation' $PELVIS_CROUCH
-SetPin $ikLeft 'EffectorLocation' $FOOT_L
 SetPin $ikLeft 'JointTargetLocation' '15.0,60.0,50.0'
-SetPin $ikRight 'EffectorLocation' $FOOT_R
 SetPin $ikRight 'JointTargetLocation' '-15.0,60.0,50.0'
-# Rotators are pitch, yaw, roll: MM_Idle's foot rotations turned about Z so the toes point down mesh +Y.
-SetPin $footLeft 'Rotation' '85.608,63.771,66.755'
-SetPin $footRight 'Rotation' '-86.070,-109.248,-69.363'
+# The feet go where the skis' bindings are (ABP_Skier.lisp: FootLeftLocation / FootRightLocation for the IK,
+# FootLeftRotation / FootRightRotation for the foot turns; their defaults, used in the editor's preview, are the flat
+# stance, and MM_Idle's foot rotations turned about Z so the toes point down mesh +Y).
+$null = Link (NewNode $g 'Variables|Ski|GetFootLeftLocation' -1650 150) 'FootLeftLocation' $ikLeft 'EffectorLocation'
+$null = Link (NewNode $g 'Variables|Ski|GetFootRightLocation' -1400 150) 'FootRightLocation' $ikRight 'EffectorLocation'
+$null = Link (NewNode $g 'Variables|Ski|GetFootLeftRotation' -1150 150) 'FootLeftRotation' $footLeft 'Rotation'
+$null = Link (NewNode $g 'Variables|Ski|GetFootRightRotation' -900 150) 'FootRightRotation' $footRight 'Rotation'
 foreach ($c in $curl1, $curl2, $curl3) { SetPin $c 'Rotation' "0.0,0.0,$CURL" }
 # Which node is which, for SetupAnimation.py (bones, spaces, modes, the layers and the slots' names). By their exact
 # names: a guess by number found nodes an earlier rebuild had deleted (still in memory) and set those up instead.

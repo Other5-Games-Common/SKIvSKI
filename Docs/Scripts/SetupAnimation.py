@@ -96,6 +96,27 @@ def bone(name):
     return ref
 
 
+def set_foot_defaults(defaults):
+    # The feet on the skis' bindings (ABP_Skier.lisp). MM_Idle's ankle (foot_l / foot_r) is 8.5 cm above the sole and the
+    # middle of the foot 7 cm ahead of it; the sole rests on SM_Ski's binding plate, 3.1 cm above the running surface
+    # (SetupSkiMesh.py's SOLE_HEIGHT). The base rotations are MM_Idle's foot rotations turned about Z until the toes
+    # point down mesh +Y, along a flat ski (pitch, yaw, roll).
+    values = {
+        "AnkleHeight": 8.5,
+        "AnkleBack": 7.0,
+        "SoleHeight": 3.1,
+        "FootLeftBase": unreal.Rotator(pitch=85.608, yaw=63.771, roll=66.755),
+        "FootRightBase": unreal.Rotator(pitch=-86.070, yaw=-109.248, roll=-69.363),
+        # Until the first frame works them out (and in the editor's preview): the flat stance.
+        "FootLeftLocation": unreal.Vector(12.0, 4.0, 10.2),
+        "FootRightLocation": unreal.Vector(-12.0, 4.0, 10.2),
+        "FootLeftRotation": unreal.Rotator(pitch=85.608, yaw=63.771, roll=66.755),
+        "FootRightRotation": unreal.Rotator(pitch=-86.070, yaw=-109.248, roll=-69.363),
+    }
+    for k, v in values.items():
+        defaults.set_editor_property(k, v)
+
+
 def setup_nodes():
     which = which_nodes()
     if not which:
@@ -133,8 +154,10 @@ def setup_nodes():
     abp = unreal.load_asset(FOLDER + "/ABP_Skier")
     unreal.BlueprintEditorLibrary.compile_blueprint(abp)
     # The whole spine lean (BuildAnimGraph.ps1's 3 x CURL), which the event graph adds to the aim offset's pitch.
+    defaults = unreal.get_default_object(abp.generated_class())
     if "LeanDegrees" in which:
-        unreal.get_default_object(abp.generated_class()).set_editor_property("LeanDegrees", float(which["LeanDegrees"]))
+        defaults.set_editor_property("LeanDegrees", float(which["LeanDegrees"]))
+    set_foot_defaults(defaults)
     unreal.EditorAssetLibrary.save_asset(FOLDER + "/ABP_Skier", only_if_is_dirty=False)
     log("slots, pelvis, foot IK, foot turns and spine lean set")
 

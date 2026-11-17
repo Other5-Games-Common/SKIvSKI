@@ -23,6 +23,7 @@
       ; that kind's pose and aim offset.
       (bind skier (Utilities|Casting|CastToBP_SkiCharacter :Object pawn)
         (:then
+          (CallFunction|PlaceFeet :Skier skier)
           (bind gun (Class|BPSkiCharacter|GetCurrentGun :self skier))
           (Utilities|IsValid gun
             (:"Is Valid"
@@ -30,4 +31,27 @@
               (Variables|Ski|SetArmsShotgun (== (Class|BPPaintGunData|GetArmsKind :self gun) 2)))
             (:"Is Not Valid")))
         (:CastFailed)))
+    (:"Is Not Valid")))
+
+; Feet on the skis' bindings, every frame (from the event graph): see the comment inside.
+(fn PlaceFeet (Skier)
+  ; Feet on the skis' bindings (the Anim Graph's Two Bone IK and foot turns use these, in component space).
+  ; Each ankle goes AnkleBack behind the boot's middle and AnkleHeight above the sole, which rests SoleHeight above
+  ; the ski's running surface (SM_Ski's origin, under the boot), all in the ski's own frame: so the feet follow the
+  ; ski as it tilts to the snow, and stay on it as the body leans into a turn (the mesh rolls, the skis don't).
+  ; The feet turn with the ski: their flat-ski rotation (FootLeftBase / FootRightBase, in the mesh's space,
+  ; whose +Y is the skis' forward: hence the -90 yaw), then the ski's own rotation.
+  (bind body (Animation|GetOwningComponent))
+  (bind meshFrame (Transformation|GetWorldTransform :self body))
+  (bind ankle (Math|Vector|MakeVector (- 0.0 (Variables|Ski|GetAnkleBack)) 0.0 (+ (Variables|Ski|GetSoleHeight) (Variables|Ski|GetAnkleHeight))))
+  (bind meshFlat (Math|Rotator|MakeRotator :Yaw -90.0))
+  ; (The skis aren't there on the very first update, while the character is still being made.)
+  (bind skiLeft (Class|BPSkiCharacter|GetSkiLeft :self Skier))
+  (bind skiRight (Class|BPSkiCharacter|GetSkiRight :self Skier))
+  (Utilities|IsValid skiLeft
+    (:"Is Valid"
+      (Variables|Ski|SetFootLeftLocation (Math|Transform|InverseTransformLocation meshFrame (Math|Transform|TransformLocation (Transformation|GetWorldTransform :self skiLeft) ankle)))
+      (Variables|Ski|SetFootLeftRotation (Math|Transform|InverseTransformRotation meshFrame (Math|Rotator|CombineRotators (Math|Rotator|CombineRotators (Variables|Ski|GetFootLeftBase) meshFlat) (Transformation|GetWorldRotation :self skiLeft))))
+      (Variables|Ski|SetFootRightLocation (Math|Transform|InverseTransformLocation meshFrame (Math|Transform|TransformLocation (Transformation|GetWorldTransform :self skiRight) ankle)))
+      (Variables|Ski|SetFootRightRotation (Math|Transform|InverseTransformRotation meshFrame (Math|Rotator|CombineRotators (Math|Rotator|CombineRotators (Variables|Ski|GetFootRightBase) meshFlat) (Transformation|GetWorldRotation :self skiRight)))))
     (:"Is Not Valid")))

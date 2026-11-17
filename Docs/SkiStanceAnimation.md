@@ -27,8 +27,8 @@ MM_Idle                                                     gun pose (pistol / r
  -> Local to Component                                       -> its Aim Offset (X = AimYaw, Y = AimPitch)
  -> Transform (Modify) Bone: pelvis down 5 cm                -> Blend Poses by Bool x2 (which kind of gun)
  -> Transform (Modify) Bone: pelvis down/back (Alpha = SkiCrouch)  -> Slot FullBodyAdditivePreAim (fire recoil)
- -> Two Bone IK: foot_l onto the left ski                    -> Slot UpperBody (reloads)
- -> Two Bone IK: foot_r onto the right ski                          |
+ -> Two Bone IK: foot_l onto the left binding               -> Slot UpperBody (reloads)
+ -> Two Bone IK: foot_r onto the right binding                      |
  -> Transform (Modify) Bone: foot_l along the ski                   |
  -> Transform (Modify) Bone: foot_r along the ski                   |
  -> Component to Local ----- Base Pose ---> Layered Blend per Bone <- Blend Poses 0
@@ -72,6 +72,23 @@ On **Event Blueprint Update Animation**, with **Try Get Pawn Owner** (check it *
 - **Which gun:** **Cast** the pawn to your character, get the gun in hand, and set `bArmsPistol` / `bArmsShotgun` from
   it. (SKIvSKI keeps an `ArmsKind` number on each gun's data asset: 0 pistol, 1 rifle, 2 shotgun.)
 
+### 2b. Feet on the bindings (a function, `PlaceFeet`, called from the Event Graph with the cast character)
+
+The skis tilt to the snow and the body leans into turns, so fixed foot targets would leave the boots floating
+above the skis or poking through them. Instead, work each foot out from its ski every frame:
+
+- **Ankle:** the ski's **Get World Transform**, **Transform Location** of (-`AnkleBack`, 0, `SoleHeight` +
+  `AnkleHeight`) = (-7, 0, 3.1 + 8.5): on MM_Idle the ankle (`foot_l`) is 8.5 cm above the sole and 7 cm behind the
+  middle of the foot, and the sole rests on the binding plate 3.1 cm above the ski's running surface (its origin).
+  Then the mesh's (**Get Owning Component**) world transform's **Inverse Transform Location**: component space, which
+  is what the Two Bone IK wants. Set **FootLeftLocation** (and the same with the right ski for FootRightLocation).
+- **Foot turn:** **Combine Rotators**(**Combine Rotators**(`FootLeftBase`, yaw -90), the ski's **Get World
+  Rotation**), then the mesh transform's **Inverse Transform Rotation**. `FootLeftBase` is **(85.6, 63.8, 66.8)**
+  (pitch, yaw, roll; `FootRightBase` **(-86.1, -109.2, -69.4)**): MM_Idle's foot rotations turned about the vertical
+  until the toes point along a flat ski in the mesh's space; the -90 yaw turns the mesh's space (+Y forward) into the
+  ski's (+X forward); the ski's rotation then tips the foot with the ski. Set **FootLeftRotation** / **FootRightRotation**.
+- Check the ski **Is Valid** first: on the character's very first update it doesn't exist yet.
+
 ## 3. The legs (Anim Graph)
 
 Right-click in the **AnimGraph** and add these in a row, wiring each one's output pose into the next:
@@ -82,14 +99,14 @@ Right-click in the **AnimGraph** and add these in a row, wiring each one's outpu
    **Component Space**, Translation **(0, 0, -5)**; Rotation and Scale Mode **Ignore**. The skier stands slightly lower.
 4. **Transform (Modify) Bone**: the same settings with Translation **(0, -10, -34)**: hips down and back (on the
    mannequin, mesh +Y is forward). Wire **SkiCrouch** into its **Alpha**, so it only goes all the way at full crouch.
-5. **Two Bone IK**: IK Bone `foot_l`; Effector Location Space **Component Space**, Effector Location **(13, 4, 8.5)**
-   (13 cm to the side, on the ski); Joint Target Location Space **Component Space**, Joint Target **(15, 60, 50)** (in
-   front of the knee, so it bends forward); **Allow Stretching** off.
-6. **Two Bone IK** for `foot_r`: Effector **(-13, 4, 8.5)**, Joint Target **(-15, 60, 50)**.
+5. **Two Bone IK**: IK Bone `foot_l`; Effector Location Space **Component Space**, Effector Location from the
+   variable **FootLeftLocation** (step 2b works it out from the ski; on flat snow it's about (12, 4, 10)); Joint Target
+   Location Space **Component Space**, Joint Target **(15, 60, 50)** (in front of the knee, so it bends forward);
+   **Allow Stretching** off.
+6. **Two Bone IK** for `foot_r`: Effector **FootRightLocation**, Joint Target **(-15, 60, 50)**.
 7. **Transform (Modify) Bone**: `foot_l`, Rotation Mode **Replace Existing**, Rotation Space **Component Space**,
-   Rotation **(85.6, 63.8, 66.8)** (pitch, yaw, roll); Translation and Scale **Ignore**. This points the toes along the
-   ski.
-8. The same for `foot_r` with Rotation **(-86.1, -109.2, -69.4)**.
+   Rotation from **FootLeftRotation**; Translation and Scale **Ignore**. This points the toes along the ski.
+8. The same for `foot_r` with **FootRightRotation**.
 9. **Component to Local**.
 
 The two foot rotations are MM_Idle's own foot rotations turned about the vertical until the toes point straight ahead.
@@ -179,7 +196,8 @@ the world-space gap into the socket's own space, which is the space a relative l
 |---|---|---|
 | How deep the crouch goes | pelvis node's Translation (step 3.4) | (0, -10, -34) |
 | How fast it gets there | the crouch target in the Event Graph | 0.3 + speed / 2800 |
-| Feet apart | the IK Effector X | 13 cm |
+| Feet apart | BP_SkiCharacter's `SkiStance` (the skis; the feet follow) | 12 cm |
+| Ankle over the binding | `AnkleBack`, `AnkleHeight`, `SoleHeight` | 7, 8.5, 3.1 cm |
 | How far the torso leans | spine nodes' Roll x 3, and `LeanDegrees` (keep them equal) | 8 each, 24 |
 
 ## Troubleshooting

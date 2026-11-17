@@ -33,20 +33,59 @@
   (Variables|Ski|State|SetLastYaw yaw)
   (Variables|Ski|State|SetLastSentYaw yaw))
 
-; Look down for the snow under the skis: its slope, and which way is straight downhill (the fall line).
-(fn UpdateSlope ()
-  (bind start (Transformation|GetActorLocation))
-  (bind end (- start (Math|Vector|MakeVector 0.0 0.0 250.0)))
+; Where the snow is under one point of the skis' footprint: Along the skis and Across them from the skier's middle (cm).
+; A line down from a little above it; on a miss (in the air, off the edge) SnowFound goes false for this frame.
+(fn SnowPoint (Along Across)
+  (bind yaw (.yaw (Transformation|GetActorRotation)))
+  (bind forward (Math|Vector|MakeVector (Math|Trig|Cos(Degrees) yaw) (Math|Trig|Sin(Degrees) yaw) 0.0))
+  (bind right (Math|Vector|MakeVector (- 0.0 (Math|Trig|Sin(Degrees) yaw)) (Math|Trig|Cos(Degrees) yaw) 0.0))
+  (bind at (+ (Transformation|GetActorLocation) (+ (* forward Along) (* right Across))))
+  (bind start (+ at (Math|Vector|MakeVector 0.0 0.0 60.0)))
+  (bind end (- at (Math|Vector|MakeVector 0.0 0.0 260.0)))
   (bind (hit didHit) (Collision|LineTraceByChannel :Start start :End end :TraceChannel "TraceTypeQuery1" :bIgnoreSelf true))
   (bind (blocking overlap time dist loc impact normal impactNormal) (Collision|BreakHitResult hit))
-  (if didHit
-    (Variables|Ski|State|SetFloorNormal impactNormal)
+  (if (not didHit)
+    (Variables|Ski|State|SetSnowFound false))
+  (return (select didHit impact (- at (Math|Vector|MakeVector 0.0 0.0 90.0)))))
+
+; The snow under the skis, as a plane through four points: the corners of the skis' footprint (SnowProbeHalf ahead of
+; and behind the boots, under each ski). One line straight down would follow the snow mesh's flat triangles: creeping
+; across the crease between two of them, its slope snaps from one to the other and back, the skis flicker and the fall
+; line jumps (a stopped skier was pushed onto the other triangle, which pushed them back). A point on the snow moves
+; smoothly as you move, so a plane through four of them never snaps: over a crease it lies along it.
+(fn SampleSnow ()
+  (Variables|Ski|State|SetSnowFound true)
+  (bind half (Variables|Ski|Tuning|GetSnowProbeHalf))
+  (bind side (Variables|Ski|Tuning|GetSkiStance))
+  (bind boots (Variables|Ski|Tuning|GetBindingForward))
+  (bind frontLeft (CallFunction|SnowPoint :Along (+ boots half) :Across (- 0.0 side)))
+  (bind frontRight (CallFunction|SnowPoint :Along (+ boots half) :Across side))
+  (bind backLeft (CallFunction|SnowPoint :Along (- boots half) :Across (- 0.0 side)))
+  (bind backRight (CallFunction|SnowPoint :Along (- boots half) :Across side))
+  ; The plane's normal: the cross product of its two diagonals (front left to back right, back left to front right),
+  ; which points up.
+  (bind normal (Math|Vector|Normalize (Math|Vector|CrossProduct (- frontLeft backRight) (- frontRight backLeft))))
+  (Variables|Ski|State|SetSnowNormal (select (< (.z normal) 0.0) (Math|Vector|NegateVector normal) normal))
+  (Variables|Ski|State|SetSnowCentre (* (+ (+ frontLeft frontRight) (+ backLeft backRight)) 0.25)))
+
+; How high the snow plane (SampleSnow) is at a point's X, Y.
+(fn SnowHeightAt (Where)
+  (bind n (Variables|Ski|State|GetSnowNormal))
+  (bind c (Variables|Ski|State|GetSnowCentre))
+  (return (- (.z c) (/ (+ (* (.x n) (- (.x Where) (.x c))) (* (.y n) (- (.y Where) (.y c)))) (Math|Float|Max(Float) (.z n) 0.2)))))
+
+; Look down for the snow under the skis: its slope, and which way is straight downhill (the fall line).
+(fn UpdateSlope ()
+  (CallFunction|SampleSnow)
+  (if (Variables|Ski|State|GetSnowFound)
+    (bind snow (Variables|Ski|State|GetSnowNormal))
+    (Variables|Ski|State|SetFloorNormal snow)
     ; The normal leans toward downhill: its flat (X, Y) part points down the fall line, and its length is sin(slope).
-    (bind flatLength (Math|Vector|VectorLengthXY impactNormal))
+    (bind flatLength (Math|Vector|VectorLengthXY snow))
     (Variables|Ski|State|SetSlopeDegrees (Math|Trig|Asin(Degrees) flatLength))
     (Variables|Ski|State|SetOnSlope (> flatLength 0.02))
     (if (> flatLength 0.02)
-      (Variables|Ski|State|SetFallLineYaw (Math|Trig|Atan2(Degrees) (.y impactNormal) (.x impactNormal))))
+      (Variables|Ski|State|SetFallLineYaw (Math|Trig|Atan2(Degrees) (.y snow) (.x snow))))
     (else
       (Variables|Ski|State|SetOnSlope false)
       (Variables|Ski|State|SetFloorNormal (Math|Vector|MakeVector 0.0 0.0 1.0)))))
@@ -159,10 +198,28 @@
   (bind target (Math|Float|Clamp(Float) (* (* yawRate speed) 0.00025) (- maxLean) maxLean))
   (Variables|Ski|State|SetLean (Math|Interpolation|FInterpTo (Variables|Ski|State|GetLean) target DeltaSeconds 6.0))
   (Transformation|SetRelativeRotation :self (Variables|Character|GetMesh) :NewRotation (Math|Rotator|MakeRotator :Roll (Variables|Ski|State|GetLean) :Yaw -90.0))
-  (bind localNormal (Math|Transform|InverseTransformDirection (Transformation|GetActorTransform) (Variables|Ski|State|GetFloorNormal)))
+  (CallFunction|PlaceSkis :DeltaSeconds DeltaSeconds))
+
+; Looks only: lay each ski on the snow (SampleSnow's plane), under the boots. The skis tilt with the plane, eased
+; (SkiSettleSpeed) so a bump doesn't jerk them, and each sits at the plane's height under its own middle, so neither
+; floats nor sinks on a slope across the skis. ABP_Skier then puts the feet on the skis' bindings. Runs on every machine.
+(fn PlaceSkis (DeltaSeconds)
+  (Variables|Ski|State|SetSkiNormal (Math|Vector|Normalize (Math|Interpolation|VInterpTo (Variables|Ski|State|GetSkiNormal) (Variables|Ski|State|GetFloorNormal) DeltaSeconds (Variables|Ski|Tuning|GetSkiSettleSpeed))))
+  (bind localNormal (Math|Transform|InverseTransformDirection (Transformation|GetActorTransform) (Variables|Ski|State|GetSkiNormal)))
   (bind skiRot (Math|Rotator|MakeRotfromZX localNormal (Math|Vector|MakeVector 1.0 0.0 0.0)))
-  (Transformation|SetRelativeRotation :self (Variables|Default|GetSkiLeft) :NewRotation skiRot)
-  (Transformation|SetRelativeRotation :self (Variables|Default|GetSkiRight) :NewRotation skiRot))
+  (bind boots (Variables|Ski|Tuning|GetBindingForward))
+  (bind side (Variables|Ski|Tuning|GetSkiStance))
+  ; Below the capsule's middle: on the snow when it's found (never more than 10 cm off where it stands), else where
+  ; it would be on flat snow. SkiLift above the plane: the snow's look (the winter art) shows its surface a little above
+  ; the collision the traces hit, and would poke through the skis.
+  (bind here (- (.z (Transformation|GetActorLocation)) (Variables|Ski|Tuning|GetSkiLift)))
+  (bind leftAt (Math|Transform|TransformLocation (Transformation|GetActorTransform) (Math|Vector|MakeVector boots (- 0.0 side) 0.0)))
+  (bind rightAt (Math|Transform|TransformLocation (Transformation|GetActorTransform) (Math|Vector|MakeVector boots side 0.0)))
+  (bind found (Variables|Ski|State|GetSnowFound))
+  (bind leftZ (select found (Math|Float|Clamp(Float) (- (CallFunction|SnowHeightAt :Where leftAt) here) -100.5 -80.5) -90.5))
+  (bind rightZ (select found (Math|Float|Clamp(Float) (- (CallFunction|SnowHeightAt :Where rightAt) here) -100.5 -80.5) -90.5))
+  (Transformation|SetRelativeLocationAndRotation :self (Variables|Default|GetSkiLeft) :NewLocation (Math|Vector|MakeVector boots (- 0.0 side) leftZ) :NewRotation skiRot)
+  (Transformation|SetRelativeLocationAndRotation :self (Variables|Default|GetSkiRight) :NewLocation (Math|Vector|MakeVector boots side rightZ) :NewRotation skiRot))
 
 ; For tests and tuning: log the ski state (the Other5 test runner calls it with "call pawn DebugReport").
 (fn DebugReport ()

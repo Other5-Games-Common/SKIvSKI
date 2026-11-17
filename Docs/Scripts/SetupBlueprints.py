@@ -125,13 +125,16 @@ def main():
 
     # The skier: Other5Combat's character (camera, skins, health) with skis, a helmet and a paintball gun.
     ch = make_bp("BP_SkiCharacter", "/Other5Combat/Characters/BP_Other5ProjectileCharacter.BP_Other5ProjectileCharacter_C")
-    for side, y in (("SkiLeft", -13.0), ("SkiRight", 13.0)):
+    # The skis: SM_Ski (SetupSkiMesh.py makes it, with its materials, and places them; a plain box until then).
+    ski_mesh = unreal.load_asset("/SKIvSKI/Meshes/SM_Ski") if unreal.EditorAssetLibrary.does_asset_exist("/SKIvSKI/Meshes/SM_Ski") else None
+    for side, y in (("SkiLeft", -12.0), ("SkiRight", 12.0)):
         s = add_comp(ch, side, unreal.StaticMeshComponent)
-        s.set_editor_property("static_mesh", cube)
-        s.set_editor_property("relative_location", unreal.Vector(10.0, y, -86.0))
-        s.set_editor_property("relative_scale3d", unreal.Vector(1.7, 0.09, 0.025))
+        s.set_editor_property("static_mesh", ski_mesh or cube)
+        s.set_editor_property("relative_location", unreal.Vector(11.0, y, -90.5))
+        s.set_editor_property("relative_scale3d", unreal.Vector(1.0, 1.0, 1.0) if ski_mesh else unreal.Vector(1.7, 0.09, 0.025))
         s.set_collision_profile_name("NoCollision")
-        s.set_material(0, unreal.load_asset("/SKIvSKI/Materials/M_SkiColor"))
+        if not ski_mesh:
+            s.set_material(0, unreal.load_asset("/SKIvSKI/Materials/M_SkiColor"))
     hm = add_comp(ch, "Helmet", unreal.StaticMeshComponent)
     hm.set_editor_property("static_mesh", sphere)
     hm.set_editor_property("relative_scale3d", unreal.Vector(0.27, 0.25, 0.22))

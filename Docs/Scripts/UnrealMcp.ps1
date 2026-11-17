@@ -16,7 +16,8 @@ function Mcp-Post($body) {
 	$json = $body | ConvertTo-Json -Depth 40 -Compress
 	$bytes = [System.Text.Encoding]::UTF8.GetBytes($json)
 	$resp = Invoke-WebRequest -Uri $script:McpUrl -Method Post -Body $bytes -ContentType 'application/json' -Headers $headers -UseBasicParsing -TimeoutSec 600
-	if ($resp.Headers['Mcp-Session-Id']) { $script:McpSession = $resp.Headers['Mcp-Session-Id'] }
+	# PowerShell 7 gives header values as arrays (5.1 as strings).
+	if ($resp.Headers['Mcp-Session-Id']) { $script:McpSession = [string](@($resp.Headers['Mcp-Session-Id'])[0]) }
 	$text = [System.Text.Encoding]::UTF8.GetString($resp.RawContentStream.ToArray())
 	if ($text -match '^\s*(event:|data:)') {
 		$lines = $text -split "`n" | Where-Object { $_ -like 'data:*' } | ForEach-Object { $_.Substring(5).Trim() }

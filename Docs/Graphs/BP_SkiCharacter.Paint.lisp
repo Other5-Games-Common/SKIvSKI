@@ -64,9 +64,10 @@
       (if (!= skisIndex (Variables|Paint|GetSkisShown))
         (Variables|Paint|SetSkisShown skisIndex)
         (bind skis (CallFunction|CurrentSkis))
-        (bind length (* 1.7 (Class|BPSkiData|GetLengthScale :self skis)))
-        (Transformation|SetRelativeScale3D :self (Variables|Default|GetSkiLeft) :NewScale3D (Math|Vector|MakeVector length 0.09 0.025))
-        (Transformation|SetRelativeScale3D :self (Variables|Default|GetSkiRight) :NewScale3D (Math|Vector|MakeVector length 0.09 0.025))))
+        ; SM_Ski is a 172 cm ski: longer or shorter skis stretch it along its length.
+        (bind length (Class|BPSkiData|GetLengthScale :self skis))
+        (Transformation|SetRelativeScale3D :self (Variables|Default|GetSkiLeft) :NewScale3D (Math|Vector|MakeVector length 1.0 1.0))
+        (Transformation|SetRelativeScale3D :self (Variables|Default|GetSkiRight) :NewScale3D (Math|Vector|MakeVector length 1.0 1.0))))
     (:"Is Not Valid")))
 
 ; Every machine, every frame: keep the gun in the hand and the helmet on the head of the skin that's shown. A
