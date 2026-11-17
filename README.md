@@ -75,6 +75,14 @@ connected, so clicking it again puts it back on for free. The first of each is e
 | Glide Wax | 6 | 0.014 |
 | Race Wax | 14 | 0.008 |
 
+| Upgrades | Price | Does | |
+|---|---|---|---|
+| Extended Hopper | 10 | magazine +50% (any gun) | Half as many balls again before you reload. |
+| Extended Reloads | 8 | +3 spare magazines a run | Run dry later. |
+
+Upgrades are on for good once bought. Everyone carries `BaseSpareMags` (3) spare magazines of the gun's own size; the
+paint fills up whenever the round moves on, so you can run out mid-run (OUT OF PAINT) but start every run full.
+
 ## How it works
 
 Everything is in `Content/` (Blueprints, data, materials, one level). C++: none in this plugin; Other5 gives the base
@@ -165,8 +173,9 @@ A gun is a data asset: mesh, muzzle offset, `MuzzleSpeed`, `BallGravityScale`, `
 `Price`, `Blurb`, `MagSize`, `ReloadSeconds`, `bFullAuto` and `ReloadMontage` (see the store's table above). Add a
 gun by copying a `DA_Paint*` and adding it to the character's `Guns` (the store's list; the first is everyone's).
 
-**Ammo** is counted on the player's own machine: each shot takes one from the magazine; R, or the last ball out,
-reloads (`ReloadSeconds`, with Other5Combat's reload montage for the kind of gun, on the `UpperBody` slot). A
+**Ammo** is counted on the player's own machine: each shot takes one from the magazine (`Ammo`, sized by
+`MagSizeFor`: the gun's `MagSize` times the hopper); R, or the last ball out, reloads from the spare paint (`Spare`,
+`SpareMax`) while there's any (`ReloadSeconds`, with Other5Combat's reload montage for the kind of gun, on the `UpperBody` slot). A
 semi-automatic gun fires once per click, a full-automatic one while the trigger is held; both at most `ShotsPerSecond`.
 
 The guns are Other5Combat's meshes in the `weapon_r` hand socket. Their barrels point along the mesh's +Y, so the

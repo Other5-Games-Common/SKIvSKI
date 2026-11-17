@@ -29,6 +29,7 @@ $H = '/SKIvSKI/Blueprints/BP_SkiHUD'
 $G = '/SKIvSKI/Guns/BP_PaintGunData'
 $SK = '/SKIvSKI/Gear/BP_SkiData'
 $WX = '/SKIvSKI/Gear/BP_WaxData'
+$UP = '/SKIvSKI/Gear/BP_UpgradeData'
 $A = '/SKIvSKI/Animation/ABP_Skier'
 $PS = 'obj:/SKIvSKI/Blueprints/BP_SkiPlayerState.BP_SkiPlayerState_C'
 $PAWN = 'obj:/Script/Engine.Pawn'
@@ -56,6 +57,7 @@ AddVars $SK @(@('SkiName', 'text', 'Skis', 'None', $true), @('Price', 'int', 'St
 	@('SpeedScale', 'float', 'Skis', 'None', $true), @('TurnScale', 'float', 'Skis', 'None', $true), @('GripScale', 'float', 'Skis', 'None', $true), @('BrakeScale', 'float', 'Skis', 'None', $true),
 	@('FrictionScale', 'float', 'Skis', 'None', $true), @('LengthScale', 'float', 'Skis', 'None', $true))
 AddVars $WX @(@('WaxName', 'text', 'Wax', 'None', $true), @('Price', 'int', 'Store', 'None', $true), @('Blurb', 'string', 'Store', 'None', $true), @('SnowFriction', 'float', 'Wax', 'None', $true))
+AddVars $UP @(@('UpgradeName', 'text', 'Upgrade', 'None', $true), @('Price', 'int', 'Store', 'None', $true), @('Blurb', 'string', 'Store', 'None', $true), @('MagScale', 'float', 'Upgrade', 'None', $true), @('SpareMags', 'int', 'Upgrade', 'None', $true))
 # Teams are Other5's shared teams (team on Other5's player state), so the player state keeps only SKIvSKI's own state.
 AddVars $P @(@('bOut', 'bool', 'Score', 'Replicated', $false), @('SnowFriction', 'float', 'Gear', 'Replicated', $true), @('BounceChance', 'float', 'Gear', 'Replicated', $true),
 	@('Hits', 'int', 'Score', 'Replicated', $false),
@@ -79,7 +81,9 @@ AddVars $C @(
 	@('bPrevSwitchTeam', 'bool', 'Team', 'None', $false), @('bPrevHarder', 'bool', 'Team', 'None', $false), @('bPrevEasier', 'bool', 'Team', 'None', $false),
 	@('Skis', '/SKIvSKI/Gear/BP_SkiData.BP_SkiData_C:Array', 'Store', 'None', $true), @('Waxes', '/SKIvSKI/Gear/BP_WaxData.BP_WaxData_C:Array', 'Store', 'None', $true),
 	@('Ammo', 'int', 'Paint', 'None', $false), @('bReloading', 'bool', 'Paint', 'None', $false), @('ReloadDoneAt', 'float', 'Paint', 'None', $false), @('bPrevFire', 'bool', 'Paint', 'None', $false),
-	@('bPrevReload', 'bool', 'Paint', 'None', $false), @('bPrevStore', 'bool', 'Paint', 'None', $false), @('GunShown', 'int', 'Paint', 'None', $false), @('SkisShown', 'int', 'Paint', 'None', $false))
+	@('bPrevReload', 'bool', 'Paint', 'None', $false), @('bPrevStore', 'bool', 'Paint', 'None', $false), @('GunShown', 'int', 'Paint', 'None', $false), @('SkisShown', 'int', 'Paint', 'None', $false),
+	@('Upgrades', '/SKIvSKI/Gear/BP_UpgradeData.BP_UpgradeData_C:Array', 'Store', 'None', $true), @('Spare', 'int', 'Paint', 'None', $false), @('BaseSpareMags', 'int', 'Paint', 'None', $true),
+	@('MagShown', 'int', 'Paint', 'None', $false), @('SpareShown', 'int', 'Paint', 'None', $false), @('PhaseShown', 'int', 'Paint', 'None', $false), @('UpgradeWork', 'float', 'Paint', 'None', $false), @('ReloadTake', 'int', 'Paint', 'None', $false))
 AddVars $S @(
 	@('Length', 'float', 'Slope|Layout', 'None', $true), @('TopWidth', 'float', 'Slope|Layout', 'None', $true), @('FinishWidth', 'float', 'Slope|Layout', 'None', $true),
 	@('LobbyLength', 'float', 'Slope|Layout', 'None', $true), @('CellSize', 'float', 'Slope|Layout', 'None', $true), @('BankHeight', 'float', 'Slope|Layout', 'None', $true),
@@ -115,7 +119,7 @@ AddVars $H @(@('PopupTexts', 'string:Array', 'Popups', 'None', $false), @('Popup
 	@('LastPhase', 'int', 'Sound', 'None', $false), @('LastSecond', 'int', 'Sound', 'None', $false), @('GoUntil', 'float', 'Sound', 'None', $false),
 	@('LastScore0', 'int', 'Sound', 'None', $false), @('LastScore1', 'int', 'Sound', 'None', $false), @('Flash0Until', 'float', 'Sound', 'None', $false), @('Flash1Until', 'float', 'Sound', 'None', $false),
 	@('bStoreOpen', 'bool', 'Store', 'None', $false), @('StorePhase', 'int', 'Store', 'None', $false), @('StoreRow', 'int', 'Store', 'None', $false), @('StoreHint', 'string', 'Store', 'None', $false))
-foreach ($asset in $G, $SK, $WX, $P, $C, $S, $D, $B, $H) { Compile $asset | Out-Null }
+foreach ($asset in $G, $SK, $WX, $UP, $P, $C, $S, $D, $B, $H) { Compile $asset | Out-Null }
 
 Step 'functions (with typed inputs/outputs)'
 AddFunctions $S @(
@@ -140,7 +144,9 @@ AddFunctions $C @(
 	@('DebugAim', @(, @('Pitch', 'float'))), @('DebugFire', @()), @('DebugScore', @()), @('DebugSteerToMiddle', @()), @('DebugPhase', @(, @('Phase', 'int'))),
 	@('CurrentSkis', @(, @('Skis', 'obj:/SKIvSKI/Gear/BP_SkiData.BP_SkiData_C', 'out'))), @('UpdateGear', @()), @('StartReload', @()), @('UpdateReload', @()),
 	@('BuyGear', @(@('Kind', 'int'), @('Index', 'int'))), @('GearPrice', @(@('Kind', 'int'), @('Index', 'int'), @('Price', 'int', 'out'))), @('Equip', @(@('Kind', 'int'), @('Index', 'int'))),
-	@('IsStoreOpen', @(, @('Open', 'bool', 'out'))), @('ToggleMyStore', @()), @('DebugBuy', @(@('Kind', 'int'), @('Index', 'int'), @('Coins', 'int'))), @('DebugEmpty', @())) | Out-Null
+	@('IsStoreOpen', @(, @('Open', 'bool', 'out'))), @('ToggleMyStore', @()), @('DebugBuy', @(@('Kind', 'int'), @('Index', 'int'), @('Coins', 'int'))), @('DebugEmpty', @()),
+	@('HopperScale', @(, @('Scale', 'float', 'out'))), @('ExtraMags', @(, @('Mags', 'int', 'out'))), @('MagSizeFor', @(@('Gun', 'obj:/SKIvSKI/Guns/BP_PaintGunData.BP_PaintGunData_C'), @('Size', 'int', 'out'))),
+	@('SpareMax', @(@('Gun', 'obj:/SKIvSKI/Guns/BP_PaintGunData.BP_PaintGunData_C'), @('Balls', 'int', 'out'))), @('GearBlurb', @(@('Kind', 'int'), @('Index', 'int'), @('Blurb', 'string', 'out'))), @('DebugDrain', @())) | Out-Null
 AddFunctions $D @(
 	@('Now', @(, @('Time', 'float', 'out'))), @('FindSlope', @(, @('Found', 'bool', 'out'))), @('SetupRounds', @()), @('ServerStep', @()), @('StartLobby', @()),
 	@('StartCountdown', @()), @('StartRace', @()), @('EndRace', @()), @('PlaceAll', @(@('bAtGate', 'bool'), @('bFreeze', 'bool'))),
@@ -224,7 +230,7 @@ Py (Join-Path $Scripts 'SetupAnimation.py')
 WriteAll $A 'ABP_Skier.lisp'
 
 Step 'compile (warnings as errors)'
-foreach ($asset in $G, $SK, $WX, $P, $S, $D, $B, $C, $H, $A) {
+foreach ($asset in $G, $SK, $WX, $UP, $P, $S, $D, $B, $C, $H, $A) {
 	$n = $asset.Split('/')[-1]
 	"$n " + (Mcp-Call $script:BP 'compile_blueprint' @{ blueprint = @{ refPath = "$asset.$n" }; warnings_as_errors = $true })
 }

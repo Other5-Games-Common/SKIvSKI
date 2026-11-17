@@ -10,10 +10,10 @@
 ;   ServerFire (Run on Server, Reliable), MulticastFire (Multicast), ServerBuy /
 ;   ServerChangeDifficulty (Run on Server, Reliable), ServerSetSkiYaw (Run on Server, unreliable; Movement file).
 ;
-; Gear: everything the store sells is listed here, in the store's order (Guns, Skis, Waxes: data assets; the first of
-; each is what everyone starts with, free). What a player has on is on their player state (GunIndex, SkisIndex,
-; WaxIndex, and the SnowFriction their wax gives), with their Coins and what they've bought (Owned, as Kind x 100 +
-; Index: 0 guns, 1 skis, 2 wax). It all lives on the player state, so it lasts while they're connected (a new
+; Gear: everything the store sells is listed here, in the store's order (Guns, Skis, Waxes, Upgrades: data assets; the
+; first gun, skis and wax are what everyone starts with, free). What a player has on is on their player state
+; (GunIndex, SkisIndex, WaxIndex, and the SnowFriction their wax gives), with their Coins and what they've bought
+; (Owned, as Kind x 100 + Index: 0 guns, 1 skis, 2 wax, 3 paint upgrades, which are on once owned). It all lives on the player state, so it lasts while they're connected (a new
 ; character after a fall keeps it), and a player who joins starts with the basics.
 
 ; The gun in hand: the player's GunIndex in Guns (the first, until the player state reaches this machine).
@@ -39,17 +39,26 @@
       (return (Utilities|Array|Get(acopy) skis 0)))))
 
 ; Every machine, every frame: when the player's gun or skis changed (bought, or the player state just arrived), show
-; them: the gun in the hand with a full magazine, the skis at their length.
+; them: the gun in the hand, the skis at their length. The paint fills up (a full magazine and all the spare
+; magazines) when the gun or the upgrades change, and whenever the round moves on (so every run starts full).
 (fn UpdateGear ()
   (bind ski (CallFunction|GetSkiPlayerState))
   (Utilities|IsValid ski
     (:"Is Valid"
       (bind gunIndex (Class|BPSkiPlayerState|GetGunIndex :self ski))
-      (if (!= gunIndex (Variables|Paint|GetGunShown))
-        (Variables|Paint|SetGunShown gunIndex)
-        (CallFunction|ShowGun)
-        (bind gun (CallFunction|GetCurrentGun))
-        (Variables|Paint|SetAmmo (Class|BPPaintGunData|GetMagSize :self gun))
+      (bind gun (CallFunction|GetCurrentGun))
+      (bind mag (CallFunction|MagSizeFor :Gun gun))
+      (bind spare (CallFunction|SpareMax :Gun gun))
+      (bind phase (Class|BPSkiDirector|GetPhase :self (Actor|GetActorOfClass :ActorClass "/SKIvSKI/Blueprints/BP_SkiDirector.BP_SkiDirector_C")))
+      (if (or (or (!= gunIndex (Variables|Paint|GetGunShown)) (!= mag (Variables|Paint|GetMagShown))) (or (!= spare (Variables|Paint|GetSpareShown)) (!= phase (Variables|Paint|GetPhaseShown))))
+        (if (!= gunIndex (Variables|Paint|GetGunShown))
+          (Variables|Paint|SetGunShown gunIndex)
+          (CallFunction|ShowGun))
+        (Variables|Paint|SetMagShown mag)
+        (Variables|Paint|SetSpareShown spare)
+        (Variables|Paint|SetPhaseShown phase)
+        (Variables|Paint|SetAmmo mag)
+        (Variables|Paint|SetSpare spare)
         (Variables|Paint|SetReloading false))
       (bind skisIndex (Class|BPSkiPlayerState|GetSkisIndex :self ski))
       (if (!= skisIndex (Variables|Paint|GetSkisShown))
@@ -134,7 +143,62 @@
     (return (Class|BPSkiData|GetPrice :self (Utilities|Array|Get(acopy) (Variables|Store|GetSkis) Index))))
   (if (and (== Kind 2) (Utilities|Array|IsValidIndex (Variables|Store|GetWaxes) Index))
     (return (Class|BPWaxData|GetPrice :self (Utilities|Array|Get(acopy) (Variables|Store|GetWaxes) Index))))
+  (if (and (== Kind 3) (Utilities|Array|IsValidIndex (Variables|Store|GetUpgrades) Index))
+    (return (Class|BPUpgradeData|GetPrice :self (Utilities|Array|Get(acopy) (Variables|Store|GetUpgrades) Index))))
   (return -1))
+
+; The store's sentence for item Index of Kind ("" if there's no such item).
+(fn GearBlurb (Kind Index)
+  (if (and (== Kind 0) (Utilities|Array|IsValidIndex (Variables|Paint|GetGuns) Index))
+    (return (Class|BPPaintGunData|GetBlurb :self (Utilities|Array|Get(acopy) (Variables|Paint|GetGuns) Index))))
+  (if (and (== Kind 1) (Utilities|Array|IsValidIndex (Variables|Store|GetSkis) Index))
+    (return (Class|BPSkiData|GetBlurb :self (Utilities|Array|Get(acopy) (Variables|Store|GetSkis) Index))))
+  (if (and (== Kind 2) (Utilities|Array|IsValidIndex (Variables|Store|GetWaxes) Index))
+    (return (Class|BPWaxData|GetBlurb :self (Utilities|Array|Get(acopy) (Variables|Store|GetWaxes) Index))))
+  (if (and (== Kind 3) (Utilities|Array|IsValidIndex (Variables|Store|GetUpgrades) Index))
+    (return (Class|BPUpgradeData|GetBlurb :self (Utilities|Array|Get(acopy) (Variables|Store|GetUpgrades) Index))))
+  (return ""))
+
+; ---- paint upgrades (Kind 3: owned is on, with any gun) ----------------------------------------------------------
+
+; How much bigger the player's magazines are: every owned upgrade's MagScale multiplied (1 with none).
+(fn HopperScale ()
+  (Variables|Paint|SetUpgradeWork 1.0)
+  (bind ski (CallFunction|GetSkiPlayerState))
+  (Utilities|IsValid ski
+    (:"Is Valid"
+      (bind ups (Variables|Store|GetUpgrades))
+      (for i (range (Utilities|Array|Length ups))
+        (if (Utilities|Array|ContainsItem (Class|BPSkiPlayerState|GetOwned :self ski) (+ 300 i))
+          (Variables|Paint|SetUpgradeWork (* (Variables|Paint|GetUpgradeWork) (Class|BPUpgradeData|GetMagScale :self (Utilities|Array|Get(acopy) ups i))))))
+      (return (Variables|Paint|GetUpgradeWork)))
+    (:"Is Not Valid"
+      (return 1.0))))
+
+; Spare magazines the owned upgrades add (0 with none). Counts in ReloadTake, which is free outside UpdateReload.
+(fn ExtraMags ()
+  (Variables|Paint|SetReloadTake 0)
+  (bind ski (CallFunction|GetSkiPlayerState))
+  (Utilities|IsValid ski
+    (:"Is Valid"
+      (bind ups (Variables|Store|GetUpgrades))
+      (for i (range (Utilities|Array|Length ups))
+        (if (Utilities|Array|ContainsItem (Class|BPSkiPlayerState|GetOwned :self ski) (+ 300 i))
+          (Variables|Paint|SetReloadTake (+ (Variables|Paint|GetReloadTake) (Class|BPUpgradeData|GetSpareMags :self (Utilities|Array|Get(acopy) ups i))))))
+      (return (Variables|Paint|GetReloadTake)))
+    (:"Is Not Valid"
+      (return 0))))
+
+; Gun's magazine with this player's hopper (at least 1).
+(fn MagSizeFor (Gun)
+  (bind scale (CallFunction|HopperScale))
+  (return (Math|Integer|Max(Integer) (Math|Float|Round (* (Math|Conversions|ToFloat(Integer) (Class|BPPaintGunData|GetMagSize :self Gun)) scale)) 1)))
+
+; The spare paint a run starts with: BaseSpareMags plus the upgrades' spare magazines, each the gun's own magazine size
+; (the hopper makes each load bigger, not the paint carried).
+(fn SpareMax (Gun)
+  (bind extra (CallFunction|ExtraMags))
+  (return (* (+ (Variables|Paint|GetBaseSpareMags) extra) (Class|BPPaintGunData|GetMagSize :self Gun))))
 
 ; Run on Server (Reliable): this player clicked store item Index of Kind.
 (event Custom|ServerBuy (Kind Index)
@@ -195,20 +259,26 @@
 
 ; ---- reloading --------------------------------------------------------------------------------------------------
 
-; R, or firing with an empty magazine: reload (ReloadSeconds, with the gun's reload animation). Ammo is counted on the
-; player's own machine.
+; R, or firing with an empty magazine: reload (ReloadSeconds, with the gun's reload animation), if there's spare paint
+; left. Ammo (in the magazine) and Spare (the rest) are counted on the player's own machine.
 (fn StartReload ()
   (bind gun (CallFunction|GetCurrentGun))
-  (if (and (not (Variables|Paint|GetReloading)) (< (Variables|Paint|GetAmmo) (Class|BPPaintGunData|GetMagSize :self gun)))
+  (bind mag (CallFunction|MagSizeFor :Gun gun))
+  (if (and (and (not (Variables|Paint|GetReloading)) (< (Variables|Paint|GetAmmo) mag)) (> (Variables|Paint|GetSpare) 0))
     (Variables|Paint|SetReloading true)
     (Variables|Paint|SetReloadDoneAt (+ (Utilities|Time|GetTimeSeconds) (Class|BPPaintGunData|GetReloadSeconds :self gun)))
     (Animation|PlayAnimMontage :AnimMontage (Class|BPPaintGunData|GetReloadMontage :self gun))))
 
+; The reload's done: top the magazine up from the spare paint, as far as it goes.
 (fn UpdateReload ()
   (if (and (Variables|Paint|GetReloading) (>= (Utilities|Time|GetTimeSeconds) (Variables|Paint|GetReloadDoneAt)))
     (Variables|Paint|SetReloading false)
     (bind gun (CallFunction|GetCurrentGun))
-    (Variables|Paint|SetAmmo (Class|BPPaintGunData|GetMagSize :self gun))))
+    (bind mag (CallFunction|MagSizeFor :Gun gun))
+    ; Worked out once into a variable: the sums below change Ammo and Spare.
+    (Variables|Paint|SetReloadTake (Math|Integer|Min(Integer) (- mag (Variables|Paint|GetAmmo)) (Variables|Paint|GetSpare)))
+    (Variables|Paint|SetAmmo (+ (Variables|Paint|GetAmmo) (Variables|Paint|GetReloadTake)))
+    (Variables|Paint|SetSpare (- (Variables|Paint|GetSpare) (Variables|Paint|GetReloadTake)))))
 
 ; Buttons that act once per press (this player's own machine): R reload, B store, T switch team, ] harder, [ easier.
 ; Fire: a semi-automatic gun fires once per press, a full-automatic one (bFullAuto) keeps firing while it's held, both
@@ -357,6 +427,14 @@
   (Variables|Paint|SetNextFireTime 0.0)
   (CallFunction|TryFire))
 
+; For tests: no spare paint left, then fire the last ball: no reload, out of paint till the round moves on
+; ("call pawn DebugDrain").
+(fn DebugDrain ()
+  (Variables|Paint|SetSpare 0)
+  (Variables|Paint|SetAmmo 1)
+  (Variables|Paint|SetNextFireTime 0.0)
+  (CallFunction|TryFire))
+
 (fn DebugFire ()
   (Variables|Paint|SetNextFireTime 0.0)
   (CallFunction|TryFire)
@@ -378,7 +456,9 @@
   (bind gun (CallFunction|GetCurrentGun))
   (bind skis (CallFunction|CurrentSkis))
   (bind e3 (Utilities|String|Append e2 (Utilities|String|Append " gun " (Utilities|String|ToString(Text) (Class|BPPaintGunData|GetGunName :self gun)))))
-  (bind e4 (Utilities|String|Append e3 (Utilities|String|Append " ammo " (Utilities|String|Append (Utilities|String|ToString(Integer) (Variables|Paint|GetAmmo)) (select (Variables|Paint|GetReloading) " reloading" "")))))
+  (bind mag (CallFunction|MagSizeFor :Gun gun))
+  (bind e3b (Utilities|String|Append e3 (Utilities|String|Append " mag " (Utilities|String|Append (Utilities|String|ToString(Integer) mag) (Utilities|String|Append " spare " (Utilities|String|ToString(Integer) (Variables|Paint|GetSpare)))))))
+  (bind e4 (Utilities|String|Append e3b (Utilities|String|Append " ammo " (Utilities|String|Append (Utilities|String|ToString(Integer) (Variables|Paint|GetAmmo)) (select (Variables|Paint|GetReloading) " reloading" "")))))
   (bind e5 (Utilities|String|Append e4 (Utilities|String|Append " skis " (Utilities|String|ToString(Text) (Class|BPSkiData|GetSkiName :self skis)))))
   (bind e (Utilities|String|Append e5 (Utilities|String|Append " friction " (Utilities|String|ToString(Float) (CallFunction|GetSnowFriction)))))
   (bind f (Utilities|String|Append e (Utilities|String|Append " balls " (Utilities|String|ToString(Integer) (Utilities|Array|Length (Actor|GetAllActorsOfClass :ActorClass "/SKIvSKI/Blueprints/BP_Paintball.BP_Paintball_C"))))))

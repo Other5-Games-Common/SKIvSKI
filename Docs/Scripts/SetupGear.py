@@ -1,5 +1,6 @@
-# SKIvSKI: the store's skis and ski wax as data assets (BP_SkiData, BP_WaxData in /SKIvSKI/Gear), listed in
-# BP_SkiCharacter's Skis and Waxes in the store's order; the first of each is what everyone starts with (price 0).
+# SKIvSKI: the store's skis, ski wax and paint upgrades as data assets (BP_SkiData, BP_WaxData, BP_UpgradeData in
+# /SKIvSKI/Gear), listed in BP_SkiCharacter's Skis, Waxes and Upgrades in the store's order; the first ski and wax are
+# what everyone starts with (price 0).
 # The guns are SetupGuns.py's. Rerunnable. Run in the editor after the graphs are written: py "<this file>"
 import sys
 import traceback
@@ -30,6 +31,12 @@ WAXES = {
     "DA_WaxFactory": ("Factory Wax", 0, 0.02, "What the skis came with."),
     "DA_WaxGlide": ("Glide Wax", 6, 0.014, "A third less snow friction: keep your speed on the flats."),
     "DA_WaxRace": ("Race Wax", 14, 0.008, "The slickest: barely any snow friction."),
+}
+# Paint upgrades: bought once, on for good with any gun. name: (shown name, price, magazine x (rounded), spare
+# magazines added (of the gun's own magazine size), the store's one-line description).
+UPGRADES = {
+    "DA_HopperExtended": ("Extended Hopper", 10, 1.5, 0, "Half as many balls again before you have to reload."),
+    "DA_ReloadsExtended": ("Extended Reloads", 8, 1.0, 3, "Three more spare magazines a run, so you run dry later."),
 }
 
 
@@ -62,13 +69,23 @@ def main():
             da.set_editor_property(k, v)
         eal.save_loaded_asset(da, False)
         waxes.append(da)
+    up_class = unreal.load_asset(FOLDER + "/BP_UpgradeData").generated_class()
+    upgrades = []
+    for name, (label, price, mag, spare, blurb) in UPGRADES.items():
+        da = make(name, up_class)
+        for k, v in (("UpgradeName", unreal.Text(label)), ("Price", price), ("MagScale", mag), ("SpareMags", spare),
+                     ("Blurb", blurb)):
+            da.set_editor_property(k, v)
+        eal.save_loaded_asset(da, False)
+        upgrades.append(da)
     bp = unreal.load_asset("/SKIvSKI/Blueprints/BP_SkiCharacter")
     unreal.BlueprintEditorLibrary.compile_blueprint(bp)
     cdo = unreal.get_default_object(bp.generated_class())
     cdo.set_editor_property("Skis", skis)
     cdo.set_editor_property("Waxes", waxes)
+    cdo.set_editor_property("Upgrades", upgrades)
     eal.save_loaded_asset(bp, False)
-    log("BP_SkiCharacter: %d skis, %d waxes" % (len(skis), len(waxes)))
+    log("BP_SkiCharacter: %d skis, %d waxes, %d upgrades" % (len(skis), len(waxes), len(upgrades)))
     # Q's gun switching is gone (you ski with the gun you bought); its input action with it, once nothing uses it.
     old = "/SKIvSKI/Input/IA_SkiSwitchGun"
     if eal.does_asset_exist(old):
