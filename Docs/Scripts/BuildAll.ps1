@@ -87,7 +87,7 @@ AddVars $C @(
 	@('SpeedKmh', 'float', 'Ski|State', 'None', $false), @('FloorNormal', 'Vector', 'Ski|State', 'None', $false),
 	@('SkiStance', 'float', 'Ski|Tuning', 'None', $true), @('BindingForward', 'float', 'Ski|Tuning', 'None', $true), @('SnowProbeHalf', 'float', 'Ski|Tuning', 'None', $true), @('SkiSettleSpeed', 'float', 'Ski|Tuning', 'None', $true), @('SkiLift', 'float', 'Ski|Tuning', 'None', $true),
 	@('ExitReadyAt', 'float', 'Fort', 'Replicated', $false), @('ExitCooldown', 'float', 'Fort', 'None', $true), @('JumpPush', 'float', 'Fort', 'None', $true), @('JumpPushBelow', 'float', 'Fort', 'None', $true), @('bPrevExitFort', 'bool', 'Fort', 'None', $false),
-	@('bSnowFound', 'bool', 'Ski|State', 'None', $false), @('SnowNormal', 'Vector', 'Ski|State', 'None', $false), @('SnowCentre', 'Vector', 'Ski|State', 'None', $false), @('SkiNormal', 'Vector', 'Ski|State', 'None', $false), @('LastPlace', 'Vector', 'Ski|State', 'None', $false),
+	@('bSnowFound', 'bool', 'Ski|State', 'None', $false), @('SnowNormal', 'Vector', 'Ski|State', 'None', $false), @('SnowCentre', 'Vector', 'Ski|State', 'None', $false), @('SkiNormal', 'Vector', 'Ski|State', 'None', $false),
 	@('PlaceId', 'int', 'Ski|State', 'RepNotify', $false), @('PlacedYaw', 'float', 'Ski|State', 'Replicated', $false), @('bSkiStarted', 'bool', 'Ski|State', 'None', $false),
 	@('Guns', '/SKIvSKI/Guns/BP_PaintGunData.BP_PaintGunData_C:Array', 'Paint', 'None', $true), @('GunIndex', 'int', 'Paint', 'RepNotify', $false),
 	@('NextFireTime', 'float', 'Paint', 'None', $false), @('MaxAimYaw', 'float', 'Paint', 'None', $true), @('ShotSeed', 'int', 'Paint', 'None', $false), @('ShotDir', 'Vector', 'Paint', 'None', $false), @('bPrevSwitchGun', 'bool', 'Paint', 'None', $false), @('ShotStream', '/Script/CoreUObject.RandomStream', 'Paint', 'None', $false),
@@ -155,7 +155,7 @@ AddFunctions $S @(
 	@('LookMaterialOn', @(@('Target', 'obj:/Script/Engine.PrimitiveComponent'), @('Path', 'string'), @('Found', 'bool', 'out'))), @('StartSnowfall', @()), @('ApplyLook', @()), @('DressScene', @())) | Out-Null
 AddFunctions $C @(
 	@('SkiBeginPlay', @()), @('SetupSkiMovement', @()), @('UpdateGlide', @()), @('UpdateSlope', @()), @('SteerSkis', @(, @('DeltaSeconds', 'float'))), @('PushDownSlope', @()), @('LeanIntoTurn', @(, @('DeltaSeconds', 'float'))),
-	@('SnowPoint', @(@('Along', 'float'), @('Across', 'float'), @('Point', 'Vector', 'out'))), @('SampleSnow', @()), @('SnowHeightAt', @(@('Where', 'Vector'), @('Height', 'float', 'out'))), @('PlaceSkis', @(, @('DeltaSeconds', 'float'))), @('MatchVelocityToMove', @(, @('DeltaSeconds', 'float'))),
+	@('SnowPoint', @(@('Along', 'float'), @('Across', 'float'), @('Point', 'Vector', 'out'))), @('SampleSnow', @()), @('SnowHeightAt', @(@('Where', 'Vector'), @('Height', 'float', 'out'))), @('PlaceSkis', @(, @('DeltaSeconds', 'float'))), @('StopIntoWall', @(, @('Normal', 'Vector'))),
 	@('DebugReport', @()), @('PlaceAt', @(, @('Spot', 'Transform'))),
 	@('PaintedBy', @(@('Shooter', $PAWN), @('Where', 'Vector'), @('Direction', 'Vector'), @('Normal', 'Vector'), @('Color', 'LinearColor'), @('Size', 'float'))),
 	@('IsOut', @(, @('Out', 'bool', 'out'))), @('AddCoins', @(, @('Amount', 'int'))), @('GetCoins', @(, @('Coins', 'int', 'out'))),

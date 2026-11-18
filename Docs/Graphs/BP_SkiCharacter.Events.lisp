@@ -32,7 +32,6 @@
     (CallFunction|SkiBeginPlay))
   (CallFunction|UpdateSlope)
   (CallFunction|UpdateGlide)
-  (CallFunction|MatchVelocityToMove :DeltaSeconds DeltaSeconds)
   (CallFunction|UpdateTeamLook)
   (CallFunction|UpdateMapMarker)
   (CallFunction|UpdateGear)
@@ -63,3 +62,7 @@
 (event Character|EventOnJumped
   (if (< (Math|Vector|VectorLengthXY (Transformation|GetVelocity)) (Variables|Fort|GetJumpPushBelow))
     (Character|LaunchCharacter :LaunchVelocity (* (Transformation|GetActorForwardVector) (Variables|Fort|GetJumpPush)) :bXYOverride false :bZOverride false)))
+
+; Into a wall: StopIntoWall (BP_SkiCharacter.Movement.lisp).
+(event Collision|EventHit (MyComp Other OtherComp bSelfMoved HitLocation HitNormal NormalImpulse Hit)
+  (CallFunction|StopIntoWall :Normal HitNormal))

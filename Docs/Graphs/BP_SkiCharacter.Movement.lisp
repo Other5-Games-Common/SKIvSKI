@@ -189,21 +189,21 @@
   (Class|CharacterMovementComponent|SetBrakingDecelerationWalking :self cmc :BrakingDecelerationWalking (+ (* friction pressing) (* (* sideways (Variables|Ski|Tuning|GetSkidBraking)) brake)))
   (Class|CharacterMovementComponent|SetBrakingFriction :self cmc :BrakingFriction (* (* sideways (Variables|Ski|Tuning|GetSkidFriction)) brake)))
 
-; Where the movement is worked out (this player's machine and the server): keep the velocity to how far the skier
-; really moved last frame. Pressed against something that won't let them through (a fort's front wall, with gravity
-; and the skis pulling into it), Character Movement went on adding speed while the skier stood still: the HUD showed
-; 100 km/h, the crouch went deep, and the skier would have shot off at that speed once free. Moving freely the two
-; are the same, so this only acts when stuck.
-(fn MatchVelocityToMove (DeltaSeconds)
-  (bind here (Transformation|GetActorLocation))
-  (bind moved (/ (Math|Vector|VectorLengthXY (- here (Variables|Ski|State|GetLastPlace))) (Math|Float|Max(Float) DeltaSeconds 0.001)))
-  (Variables|Ski|State|SetLastPlace here)
-  (bind cmc (Variables|Character|GetCharacterMovement))
-  (bind vel (Class|MovementComponent|GetVelocity :self cmc))
-  (bind speed (Math|Vector|VectorLengthXY vel))
-  (if (and (or (Pawn|IsLocallyControlled) (Networking|HasAuthority)) (and (Pawn|Components|CharacterMovement|IsWalking :self cmc) (> speed (+ (* moved 1.5) 150.0))))
-    (bind keep (/ moved (Math|Float|Max(Float) speed 1.0)))
-    (Class|MovementComponent|SetVelocity :self cmc :Velocity (Math|Vector|MakeVector (* (.x vel) keep) (* (.y vel) keep) (.z vel)))))
+; When the movement runs the skier into something (Event Hit, on whichever machine is moving them: the player's own
+; and the server), take away the part of the velocity that points into it, if it's a wall (its normal more than
+; about 44 degrees from straight up, so never the snow). Pressed against a fort's front wall, with gravity and the
+; skis pulling into it, Character Movement otherwise went on adding speed while the skier stood still: the HUD showed
+; 100 km/h, the crouch went deep, and the skier would have shot off at that speed once free. (A first fix compared the
+; velocity with how far the skier moved each frame; online that distance includes the server's corrections and it
+; held skiers to about 5 km/h.)
+(fn StopIntoWall (Normal)
+  (if (> (Math|Vector|VectorLengthXY Normal) 0.7)
+    (bind wall (Math|Vector|Normalize (Math|Vector|MakeVector (.x Normal) (.y Normal) 0.0)))
+    (bind cmc (Variables|Character|GetCharacterMovement))
+    (bind vel (Class|MovementComponent|GetVelocity :self cmc))
+    (bind into (Math|Vector|DotProduct vel wall))
+    (if (< into 0.0)
+      (Class|MovementComponent|SetVelocity :self cmc :Velocity (- vel (* wall into))))))
 
 ; Looks only: lean the body into turns and lay the skis flat on the snow. Runs on every machine.
 (fn LeanIntoTurn (DeltaSeconds)
