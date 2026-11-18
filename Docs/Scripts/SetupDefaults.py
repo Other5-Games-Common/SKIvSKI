@@ -177,7 +177,7 @@ def main():
         "CornerGap": 26.0,          # the side walls this far out from the front wall's ends
         "RowHeights": [14.0, 42.0, 70.0, 110.0],
         "CaptureSeconds": 10.0,     # one team alone in it, from flag down to flag up
-        "ExitDistance": 260.0,      # Exit fort puts you this far uphill of its open side
+        "ExitDistance": 180.0,      # Exit fort puts you this far out from a side wall
         "PoleX": 150.0,
         "FlagLow": 120.0,
         "FlagHigh": 520.0,

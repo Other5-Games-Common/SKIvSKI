@@ -404,14 +404,18 @@
     (if (<= (Variables|Paint|GetAmmo) 0)
       (CallFunction|StartReload))
     (Variables|Paint|SetNextFireTime (+ now (/ 1.0 (Math|Float|Max(Float) (Class|BPPaintGunData|GetShotsPerSecond :self gun) 0.1))))
-    ; Aim from the camera through the crosshair (up to 300 m); the balls leave the gun's muzzle toward that point.
+    ; Aim along the crosshair (up to 300 m); the balls leave the gun's muzzle toward the first thing in the way. The
+    ; aim starts where the crosshair's line passes the muzzle, not at the camera: the camera sits behind the skier, and
+    ; anything between it and them (a fort's logs, a pine) would otherwise be "hit" and the ball fly back into it.
+    (bind muzzle (Math|Transform|TransformLocation (Transformation|GetWorldTransform :self (Variables|Default|GetGunMesh)) (Class|BPPaintGunData|GetMuzzleOffset :self gun)))
     (bind camera (Game|GetPlayerCameraManager 0))
     (bind eye (Camera|GetCameraLocation :self camera))
-    (bind far (+ eye (* (Math|Vector|GetForwardVector (Camera|GetCameraRotation :self camera)) 30000.0)))
-    (bind (hit didHit) (Collision|LineTraceByChannel :Start eye :End far :TraceChannel "TraceTypeQuery1" :bIgnoreSelf true))
+    (bind ahead (Math|Vector|GetForwardVector (Camera|GetCameraRotation :self camera)))
+    (bind start (+ eye (* ahead (Math|Float|Max(Float) (Math|Vector|DotProduct (- muzzle eye) ahead) 0.0))))
+    (bind far (+ eye (* ahead 30000.0)))
+    (bind (hit didHit) (Collision|LineTraceByChannel :Start start :End far :TraceChannel "TraceTypeQuery1" :bIgnoreSelf true))
     (bind (blocking overlap time dist loc impact) (Collision|BreakHitResult hit))
     (bind target (select didHit impact far))
-    (bind muzzle (Math|Transform|TransformLocation (Transformation|GetWorldTransform :self (Variables|Default|GetGunMesh)) (Class|BPPaintGunData|GetMuzzleOffset :self gun)))
     (bind direction (Math|Vector|Normalize (- target muzzle)))
     ; Drawn once into a variable (a random node is pure: each use would draw again, and the server and the other
     ; players would get a different spread from the shooter's).

@@ -57,6 +57,8 @@ def snow():
 
 def color_material():
     mat = material("M_SkiColor")
+    # Also on instanced meshes (the fort logs, the plain pines): without this flag a game falls back to the grid material.
+    mat.set_editor_property("used_with_instanced_static_meshes", True)
     # One material for everything plain-coloured: team colours, skis, helmets, paintballs, trees.
     # Color and Roughness are parameters, so instances (MI_*) and Create Dynamic Material Instance can change them.
     c = expr(mat, unreal.MaterialExpressionVectorParameter, -400, 0, parameter_name="Color", default_value=unreal.LinearColor(1, 0.2, 0.1, 1))
