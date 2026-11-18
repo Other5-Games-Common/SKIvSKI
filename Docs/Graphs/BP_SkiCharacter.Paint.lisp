@@ -492,6 +492,11 @@
 (fn DebugAim (Pitch)
   (Pawn|SetControlRotation :self (Pawn|GetController) :NewRotation (Math|Rotator|MakeRotator :Pitch Pitch :Yaw (Variables|Ski|State|GetSkiYaw))))
 
+; For tests and screenshots: wear character skin Index (0 Manny, 1 Quinn, 2 Countess, 3 Gideon), as Choose your fighter
+; would ("call pawn DebugSkin 2"). It's saved as this computer's choice too, like a real pick.
+(fn DebugSkin (Index)
+  (Skin|ChooseSkin :self (Variables|Default|GetCharacterSkins) :Index Index))
+
 ; For tests: aim Yaw degrees off the skis (+ right) and Pitch up ("call pawn DebugAimAt 60 -5").
 (fn DebugAimAt (Yaw Pitch)
   (Pawn|SetControlRotation :self (Pawn|GetController) :NewRotation (Math|Rotator|MakeRotator :Pitch Pitch :Yaw (+ (Variables|Ski|State|GetSkiYaw) Yaw))))
