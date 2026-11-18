@@ -37,7 +37,9 @@ def build():
         e2 = (pc.x - pa.x, pc.y - pa.y, pc.z - pa.z)
         n = (e1[1] * e2[2] - e1[2] * e2[1], e1[2] * e2[0] - e1[0] * e2[2], e1[0] * e2[1] - e1[1] * e2[0])
         out = (pa.x - inside[0], pa.y - inside[1], pa.z - inside[2])
-        if n[0] * out[0] + n[1] * out[1] + n[2] * out[2] < 0.0:
+        # Wound so Unreal sees the outside as the front (the opposite of a right-handed cross product; see
+        # SetupSkiMesh.py's FLIP_WINDING): with it the other way the logs were drawn inside out.
+        if n[0] * out[0] + n[1] * out[1] + n[2] * out[2] > 0.0:
             b, c = c, b
         tris.append(unreal.IntVector(a, b, c))
 

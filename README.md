@@ -30,7 +30,7 @@ A round: **Lobby** (15 s on the flat snow behind the gates; the clock waits for 
 | Mouse | Look and aim (the upper body follows; the skis don't). |
 | Left mouse (right trigger) | Fire: once per click (semi-auto), or held (full-auto markers), up to the gun's rate. |
 | R (Y) | Reload (an empty magazine reloads by itself). |
-| F (d-pad left) | Exit fort: out of the fort you're in, just uphill of it (every 10 s at most). |
+| F (d-pad left) | Exit fort: out of the fort you're in, just outside a side wall (every 10 s at most). |
 | B (Start) | The store (lobby and results; it opens by itself with the results). Click an item to buy it. |
 | T (X) | Switch team (lobby only). |
 | [ / ] (d-pad) | Admin: easier / harder slope (lobby or results; regenerates the slope). Without an AdminPIN on the server everyone is an admin. |
@@ -269,7 +269,8 @@ under the top row, a gap in the middle of the front wall and gaps at the front c
   of its skiers in the fort. "FORT TAKEN!" pops up in the team's colour.
 - **Getting out:** ski back up the open side; or **jump** while (nearly) stopped, which also pushes you along your
   skis (`JumpPush`, 4.5 m/s), to hop up a slope; or press **F** (gamepad d-pad left), **Exit fort**: the server puts
-  you just uphill of the fort, skis across the slope, at most every 10 s (`ExitCooldown`). The HUD shows a fort panel
+  you just outside a side wall (left and right in turn), skis across the slope pointing away from it, at most every
+  10 s (`ExitCooldown`): W then takes you down past the fort, or turn uphill to go back in. The HUD shows a fort panel
   while you're in one: whose flag is going up (or who holds it), and F or how long until you can use it again.
 - On the minimap a fort is a tick: grey, pulsing in a team's colour while its flag rises, then that team's colour.
 - Tests: `call pawn DebugGoToFort 0` puts you in the first fort (standalone or the server).

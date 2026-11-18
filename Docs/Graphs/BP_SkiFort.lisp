@@ -15,7 +15,7 @@
 ; for the team and the director's HitCoins to every one of its skiers in the fort.
 ;
 ; Getting out: ski back up the open side (jumping while stopped pushes you along your skis, BP_SkiCharacter
-; EventOnJumped), or press F (Exit fort): the server moves you just uphill of the fort (TakeExitSpot), at most every
+; EventOnJumped), or press F (Exit fort): the server moves you just outside a side wall (TakeExitSpot), at most every
 ; ExitCooldown seconds (BP_SkiCharacter ServerExitFort).
 
 (event EventBeginPlay
@@ -119,11 +119,15 @@
     (Rendering|Material|SetVectorParameterValueonMaterials :self (Variables|Default|GetFlag) :ParameterName "Color" :ParameterValue (Math|Conversions|ToVector(LinearColor) color))
     (Compass|SetMarker :self (Variables|Default|GetMapMarker) :NewMarker (Utilities|Struct|MakeOther5CompassMarker :Shape "Tick" :Color color :bPulse rising :Size 12.0))))
 
-; The server: where someone who presses Exit fort goes: just uphill of the open side (ExitDistance out), spread
-; across it so several at once don't land on each other, skis across the slope pointing away from the middle.
+; The server: where someone who presses Exit fort goes: just outside a side wall (ExitDistance out from it, the left
+; and right sides in turn, a little apart so several at once don't land on each other), near the open uphill end,
+; skis across the slope pointing away from the fort. From there W turns them downhill, past the fort's side and on
+; down the hill; turning uphill takes them back round to its open side.
 (fn TakeExitSpot ()
   (bind index (Variables|Fort|Work|GetExits))
   (Variables|Fort|Work|SetExits (+ index 1))
-  (bind y (* (- (Math|Conversions|ToFloat(Integer) (Math|Integer|%(Integer) index 5)) 2.0) 150.0))
-  (bind spot (Math|Vector|MakeVector (- 0.0 (+ (* (Variables|Fort|Layout|GetDepth) 0.5) (Variables|Fort|Layout|GetExitDistance))) y 120.0))
-  (return (Math|Transform|ComposeTransforms (Math|Transform|MakeTransform spot (Math|Rotator|MakeRotator :Yaw (select (>= y 0.0) 90.0 -90.0)) (Math|Vector|MakeVector 1.0 1.0 1.0)) (Transformation|GetActorTransform))))
+  (bind side (select (== (Math|Integer|%(Integer) index 2) 0) -1.0 1.0))
+  (bind out (+ (+ (* (Variables|Fort|Layout|GetWidth) 0.5) (Variables|Fort|Layout|GetCornerGap)) (Variables|Fort|Layout|GetExitDistance)))
+  (bind x (- (* (Math|Conversions|ToFloat(Integer) (Math|Integer|%(Integer) (/ index 2) 3)) 120.0) (* (Variables|Fort|Layout|GetDepth) 0.3)))
+  (bind spot (Math|Vector|MakeVector x (* side out) 120.0))
+  (return (Math|Transform|ComposeTransforms (Math|Transform|MakeTransform spot (Math|Rotator|MakeRotator :Yaw (* side 90.0)) (Math|Vector|MakeVector 1.0 1.0 1.0)) (Transformation|GetActorTransform))))

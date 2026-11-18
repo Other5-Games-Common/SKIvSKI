@@ -22,7 +22,9 @@ BINDING_MAT = "/SKIvSKI/Materials/M_SkiBinding"
 CHARACTER = "/SKIvSKI/Blueprints/BP_SkiCharacter"
 
 TAIL, TIP = -80.0, 92.0
-FLIP_WINDING = False
+# Unreal's front faces are the other way round from a right-handed cross product: measured on the built meshes
+# (GeometryScript face normals of the top triangles pointed down until this was True).
+FLIP_WINDING = True
 PLATE = 1.2              # binding plate thickness
 SOLE_HEIGHT = 1.9 + PLATE  # the boot's sole above the running surface, at the boot
 
