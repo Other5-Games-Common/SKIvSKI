@@ -3,8 +3,9 @@
 # walls (LayLogs in Docs/Graphs/BP_SkiFort.lisp).
 #
 # The log, in its own space (cm): 300 long along X, centred on its origin, 14 cm round (a little wider at one end,
-# like a real trunk), 12 sides. Its collision is the mesh itself (complex as simple), so skiers stop against it and
-# paintballs splat on it, and the slits between rows of logs stay open.
+# like a real trunk), 12 sides. Its collision is one box round it (simple collision): skiers stop against it, paintballs
+# splat on it, and the slits between rows of logs stay open. (The mesh itself as collision, a shell of triangles with
+# no inside, let a skier pressed against a wall sink into it and stick, building up speed while standing still.)
 import math
 import sys
 import unreal
@@ -90,7 +91,10 @@ def main():
     sm.set_editor_property("static_materials", [unreal.StaticMaterial(material_interface=unreal.load_asset(BARK), material_slot_name="Bark")])
     body = sm.get_editor_property("body_setup")
     if body:
-        body.set_editor_property("collision_trace_flag", unreal.CollisionTraceFlag.CTF_USE_COMPLEX_AS_SIMPLE)
+        body.set_editor_property("collision_trace_flag", unreal.CollisionTraceFlag.CTF_USE_DEFAULT)
+    meshes = unreal.get_editor_subsystem(unreal.StaticMeshEditorSubsystem)
+    meshes.remove_collisions(sm)
+    meshes.add_simple_collisions(sm, unreal.ScriptCollisionShapeType.BOX)
     unreal.EditorAssetLibrary.save_asset(MESH, only_if_is_dirty=False)
     log("SM_SkiLog built")
 
