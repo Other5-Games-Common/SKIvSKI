@@ -12,6 +12,12 @@
 ;   90% of Length  the finish arch; the last 15% flattens out
 ;   past Length    the run-out (RunoutLength): long and nearly flat, gently rolling, curving up towards its end
 ;                  (RunoutRise) so everyone slows down and stays on the snow
+;
+; Runs: each run is a BP_SkiRunData data asset (Content/Runs, listed in Runs): its length and widths, how steep and
+; bumpy, its own hills (ShapeSeed), where its forts stand (FortSpots) and its sky (an Other5 Sky Preset). The director
+; picks one; the server sets Run (replicated) and calls Rebuild, and ApplyRun copies the run into the Layout values
+; before Generate builds it. With no Runs the slope uses its own Layout values, as before. The pines are random each
+; round whatever the run, by the same rules, as many per 100 m as on the first run (TreeCountLength).
 
 ; How high the snow is at (X, Y), in cm. Everything else (mesh, trees, gates, spawn spots) asks this.
 (fn HeightAt (X Y)
@@ -100,28 +106,14 @@
     (Utilities|Array|Add (Variables|Slope|Work|GetXs) (+ maxX (Utilities|Array|Get(acopy) (Variables|Slope|Work|GetSteps) i)))
     (Utilities|Array|Add (Variables|Slope|Work|GetYs) (+ halfY (Utilities|Array|Get(acopy) (Variables|Slope|Work|GetSteps) i))))
   (bind columns (Utilities|Array|Length (Variables|Slope|Work|GetYs)))
-  (bind rows (Utilities|Array|Length (Variables|Slope|Work|GetXs)))
   (Utilities|Array|Clear (Variables|Slope|Work|GetVertices))
-  (Utilities|Array|Clear (Variables|Slope|Work|GetTriangles))
-  (Utilities|Array|Clear (Variables|Slope|Work|GetUVs))
   (for x (Variables|Slope|Work|GetXs)
     (for y (Variables|Slope|Work|GetYs)
-      (bind h (CallFunction|OuterHeightAt :X x :Y y))
-      (Utilities|Array|Add (Variables|Slope|Work|GetVertices) (Math|Vector|MakeVector x y h))
-      (Utilities|Array|Add (Variables|Slope|Work|GetUVs) (Math|Vector2D|MakeVector2D (/ x 400.0) (/ y 400.0)))))
-  ; Two triangles per square, wound so they face up.
-  (for row (range (- rows 1))
-    (for col (range (- columns 1))
-      (bind i (+ (* row columns) col))
-      (Utilities|Array|Add (Variables|Slope|Work|GetTriangles) i)
-      (Utilities|Array|Add (Variables|Slope|Work|GetTriangles) (+ i 1))
-      (Utilities|Array|Add (Variables|Slope|Work|GetTriangles) (+ i columns))
-      (Utilities|Array|Add (Variables|Slope|Work|GetTriangles) (+ i 1))
-      (Utilities|Array|Add (Variables|Slope|Work|GetTriangles) (+ (+ i columns) 1))
-      (Utilities|Array|Add (Variables|Slope|Work|GetTriangles) (+ i columns))))
-  (bind (normals tangents) (Components|ProceduralMesh|CalculateTangentsforMesh :Vertices (Variables|Slope|Work|GetVertices) :Triangles (Variables|Slope|Work|GetTriangles) :UVs (Variables|Slope|Work|GetUVs)))
-  (Components|ProceduralMesh|ClearAllMeshSections :self (Variables|Default|GetSnow))
-  (Components|ProceduralMesh|CreateMeshSection :self (Variables|Default|GetSnow) :SectionIndex 0 :Vertices (Variables|Slope|Work|GetVertices) :Triangles (Variables|Slope|Work|GetTriangles) :Normals normals :UV0 (Variables|Slope|Work|GetUVs) :Tangents tangents :bCreateCollision true))
+      (Utilities|Array|Add (Variables|Slope|Work|GetVertices) (Math|Vector|MakeVector x y (CallFunction|OuterHeightAt :X x :Y y)))))
+  ; Triangles (two per square, facing up), smooth normals, UVs (a tile per 4 m) and collision: Other5's Create Grid
+  ; Section, in C++. (The engine's Calculate Tangents For Mesh compares every vertex with every other: 7 s for this
+  ; grid, 30 s for a 1.2 km run. Building the triangles in Blueprint took half a second more.)
+  (Other5|GridMesh|CreateGridSection :Mesh (Variables|Default|GetSnow) :SectionIndex 0 :Vertices (Variables|Slope|Work|GetVertices) :Columns columns :UVSize 400.0 :bCreateCollision true))
 
 ; Pines: TreeCountByLevel tries for this difficulty, at random spots on the run and its banks, except on each
 ; team's racing line (a ClearPathWidth lane from its gate to the middle of the slope), and never so close to another
@@ -137,7 +129,9 @@
   (for fort (Variables|Slope|Work|GetFortSpots)
     (Utilities|Array|Add (Variables|Slope|Work|GetTreeSpots) (Math|Vector|MakeVector (.x fort) (.y fort) (Variables|Slope|Layout|GetFortClear))))
   (bind length (Variables|Slope|Layout|GetLength))
-  (bind count (Utilities|Array|Get(acopy) (Variables|Slope|Difficulty|GetTreeCountByLevel) (Variables|Slope|Build|GetDifficulty)))
+  ; TreeCountByLevel is for a run TreeCountLength long: a longer run gets as many per metre, times its TreeScale.
+  (bind perRun (Math|Conversions|ToFloat(Integer) (Utilities|Array|Get(acopy) (Variables|Slope|Difficulty|GetTreeCountByLevel) (Variables|Slope|Build|GetDifficulty))))
+  (bind count (Math|Float|Round (* (* perRun (/ length (Math|Float|Max(Float) (Variables|Slope|Difficulty|GetTreeCountLength) 1.0))) (Variables|Slope|Work|GetTreeScale))))
   (for n (range count)
     ; Each random number is drawn once into a variable: a random node is pure, so using its result twice would draw
     ; again (that put trees at the height of a different spot, floating in the air or buried).
@@ -246,7 +240,9 @@
     (CallFunction|LookMaterialOn :Target (Variables|Default|GetSnow) :Path (Variables|Slope|Look|GetLookSnow))
     (Rendering|SetVisibility :self (Variables|Default|GetTreeCrowns) :bNewVisibility false)
     (Rendering|SetVisibility :self (Variables|Default|GetTreeTrunks) :bNewVisibility false)
-    (CallFunction|StartSnowfall)))
+    ; A run's sky preset brings its own weather (or none, on a clear day).
+    (if (not (CallFunction|RunHasSky))
+      (CallFunction|StartSnowfall))))
 
 ; The forest around the slope: ForestCount more pines on the hills either side, just past where skiers are out of
 ; bounds (cones without the winter look). With the winter look also: distant pines further out, snow clumps on the
@@ -259,26 +255,26 @@
   (bind minX (- 0.0 (Variables|Slope|Layout|GetLobbyLength)))
   (bind maxX (+ (Variables|Slope|Layout|GetLength) (Variables|Slope|Layout|GetRunoutLength)))
   (bind halfY (+ (* (Variables|Slope|Layout|GetTopWidth) 0.5) (Variables|Slope|Layout|GetBankWidth)))
-  (for n (range (Variables|Slope|Look|GetForestCount))
+  (for n (range (CallFunction|ScaledCount :Count (Variables|Slope|Look|GetForestCount)))
     (bind x (CallFunction|Draw :Min (- minX 4000.0) :Max (+ maxX 4000.0)))
     (bind side (CallFunction|Draw :Min -1.0 :Max 1.0))
     (bind size (CallFunction|Draw :Min 0.8 :Max 1.6))
     (bind spin (CallFunction|Draw :Min 0.0 :Max 360.0))
     (CallFunction|PlantTree :X x :Y (* (Math|Float|Sign(Float) side) (+ (+ halfY 1300.0) (* (Math|Float|Absolute(Float) side) 5000.0))) :Size size :Spin spin))
   (if (Variables|Slope|Look|GetFancy)
-    (for n (range (Variables|Slope|Look|GetFarTreeCount))
+    (for n (range (CallFunction|ScaledCount :Count (Variables|Slope|Look|GetFarTreeCount)))
       (bind x (CallFunction|Draw :Min (- minX 20000.0) :Max (+ maxX 20000.0)))
       (bind side (CallFunction|Draw :Min -1.0 :Max 1.0))
       (bind size (CallFunction|Draw :Min 0.9 :Max 1.7))
       (bind spin (CallFunction|Draw :Min 0.0 :Max 360.0))
       (CallFunction|PlantArt :Hism (Variables|Default|GetFarTrees) :X x :Y (* (Math|Float|Sign(Float) side) (+ (+ halfY 6000.0) (* (Math|Float|Absolute(Float) side) 30000.0))) :Scale size :Spin spin :Sink 30.0))
-    (for n (range (Variables|Slope|Look|GetClumpCount))
+    (for n (range (CallFunction|ScaledCount :Count (Variables|Slope|Look|GetClumpCount)))
       (bind x (CallFunction|Draw :Min minX :Max maxX))
       (bind side (CallFunction|Draw :Min -1.0 :Max 1.0))
       (bind size (CallFunction|Draw :Min 0.6 :Max 2.2))
       (bind spin (CallFunction|Draw :Min 0.0 :Max 360.0))
       (CallFunction|PlantArt :Hism (Variables|Default|GetClumps) :X x :Y (* (Math|Float|Sign(Float) side) (+ (- halfY (Variables|Slope|Layout|GetBankWidth)) (* (Math|Float|Absolute(Float) side) 5000.0))) :Scale size :Spin spin :Sink 6.0))
-    (for n (range (Variables|Slope|Look|GetRockCount))
+    (for n (range (CallFunction|ScaledCount :Count (Variables|Slope|Look|GetRockCount)))
       (bind x (CallFunction|Draw :Min (- minX 3000.0) :Max (+ maxX 3000.0)))
       (bind side (CallFunction|Draw :Min -1.0 :Max 1.0))
       (bind size (CallFunction|Draw :Min 0.8 :Max 3.0))
@@ -295,6 +291,12 @@
       (bind across (/ (* (Variables|Slope|Look|GetMountainDistance) grow) 17400.0))
       (bind high (* 5.0 grow))
       (Components|InstancedStaticMesh|AddInstance :self (Variables|Default|GetMountains) :InstanceTransform (Math|Transform|MakeTransform (Math|Vector|MakeVector middle 0.0 rim) (Math|Rotator|MakeRotator :Yaw spin) (Math|Vector|MakeVector across across high))))))
+
+; Scenery counts (ForestCount, ClumpCount...) are for a run TreeCountLength long: a longer run gets more, so its hills
+; are as wooded as the first run's.
+(fn ScaledCount (Count)
+  (bind scale (Math|Float|Max(Float) (/ (Variables|Slope|Layout|GetLength) (Math|Float|Max(Float) (Variables|Slope|Difficulty|GetTreeCountLength) 1.0)) 1.0))
+  (return (Math|Float|Round (* (Math|Conversions|ToFloat(Integer) Count) scale))))
 
 ; An arch: two posts and a banner between them, Width apart, standing on the snow at (X, Y).
 (fn PlaceArch (PostLeft PostRight Banner X Y Width)
@@ -315,37 +317,78 @@
 
 ; ---- the forts (BP_SkiFort) -------------------------------------------------------------------------------------
 
-; Where this slope's FortCount forts go, every machine, from Seed (a stream of their own, so the run's pines and
-; bumps don't move when FortCount changes): down the second half of the run, where the teams' lines have met, on
-; alternate sides of the middle, out past the clear racing line, at a random distance across. X, Y of each in
-; FortSpots.
+;Where this slope's forts go, every machine. A run with FortSpots puts them exactly there, every time: X is how far
+; down the run (0 the start gates, 1 the bottom), Y across it (-1 the left edge, 0 the middle, 1 the right edge), so
+; the same run always has the same forts. Otherwise FortCount forts from FortSeed (or this round's Seed when it's 0:
+; a stream of their own, so the run's pines and bumps don't move when FortCount changes), evenly spaced from FortFrom
+; to FortTo of the way down, where the teams' lines have met, on alternate sides of the middle, out past the clear
+; racing line, at a random distance across. X, Y of each in FortSpots (Work); then FortLookup for FortCalm.
 (fn PlanForts ()
   (Utilities|Array|Clear (Variables|Slope|Work|GetFortSpots))
-  (Variables|Slope|Work|SetFortStream (Math|Random|MakeRandomStream (+ (Variables|Slope|Build|GetSeed) 7919)))
-  (Variables|Slope|Work|SetFortSide (select (< (Math|Random|RandomFloatinRangefromStream :Stream (Variables|Slope|Work|GetFortStream) :Min 0.0 :Max 1.0) 0.5) -1.0 1.0))
-  (bind count (Variables|Slope|Layout|GetFortCount))
-  (for n (range count)
-    (Variables|Slope|Work|SetFortAcross (Math|Random|RandomFloatinRangefromStream :Stream (Variables|Slope|Work|GetFortStream) :Min 0.0 :Max 1.0))
-    (bind t (Math|Float|Lerp 0.5 0.78 (/ (Math|Conversions|ToFloat(Integer) n) (Math|Float|Max(Float) (Math|Conversions|ToFloat(Integer) (- count 1)) 1.0))))
-    (bind x (* t (Variables|Slope|Layout|GetLength)))
-    (bind halfWidth (Math|Float|Lerp (* (Variables|Slope|Layout|GetTopWidth) 0.5) (* (Variables|Slope|Layout|GetFinishWidth) 0.5) t))
-    (bind inner (+ (* (Variables|Slope|Layout|GetClearPathWidth) 0.5) 700.0))
-    (bind y (* (Variables|Slope|Work|GetFortSide) (+ inner (* (Variables|Slope|Work|GetFortAcross) (Math|Float|Max(Float) (- (- halfWidth inner) 600.0) 0.0)))))
-    (Utilities|Array|Add (Variables|Slope|Work|GetFortSpots) (Math|Vector|MakeVector x y 0.0))
-    (Variables|Slope|Work|SetFortSide (- 0.0 (Variables|Slope|Work|GetFortSide)))))
+  (if (> (Utilities|Array|Length (Variables|Slope|Work|GetRunFortSpots)) 0)
+    (for spot (Variables|Slope|Work|GetRunFortSpots)
+      (bind t (Math|Float|Clamp(Float) (.x spot) 0.0 1.0))
+      (bind halfWidth (Math|Float|Lerp (* (Variables|Slope|Layout|GetTopWidth) 0.5) (* (Variables|Slope|Layout|GetFinishWidth) 0.5) t))
+      (bind y (* (Math|Float|Clamp(Float) (.y spot) -1.0 1.0) (Math|Float|Max(Float) (- halfWidth 600.0) 0.0)))
+      (Utilities|Array|Add (Variables|Slope|Work|GetFortSpots) (Math|Vector|MakeVector (* t (Variables|Slope|Layout|GetLength)) y 0.0)))
+    (else
+      (Variables|Slope|Work|SetFortStream (Math|Random|MakeRandomStream (select (> (Variables|Slope|Layout|GetFortSeed) 0) (Variables|Slope|Layout|GetFortSeed) (+ (Variables|Slope|Build|GetSeed) 7919))))
+      (Variables|Slope|Work|SetFortSide (select (< (Math|Random|RandomFloatinRangefromStream :Stream (Variables|Slope|Work|GetFortStream) :Min 0.0 :Max 1.0) 0.5) -1.0 1.0))
+      (bind count (Variables|Slope|Layout|GetFortCount))
+      (for n (range count)
+        (Variables|Slope|Work|SetFortAcross (Math|Random|RandomFloatinRangefromStream :Stream (Variables|Slope|Work|GetFortStream) :Min 0.0 :Max 1.0))
+        (bind t (Math|Float|Lerp (Variables|Slope|Layout|GetFortFrom) (Variables|Slope|Layout|GetFortTo) (/ (Math|Conversions|ToFloat(Integer) n) (Math|Float|Max(Float) (Math|Conversions|ToFloat(Integer) (- count 1)) 1.0))))
+        (bind x (* t (Variables|Slope|Layout|GetLength)))
+        (bind halfWidth (Math|Float|Lerp (* (Variables|Slope|Layout|GetTopWidth) 0.5) (* (Variables|Slope|Layout|GetFinishWidth) 0.5) t))
+        (bind inner (+ (* (Variables|Slope|Layout|GetClearPathWidth) 0.5) 700.0))
+        (bind y (* (Variables|Slope|Work|GetFortSide) (+ inner (* (Variables|Slope|Work|GetFortAcross) (Math|Float|Max(Float) (- (- halfWidth inner) 600.0) 0.0)))))
+        (Utilities|Array|Add (Variables|Slope|Work|GetFortSpots) (Math|Vector|MakeVector x y 0.0))
+        (Variables|Slope|Work|SetFortSide (- 0.0 (Variables|Slope|Work|GetFortSide))))))
+  (CallFunction|FortLookup))
+
+; FortCalm is asked for every point of the snow, so it can't loop over the forts (Blueprint's runaway-loop limit). This
+; works out, once per build, the two forts nearest each FortBin-long stretch of the run (by how far down they are):
+; FortNear and FortNear2, one entry per stretch, so FortCalm just reads them. Two, so forts side by side both get flat
+; snow. Keep forts at least 25 m apart down the run (more than FortCalmDistance twice) or a third one can be missed.
+(fn FortLookup ()
+  (Utilities|Array|Clear (Variables|Slope|Work|GetFortNear))
+  (Utilities|Array|Clear (Variables|Slope|Work|GetFortNear2))
+  (bind count (Utilities|Array|Length (Variables|Slope|Work|GetFortSpots)))
+  (bind bins (+ (Math|Float|Ceil (/ (Variables|Slope|Layout|GetLength) (Variables|Slope|Layout|GetFortBin))) 1))
+  (if (> count 0)
+    (for b (range bins)
+      (bind x (* (+ (Math|Conversions|ToFloat(Integer) b) 0.5) (Variables|Slope|Layout|GetFortBin)))
+      (Variables|Slope|Work|SetNearBest 0)
+      (Variables|Slope|Work|SetNearSecond 0)
+      (Variables|Slope|Work|SetNearBestD 1000000000.0)
+      (Variables|Slope|Work|SetNearSecondD 1000000000.0)
+      (for n (range count)
+        (bind d (Math|Float|Absolute(Float) (- (.x (Utilities|Array|Get(acopy) (Variables|Slope|Work|GetFortSpots) n)) x)))
+        (if (< d (Variables|Slope|Work|GetNearBestD))
+          (Variables|Slope|Work|SetNearSecond (Variables|Slope|Work|GetNearBest))
+          (Variables|Slope|Work|SetNearSecondD (Variables|Slope|Work|GetNearBestD))
+          (Variables|Slope|Work|SetNearBest n)
+          (Variables|Slope|Work|SetNearBestD d)
+          (else
+            (if (< d (Variables|Slope|Work|GetNearSecondD))
+              (Variables|Slope|Work|SetNearSecond n)
+              (Variables|Slope|Work|SetNearSecondD d)))))
+      (Utilities|Array|Add (Variables|Slope|Work|GetFortNear) (Variables|Slope|Work|GetNearBest))
+      (Utilities|Array|Add (Variables|Slope|Work|GetFortNear2) (select (< (Variables|Slope|Work|GetNearSecondD) 100000000.0) (Variables|Slope|Work|GetNearSecond) (Variables|Slope|Work|GetNearBest))))))
 
 ; How much of the bumps (moguls, rollers) to keep at (X, Y): none under a fort, all of them FortCalmDistance away.
-; HeightAt asks this for every point of the snow, so it looks at one fort only, with no loop (a loop here ran
-; Blueprint's runaway-loop limit out while building the snow): the forts are PlanForts' evenly spaced X's, far
-; further apart than FortCalmDistance, so the one nearest in X is the only one that matters.
+; HeightAt asks this for every point of the snow, so there's no loop here (a loop ran Blueprint's runaway-loop limit out
+; while building the snow): FortLookup has already found the two forts nearest this stretch of the run.
 (fn FortCalm (X Y)
   (bind spots (Variables|Slope|Work|GetFortSpots))
-  (bind count (Utilities|Array|Length spots))
-  (if (== count 0)
+  (bind bins (Utilities|Array|Length (Variables|Slope|Work|GetFortNear)))
+  (if (or (== (Utilities|Array|Length spots) 0) (== bins 0))
     (return 1.0))
-  (bind step (/ 0.28 (Math|Float|Max(Float) (Math|Conversions|ToFloat(Integer) (- count 1)) 1.0)))
-  (bind nearest (Math|Integer|Clamp(Integer) (Math|Float|Round (/ (- (/ X (Variables|Slope|Layout|GetLength)) 0.5) step)) 0 (- count 1)))
-  (bind d (Math|Vector|VectorLengthXY (- (Math|Vector|MakeVector X Y 0.0) (Utilities|Array|Get(acopy) spots nearest))))
+  (bind bin (Math|Integer|Clamp(Integer) (Math|Float|Floor (/ X (Variables|Slope|Layout|GetFortBin))) 0 (- bins 1)))
+  (bind here (Math|Vector|MakeVector X Y 0.0))
+  (bind d1 (Math|Vector|VectorLengthXY (- here (Utilities|Array|Get(acopy) spots (Utilities|Array|Get(acopy) (Variables|Slope|Work|GetFortNear) bin)))))
+  (bind d2 (Math|Vector|VectorLengthXY (- here (Utilities|Array|Get(acopy) spots (Utilities|Array|Get(acopy) (Variables|Slope|Work|GetFortNear2) bin)))))
+  (bind d (Math|Float|Min(Float) d1 d2))
   (return (Math|Float|Clamp(Float) (/ (- d 500.0) (Math|Float|Max(Float) (- (Variables|Slope|Layout|GetFortCalmDistance) 500.0) 1.0)) 0.0 1.0)))
 
 ; The server: this slope's forts (last slope's go), each tilted to the snow under it. They replicate to everyone.
@@ -364,16 +407,96 @@
     (bind fort (Game|SpawnActorfromClass :Class "/SKIvSKI/Blueprints/BP_SkiFort.BP_SkiFort_C" :SpawnTransform where :CollisionHandlingOverride "AlwaysSpawn"))
     (Utilities|Array|Add (Variables|Slope|Work|GetForts) fort)))
 
-; Build everything from Seed and Difficulty (0 Easy, 1 Medium, 2 Hard). Runs on every machine.
+; ---- runs (BP_SkiRunData) ----------------------------------------------------------------------------------------
+
+; The run to build (Run, which the server sets and replicates; else the first of Runs): its values into the Layout
+; ones. A value left at 0 in the run keeps the slope's own. Without a run the slope keeps its own Layout values (and
+; the scales stay 1), as before runs existed.
+(fn ApplyRun ()
+  (Variables|Slope|Work|SetSlopeScale 1.0)
+  (Variables|Slope|Work|SetBumpScale 1.0)
+  (Variables|Slope|Work|SetTreeScale 1.0)
+  (Variables|Slope|Work|SetShapeSeed 0)
+  (Utilities|Array|Clear (Variables|Slope|Work|GetRunFortSpots))
+  (bind run (CallFunction|CurrentRun))
+  (Utilities|IsValid run
+    (:"Is Valid"
+      (if (> (Class|BPSkiRunData|GetLength :self run) 0.0)
+        (Variables|Slope|Layout|SetLength (Class|BPSkiRunData|GetLength :self run)))
+      (if (> (Class|BPSkiRunData|GetTopWidth :self run) 0.0)
+        (Variables|Slope|Layout|SetTopWidth (Class|BPSkiRunData|GetTopWidth :self run)))
+      (if (> (Class|BPSkiRunData|GetFinishWidth :self run) 0.0)
+        (Variables|Slope|Layout|SetFinishWidth (Class|BPSkiRunData|GetFinishWidth :self run)))
+      (if (> (Class|BPSkiRunData|GetCellSize :self run) 0.0)
+        (Variables|Slope|Layout|SetCellSize (Class|BPSkiRunData|GetCellSize :self run)))
+      (if (> (Class|BPSkiRunData|GetSlopeScale :self run) 0.0)
+        (Variables|Slope|Work|SetSlopeScale (Class|BPSkiRunData|GetSlopeScale :self run)))
+      (if (> (Class|BPSkiRunData|GetBumpScale :self run) 0.0)
+        (Variables|Slope|Work|SetBumpScale (Class|BPSkiRunData|GetBumpScale :self run)))
+      (if (> (Class|BPSkiRunData|GetTreeScale :self run) 0.0)
+        (Variables|Slope|Work|SetTreeScale (Class|BPSkiRunData|GetTreeScale :self run)))
+      (Variables|Slope|Work|SetShapeSeed (Class|BPSkiRunData|GetShapeSeed :self run))
+      (Variables|Slope|Layout|SetFortCount (Class|BPSkiRunData|GetFortCount :self run))
+      (Variables|Slope|Layout|SetFortSeed (Class|BPSkiRunData|GetFortSeed :self run))
+      (if (> (Class|BPSkiRunData|GetFortTo :self run) 0.0)
+        (Variables|Slope|Layout|SetFortFrom (Class|BPSkiRunData|GetFortFrom :self run))
+        (Variables|Slope|Layout|SetFortTo (Class|BPSkiRunData|GetFortTo :self run)))
+      (for spot (Class|BPSkiRunData|GetFortSpots :self run)
+        (Utilities|Array|Add (Variables|Slope|Work|GetRunFortSpots) spot)))
+    (:"Is Not Valid")))
+
+; The run this slope builds: Run (set by the server, replicated), or the first of Runs, or none.
+(fn CurrentRun ()
+  (Utilities|IsValid (Variables|Slope|Build|GetRun)
+    (:"Is Valid"
+      (return (Variables|Slope|Build|GetRun)))
+    (:"Is Not Valid"
+      (if (> (Utilities|Array|Length (Variables|Slope|Runs|GetRuns)) 0)
+        (return (Utilities|Array|Get(acopy) (Variables|Slope|Runs|GetRuns) 0)))
+      (return (Variables|Slope|Build|GetRun)))))
+
+; The run's sky (an Other5 Sky Preset: Other5's own system, for any Creation): its sun, light, fog, clouds and
+; weather, on this machine, easing over SkyBlendSeconds from the last run's sky (at once the first time). A run with no
+; sky leaves the level's as it is.
+(fn ApplySky ()
+  (bind run (CallFunction|CurrentRun))
+  (Utilities|IsValid run
+    (:"Is Valid"
+      (bind sky (Class|BPSkiRunData|GetSky :self run))
+      (Utilities|IsValid sky
+        (:"Is Valid"
+          (Other5|Sky|ApplySkyPreset :Preset sky :BlendSeconds (select (Variables|Slope|Look|GetSkyShown) (Variables|Slope|Runs|GetSkyBlendSeconds) 0.0))
+          (Variables|Slope|Look|SetSkyShown true))
+        (:"Is Not Valid")))
+    (:"Is Not Valid")))
+
+; Whether this run has a sky preset (then its weather replaces the winter look's own snowfall).
+(fn RunHasSky ()
+  (bind run (CallFunction|CurrentRun))
+  (Utilities|IsValid run
+    (:"Is Valid"
+      (Utilities|IsValid (Class|BPSkiRunData|GetSky :self run)
+        (:"Is Valid"
+          (return true))
+        (:"Is Not Valid"
+          (return false))))
+    (:"Is Not Valid"
+      (return false))))
+
+; Build everything from Run, Seed and Difficulty (0 Easy, 1 Medium, 2 Hard). Runs on every machine.
 (fn Generate ()
+  (CallFunction|ApplyRun)
   (bind level (Math|Integer|Clamp(Integer) (Variables|Slope|Build|GetDifficulty) 0 2))
   (Variables|Slope|Work|SetStream (Math|Random|MakeRandomStream (Variables|Slope|Build|GetSeed)))
-  (Variables|Slope|Work|SetSlopeTan (Math|Trig|Tan(Degrees) (Utilities|Array|Get(acopy) (Variables|Slope|Difficulty|GetSlopeDegreesByLevel) level)))
-  (Variables|Slope|Work|SetBumpHeight (Utilities|Array|Get(acopy) (Variables|Slope|Difficulty|GetBumpHeightByLevel) level))
-  (Variables|Slope|Work|SetPhase1 (Math|Random|RandomFloatinRangefromStream :Stream (Variables|Slope|Work|GetStream) :Min 0.0 :Max 6.283))
-  (Variables|Slope|Work|SetPhase2 (Math|Random|RandomFloatinRangefromStream :Stream (Variables|Slope|Work|GetStream) :Min 0.0 :Max 6.283))
-  (Variables|Slope|Work|SetPhase3 (Math|Random|RandomFloatinRangefromStream :Stream (Variables|Slope|Work|GetStream) :Min 0.0 :Max 6.283))
+  (Variables|Slope|Work|SetSlopeTan (Math|Trig|Tan(Degrees) (* (Utilities|Array|Get(acopy) (Variables|Slope|Difficulty|GetSlopeDegreesByLevel) level) (Variables|Slope|Work|GetSlopeScale))))
+  (Variables|Slope|Work|SetBumpHeight (* (Utilities|Array|Get(acopy) (Variables|Slope|Difficulty|GetBumpHeightByLevel) level) (Variables|Slope|Work|GetBumpScale)))
+  ; The hills' shape: a run's own ShapeSeed gives it the same moguls and rollers every time; 0, new ones each round.
+  (Variables|Slope|Work|SetShapeStream (Math|Random|MakeRandomStream (select (> (Variables|Slope|Work|GetShapeSeed) 0) (Variables|Slope|Work|GetShapeSeed) (+ (Variables|Slope|Build|GetSeed) 104729))))
+  (Variables|Slope|Work|SetPhase1 (Math|Random|RandomFloatinRangefromStream :Stream (Variables|Slope|Work|GetShapeStream) :Min 0.0 :Max 6.283))
+  (Variables|Slope|Work|SetPhase2 (Math|Random|RandomFloatinRangefromStream :Stream (Variables|Slope|Work|GetShapeStream) :Min 0.0 :Max 6.283))
+  (Variables|Slope|Work|SetPhase3 (Math|Random|RandomFloatinRangefromStream :Stream (Variables|Slope|Work|GetShapeStream) :Min 0.0 :Max 6.283))
   (CallFunction|ApplyLook)
+  (CallFunction|ApplySky)
   (CallFunction|PlanForts)
   (CallFunction|BuildSnow)
   (CallFunction|PlantTrees)

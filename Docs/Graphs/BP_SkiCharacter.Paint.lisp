@@ -8,7 +8,7 @@
 ;
 ; RPC events (set in each event's Details: Replicates):
 ;   ServerFire (Run on Server, Reliable), MulticastFire (Multicast), ServerBuy /
-;   ServerChangeDifficulty (Run on Server, Reliable), ServerSetSkiYaw (Run on Server, unreliable; Movement file).
+;   ServerChangeDifficulty (Run on Server, Reliable; Step 1/-1 difficulty, 10/-10 run), ServerSetSkiYaw (Run on Server, unreliable; Movement file).
 ;
 ; Gear: everything the store sells is listed here, in the store's order (Guns, Skis, Waxes, Upgrades: data assets; the
 ; first gun, skis and wax are what everyone starts with, free). What a player has on is on their player state
@@ -367,6 +367,15 @@
   (if (and easierKey (not (Variables|Team|GetPrevEasier)))
     (CallFunction|ServerChangeDifficulty :Step -1))
   (Variables|Team|SetPrevEasier easierKey)
+  ; Admin: . and , for the next or previous run (Step 10 / -10 on the same server event as the difficulty).
+  (bind nextRunKey (Input|EnhancedActionValues|IA_SkiNextRun))
+  (if (and nextRunKey (not (Variables|Team|GetPrevNextRun)))
+    (CallFunction|ServerChangeDifficulty :Step 10))
+  (Variables|Team|SetPrevNextRun nextRunKey)
+  (bind prevRunKey (Input|EnhancedActionValues|IA_SkiPrevRun))
+  (if (and prevRunKey (not (Variables|Team|GetPrevPrevRun)))
+    (CallFunction|ServerChangeDifficulty :Step -10))
+  (Variables|Team|SetPrevPrevRun prevRunKey)
   ; F: out of the fort you're in (the server checks you're in one and ExitCooldown).
   (bind exitKey (Input|EnhancedActionValues|IA_SkiExitFort))
   (if (and exitKey (not (Variables|Fort|GetPrevExitFort)))

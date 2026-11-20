@@ -10,6 +10,10 @@
 ;           the difficulty with [ and ]) -> Countdown (CountdownSeconds, everyone frozen behind their team's gate)
 ;           -> Race (until everyone has crossed the finish, or RaceSeconds) -> Results (ResultsSeconds) -> Lobby
 ;           with a new random slope.
+; Runs:     the slope's Runs (BP_SkiRunData assets) take turns, RoundsPerRun rounds each (0: stay on one run). RunIndex
+;           is the one up now, and RunName replicates for the HUD. An admin picks another with , and . in the lobby or
+;           the results; a server can start on one with -SkiRun=<number from 1, or name>. A run's RaceSeconds (when
+;           above 0) replaces this director's, since a long run takes longer.
 ; Paint:    a paintball hit on the other team during the race puts the victim OUT for the rest of the race (grey helmet,
 ;           can't fire, no finish points) and gives HitPoints to the shooter's team, unless the ball bounces: each hit
 ;           bounces with the shooter's BounceChance (10% with standard paint).
@@ -62,6 +66,10 @@
     (Variables|Round|State|SetDifficulty (select (Utilities|String|Equal,CaseInsensitive(String) value "Easy") 0 (select (Utilities|String|Equal,CaseInsensitive(String) value "Hard") 2 1))))
   ; -SkiPracticeHits: paint hits score in the lobby too (to try scoring without racing).
   (Variables|Round|Settings|SetPracticeHits (Utilities|HasLaunchOption "SkiPracticeHits"))
+  ; -SkiRun=2 (the second of the slope's Runs) or -SkiRun=Glacier (a run whose name starts with that).
+  (bind (runValue runFound) (Utilities|ParseParamValue (Utilities|GetCommandLine) "SkiRun="))
+  (if runFound
+    (CallFunction|FindRun :Name runValue))
   (CallFunction|StartLobby)
   (Utilities|Time|SetTimerbyFunctionName :Object self :FunctionName "ServerStep" :Time 0.25 :bLooping true))
 
@@ -84,6 +92,7 @@
   (if (== phase 3)
     (CallFunction|RescueLost :bAtGate false)
     (if (>= now (Variables|Round|State|GetPhaseEndsAt))
+      (CallFunction|NextRunAfterRound)
       (CallFunction|StartLobby))))
 
 (fn StartLobby ()
@@ -93,7 +102,8 @@
   ; Pings and quick chat: everyone hears everyone in the lobby; from the countdown to the results, only your team.
   (Other5|Teams|SetTeamOnlyComms :bTeamOnly false)
   (Variables|Round|State|SetMessage "Lobby: T switches team")
-  ; A new random slope; the lobby itself is always flat, so nobody falls while it rebuilds.
+  ; A new random slope on this round's run; the lobby itself is always flat, so nobody falls while it rebuilds.
+  (CallFunction|UseRun)
   (Class|BPSkiSlope|Rebuild :self (Variables|Round|Settings|GetSlope) :NewSeed (Math|Random|RandomIntegerinRange 1 999999) :NewDifficulty (Variables|Round|State|GetDifficulty))
   (CallFunction|ResetRound)
   (CallFunction|PlaceAll :bAtGate false :bFreeze false))
@@ -112,7 +122,7 @@
 (fn StartRace ()
   (Variables|Round|State|SetPhase 2)
   (Variables|Round|Work|SetRaceStartedAt (CallFunction|Now))
-  (Variables|Round|State|SetPhaseEndsAt (+ (CallFunction|Now) (Variables|Round|Settings|GetRaceSeconds)))
+  (Variables|Round|State|SetPhaseEndsAt (+ (CallFunction|Now) (CallFunction|RaceTime)))
   (Variables|Round|Work|SetNextPlace 1)
   (Variables|Round|Work|SetAllFinished false)
   (Variables|Round|State|SetMessage "GO!")
@@ -254,10 +264,77 @@
     (:CastFailed)))
 
 ; [ or ] from an admin, in the lobby or the results (server). Without an AdminPIN on the server everyone is an admin.
+;
+; Step 1 or -1 is the difficulty ([ and ]); 10 or -10 the next or previous run (. and ,), which starts at once.
 (fn ChangeDifficulty (Player Step)
   (if (and (Class|Other5BasePlayerState|GetHasValidAdminPIN :self Player) (or (== (Variables|Round|State|GetPhase) 0) (== (Variables|Round|State|GetPhase) 3)))
-    (Variables|Round|State|SetDifficulty (Math|Integer|Clamp(Integer) (+ (Variables|Round|State|GetDifficulty) Step) 0 2))
+    (if (>= (Math|Integer|Absolute(Integer) Step) 10)
+      (CallFunction|StepRun :Step (select (> Step 0) 1 -1))
+      (else
+        (Variables|Round|State|SetDifficulty (Math|Integer|Clamp(Integer) (+ (Variables|Round|State|GetDifficulty) Step) 0 2))))
     (CallFunction|StartLobby)))
+
+; ---- runs -------------------------------------------------------------------------------------------------------
+
+; How many runs the slope has (its Runs list).
+(fn RunCount ()
+  (if (CallFunction|FindSlope)
+    (return (Utilities|Array|Length (Class|BPSkiSlope|GetRuns :self (Variables|Round|Settings|GetSlope)))))
+  (return 0))
+
+; The run up now (RunIndex in the slope's Runs), or none when the slope has no runs.
+(fn CurrentRun ()
+  (bind count (CallFunction|RunCount))
+  (if (> count 0)
+    (return (Utilities|Array|Get(acopy) (Class|BPSkiSlope|GetRuns :self (Variables|Round|Settings|GetSlope)) (Math|Integer|%(Integer) (Math|Integer|Max(Integer) (Variables|Round|State|GetRunIndex) 0) count))))
+  (return (Class|BPSkiSlope|GetRun :self (Variables|Round|Settings|GetSlope))))
+
+; Tells the slope which run to build next (it replicates; Rebuild then builds it everywhere), and RunName for the HUD.
+(fn UseRun ()
+  (if (CallFunction|FindSlope)
+    (bind run (CallFunction|CurrentRun))
+    (Utilities|IsValid run
+      (:"Is Valid"
+        (Class|BPSkiSlope|SetRun :self (Variables|Round|Settings|GetSlope) :Run run)
+        (Variables|Round|State|SetRunName (Utilities|String|ToString(Text) (Class|BPSkiRunData|GetRunName :self run))))
+      (:"Is Not Valid"
+        (Variables|Round|State|SetRunName "")))))
+
+; Another run, Step along the slope's Runs (round the end), and a new lobby on it.
+(fn StepRun (Step)
+  (bind count (CallFunction|RunCount))
+  (if (> count 0)
+    (Variables|Round|State|SetRunIndex (Math|Integer|%(Integer) (+ (+ (Variables|Round|State|GetRunIndex) Step) count) count))
+    (Variables|Round|Work|SetRoundsOnRun 0)))
+
+; After each round's results: the next run once this one has had RoundsPerRun rounds (0: never).
+(fn NextRunAfterRound ()
+  (Variables|Round|Work|SetRoundsOnRun (+ (Variables|Round|Work|GetRoundsOnRun) 1))
+  (if (and (> (Variables|Round|Settings|GetRoundsPerRun) 0) (>= (Variables|Round|Work|GetRoundsOnRun) (Variables|Round|Settings|GetRoundsPerRun)))
+    (CallFunction|StepRun :Step 1)))
+
+; -SkiRun=: a number (1 is the first run) or the start of a run's name.
+(fn FindRun (Name)
+  (bind count (CallFunction|RunCount))
+  (bind number (Utilities|String|StringToInteger Name))
+  (if (and (> number 0) (<= number count))
+    (Variables|Round|State|SetRunIndex (- number 1))
+    (else
+      (for n (range count)
+        (bind run (Utilities|Array|Get(acopy) (Class|BPSkiSlope|GetRuns :self (Variables|Round|Settings|GetSlope)) n))
+        (if (Utilities|String|StartsWith (Utilities|String|ToString(Text) (Class|BPSkiRunData|GetRunName :self run)) Name)
+          (Variables|Round|State|SetRunIndex n))))))
+
+; How long the race may last: the run's own RaceSeconds when it has one (a long run takes longer), else RaceSeconds.
+(fn RaceTime ()
+  (bind run (CallFunction|CurrentRun))
+  (Utilities|IsValid run
+    (:"Is Valid"
+      (if (> (Class|BPSkiRunData|GetRaceSeconds :self run) 0.0)
+        (return (Class|BPSkiRunData|GetRaceSeconds :self run)))
+      (return (Variables|Round|Settings|GetRaceSeconds)))
+    (:"Is Not Valid"
+      (return (Variables|Round|Settings|GetRaceSeconds)))))
 
 
 ; Everyone back in the race with nothing scored: team scores, each player's hits, points, finish and out.

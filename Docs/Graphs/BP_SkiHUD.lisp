@@ -53,7 +53,10 @@
   (bind title (select (== phase 0) "LOBBY" (select (== phase 1) "GET READY" (select (== phase 2) "RACE" "RESULTS"))))
   (bind timeLine (select (== phase 0) (Utilities|String|Append "next race in " (Utilities|String|Append secs " s")) (select (== phase 2) (Utilities|String|Append secs " s left") (select (== phase 3) (Utilities|String|Append "next lobby in " (Utilities|String|Append secs " s")) ""))))
   (bind level (Class|BPSkiDirector|GetDifficulty :self Director))
-  (bind slopeLine (Utilities|String|Append "slope: " (select (== level 0) "easy" (select (== level 2) "hard" "medium"))))
+  ; The run's name (when the slope has runs) and the difficulty.
+  (bind runName (Class|BPSkiDirector|GetRunName :self Director))
+  (bind levelName (select (== level 0) "easy" (select (== level 2) "hard" "medium")))
+  (bind slopeLine (select (Utilities|String|IsEmpty runName) (Utilities|String|Append "slope: " levelName) (Utilities|String|Append runName (Utilities|String|Append "  -  " levelName))))
   (CallFunction|DrawPanel :X (- cx (* 190.0 u)) :Y (* 20.0 u) :W (* 380.0 u) :H (* 112.0 u) :Accent (CallFunction|Neon))
   (CallFunction|DrawCentered :Text title :CenterX cx :Y (* 34.0 u) :Color (CallFunction|Ink) :Size 3.2 :bTitle true)
   (CallFunction|DrawCentered :Text timeLine :CenterX cx :Y (* 78.0 u) :Color (CallFunction|Ink) :Size 1.9 :bTitle false)
@@ -67,7 +70,7 @@
   (if (== phase 3)
     (CallFunction|DrawResults :Director Director))
   (if (and (or (== phase 0) (== phase 1)) (not (Variables|Store|GetStoreOpen)))
-    (CallFunction|DrawCentered :Text "B  store      R  reload      T  switch team      [  ]  slope (admin)      Esc  menu" :CenterX cx :Y (- (Variables|Layout|GetScreenH) (* 200.0 u)) :Color (CallFunction|Muted) :Size 1.6 :bTitle false))
+    (CallFunction|DrawCentered :Text "B  store      R  reload      T  switch team      [  ]  slope   ,  .  run (admin)      Esc  menu" :CenterX cx :Y (- (Variables|Layout|GetScreenH) (* 200.0 u)) :Color (CallFunction|Muted) :Size 1.6 :bTitle false))
   ; The store opens by itself with the results, and closes when the countdown starts.
   (if (!= phase (Variables|Store|GetStorePhase))
     (Variables|Store|SetStorePhase phase)

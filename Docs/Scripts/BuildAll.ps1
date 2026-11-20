@@ -30,6 +30,7 @@ $G = '/SKIvSKI/Guns/BP_PaintGunData'
 $SK = '/SKIvSKI/Gear/BP_SkiData'
 $WX = '/SKIvSKI/Gear/BP_WaxData'
 $UP = '/SKIvSKI/Gear/BP_UpgradeData'
+$RUN = '/SKIvSKI/Runs/BP_SkiRunData'
 $A = '/SKIvSKI/Animation/ABP_Skier'
 $F = '/SKIvSKI/Blueprints/BP_SkiFort'
 $FORT = 'obj:/SKIvSKI/Blueprints/BP_SkiFort.BP_SkiFort_C'
@@ -67,6 +68,14 @@ AddVars $G @(
 AddVars $SK @(@('SkiName', 'text', 'Skis', 'None', $true), @('Price', 'int', 'Store', 'None', $true), @('Blurb', 'string', 'Store', 'None', $true),
 	@('SpeedScale', 'float', 'Skis', 'None', $true), @('TurnScale', 'float', 'Skis', 'None', $true), @('GripScale', 'float', 'Skis', 'None', $true), @('BrakeScale', 'float', 'Skis', 'None', $true),
 	@('FrictionScale', 'float', 'Skis', 'None', $true), @('LengthScale', 'float', 'Skis', 'None', $true))
+# A ski run (Docs/SkiRuns.md; the DA_Run* assets made by SetupRuns.py). 0 keeps the slope's own value.
+AddVars $RUN @(@('RunName', 'text', 'Run', 'None', $true), @('Blurb', 'string', 'Run', 'None', $true),
+	@('Length', 'float', 'Run|Shape', 'None', $true), @('TopWidth', 'float', 'Run|Shape', 'None', $true), @('FinishWidth', 'float', 'Run|Shape', 'None', $true),
+	@('SlopeScale', 'float', 'Run|Shape', 'None', $true), @('BumpScale', 'float', 'Run|Shape', 'None', $true), @('ShapeSeed', 'int', 'Run|Shape', 'None', $true), @('CellSize', 'float', 'Run|Shape', 'None', $true),
+	@('TreeScale', 'float', 'Run|Trees', 'None', $true),
+	@('FortSpots', 'Vector2D:Array', 'Run|Forts', 'None', $true), @('FortCount', 'int', 'Run|Forts', 'None', $true), @('FortSeed', 'int', 'Run|Forts', 'None', $true),
+	@('FortFrom', 'float', 'Run|Forts', 'None', $true), @('FortTo', 'float', 'Run|Forts', 'None', $true),
+	@('RaceSeconds', 'float', 'Run|Race', 'None', $true), @('Sky', '/Script/Other5.Other5SkyPreset', 'Run|Sky', 'None', $true))
 AddVars $WX @(@('WaxName', 'text', 'Wax', 'None', $true), @('Price', 'int', 'Store', 'None', $true), @('Blurb', 'string', 'Store', 'None', $true), @('SnowFriction', 'float', 'Wax', 'None', $true))
 AddVars $UP @(@('UpgradeName', 'text', 'Upgrade', 'None', $true), @('Price', 'int', 'Store', 'None', $true), @('Blurb', 'string', 'Store', 'None', $true), @('MagScale', 'float', 'Upgrade', 'None', $true), @('SpareMags', 'int', 'Upgrade', 'None', $true))
 # Teams are Other5's shared teams (team on Other5's player state), so the player state keeps only SKIvSKI's own state.
@@ -93,6 +102,7 @@ AddVars $C @(
 	@('NextFireTime', 'float', 'Paint', 'None', $false), @('MaxAimYaw', 'float', 'Paint', 'None', $true), @('ShotSeed', 'int', 'Paint', 'None', $false), @('ShotDir', 'Vector', 'Paint', 'None', $false), @('bPrevSwitchGun', 'bool', 'Paint', 'None', $false), @('ShotStream', '/Script/CoreUObject.RandomStream', 'Paint', 'None', $false),
 	@('TeamShown', 'int', 'Team', 'None', $false), @('MapShown', 'int', 'Team', 'None', $false), @('TeamColor', 'LinearColor', 'Team', 'None', $false),
 	@('bPrevSwitchTeam', 'bool', 'Team', 'None', $false), @('bPrevHarder', 'bool', 'Team', 'None', $false), @('bPrevEasier', 'bool', 'Team', 'None', $false),
+	@('bPrevNextRun', 'bool', 'Team', 'None', $false), @('bPrevPrevRun', 'bool', 'Team', 'None', $false),
 	@('Skis', '/SKIvSKI/Gear/BP_SkiData.BP_SkiData_C:Array', 'Store', 'None', $true), @('Waxes', '/SKIvSKI/Gear/BP_WaxData.BP_WaxData_C:Array', 'Store', 'None', $true),
 	@('Ammo', 'int', 'Paint', 'None', $false), @('bReloading', 'bool', 'Paint', 'None', $false), @('ReloadDoneAt', 'float', 'Paint', 'None', $false), @('bPrevFire', 'bool', 'Paint', 'None', $false),
 	@('bPrevReload', 'bool', 'Paint', 'None', $false), @('bPrevStore', 'bool', 'Paint', 'None', $false), @('GunShown', 'int', 'Paint', 'None', $false), @('SkisShown', 'int', 'Paint', 'None', $false),
@@ -119,7 +129,15 @@ AddVars $S @(
 @('LookTree', 'string', 'Slope|Look', 'None', $true), @('LookTreeTall', 'string', 'Slope|Look', 'None', $true), @('LookFarTrees', 'string', 'Slope|Look', 'None', $true), @('LookClump', 'string', 'Slope|Look', 'None', $true),
 @('LookRock', 'string', 'Slope|Look', 'None', $true), @('LookMountain', 'string', 'Slope|Look', 'None', $true), @('LookMountainMaterial', 'string', 'Slope|Look', 'None', $true), @('LookSnow', 'string', 'Slope|Look', 'None', $true), @('LookSnowfall', 'string', 'Slope|Look', 'None', $true),
 @('ForestCount', 'int', 'Slope|Look', 'None', $true), @('FarTreeCount', 'int', 'Slope|Look', 'None', $true), @('ClumpCount', 'int', 'Slope|Look', 'None', $true), @('RockCount', 'int', 'Slope|Look', 'None', $true), @('MountainCount', 'int', 'Slope|Look', 'None', $true), @('MountainDistance', 'float', 'Slope|Look', 'None', $true),
-@('bFancy', 'bool', 'Slope|Look', 'None', $false), @('bSnowing', 'bool', 'Slope|Look', 'None', $false))
+@('bFancy', 'bool', 'Slope|Look', 'None', $false), @('bSnowing', 'bool', 'Slope|Look', 'None', $false), @('bSkyShown', 'bool', 'Slope|Look', 'None', $false),
+@('Runs', '/SKIvSKI/Runs/BP_SkiRunData.BP_SkiRunData_C:Array', 'Slope|Runs', 'None', $true), @('SkyBlendSeconds', 'float', 'Slope|Runs', 'None', $true),
+@('Run', '/SKIvSKI/Runs/BP_SkiRunData.BP_SkiRunData_C', 'Slope|Build', 'Replicated', $false),
+@('FortSeed', 'int', 'Slope|Layout', 'None', $true), @('FortFrom', 'float', 'Slope|Layout', 'None', $true), @('FortTo', 'float', 'Slope|Layout', 'None', $true), @('FortBin', 'float', 'Slope|Layout', 'None', $true),
+@('TreeCountLength', 'float', 'Slope|Difficulty', 'None', $true),
+@('SlopeScale', 'float', 'Slope|Work', 'None', $false), @('BumpScale', 'float', 'Slope|Work', 'None', $false), @('TreeScale', 'float', 'Slope|Work', 'None', $false), @('ShapeSeed', 'int', 'Slope|Work', 'None', $false),
+@('ShapeStream', '/Script/CoreUObject.RandomStream', 'Slope|Work', 'None', $false), @('RunFortSpots', 'Vector2D:Array', 'Slope|Work', 'None', $false),
+@('FortNear', 'int:Array', 'Slope|Work', 'None', $false), @('FortNear2', 'int:Array', 'Slope|Work', 'None', $false), @('NearBest', 'int', 'Slope|Work', 'None', $false), @('NearSecond', 'int', 'Slope|Work', 'None', $false),
+@('NearBestD', 'float', 'Slope|Work', 'None', $false), @('NearSecondD', 'float', 'Slope|Work', 'None', $false))
 AddVars $D @(
 	@('Slope', '/SKIvSKI/Blueprints/BP_SkiSlope.BP_SkiSlope_C', 'Round|Settings', 'None', $true), @('LobbySeconds', 'float', 'Round|Settings', 'None', $true),
 	@('CountdownSeconds', 'float', 'Round|Settings', 'None', $true), @('RaceSeconds', 'float', 'Round|Settings', 'None', $true), @('ResultsSeconds', 'float', 'Round|Settings', 'None', $true),
@@ -127,6 +145,7 @@ AddVars $D @(
 	@('bPracticeHits', 'bool', 'Round|Settings', 'None', $true), @('CoinsPerPoint', 'int', 'Round|Settings', 'None', $true), @('HitCoins', 'int', 'Round|Settings', 'None', $true), @('SurviveCoins', 'int', 'Round|Settings', 'None', $true),
 	@('Phase', 'int', 'Round|State', 'Replicated', $false), @('PhaseEndsAt', 'float', 'Round|State', 'Replicated', $false), @('Difficulty', 'int', 'Round|State', 'Replicated', $false),
 	@('RoundNumber', 'int', 'Round|State', 'Replicated', $false), @('Message', 'string', 'Round|State', 'Replicated', $false),
+	@('RunIndex', 'int', 'Round|State', 'Replicated', $false), @('RunName', 'string', 'Round|State', 'Replicated', $false), @('RoundsPerRun', 'int', 'Round|Settings', 'None', $true), @('RoundsOnRun', 'int', 'Round|Work', 'None', $false),
 	@('RaceStartedAt', 'float', 'Round|Work', 'None', $false), @('NextPlace', 'int', 'Round|Work', 'None', $false), @('bAllFinished', 'bool', 'Round|Work', 'None', $false),
 	@('RedPlaced', 'int', 'Round|Work', 'None', $false), @('BluePlaced', 'int', 'Round|Work', 'None', $false), @('LobbyPlaced', 'int', 'Round|Work', 'None', $false), @('HitResult', 'int', 'Round|Work', 'None', $false))
 AddVars $B @(@('Shooter', '/Script/Engine.Pawn', 'Paintball', 'None', $false), @('bScores', 'bool', 'Paintball', 'None', $false), @('BallColor', 'LinearColor', 'Paintball', 'None', $false))
@@ -136,7 +155,7 @@ AddVars $H @(@('Minimap', '/Script/Other5Compass.Other5MinimapWidget', 'Map', 'N
 	@('LastPhase', 'int', 'Sound', 'None', $false), @('LastSecond', 'int', 'Sound', 'None', $false), @('GoUntil', 'float', 'Sound', 'None', $false),
 	@('LastScore0', 'int', 'Sound', 'None', $false), @('LastScore1', 'int', 'Sound', 'None', $false), @('Flash0Until', 'float', 'Sound', 'None', $false), @('Flash1Until', 'float', 'Sound', 'None', $false),
 	@('bStoreOpen', 'bool', 'Store', 'None', $false), @('StorePhase', 'int', 'Store', 'None', $false), @('StoreRow', 'int', 'Store', 'None', $false), @('StoreHint', 'string', 'Store', 'None', $false))
-foreach ($asset in $G, $SK, $WX, $UP, $P, $C, $S, $D, $B, $H) { Compile $asset | Out-Null }
+foreach ($asset in $G, $SK, $WX, $UP, $RUN, $P, $C, $S, $D, $B, $H) { Compile $asset | Out-Null }
 
 Step 'functions (with typed inputs/outputs)'
 AddFunctions $F @(
@@ -152,7 +171,8 @@ AddFunctions $S @(
 	@('OuterHeightAt', @(@('X', 'float'), @('Y', 'float'), @('Height', 'float', 'out'))), @('OuterSteps', @()), @('Draw', @(@('Min', 'float'), @('Max', 'float'), @('Value', 'float', 'out'))),
 	@('PlantArt', @(@('Hism', $ISM), @('X', 'float'), @('Y', 'float'), @('Scale', 'float'), @('Spin', 'float'), @('Sink', 'float'))),
 	@('LoadLook', @(@('Path', 'string'), @('Asset', 'obj:/Script/CoreUObject.Object', 'out'))), @('LookMeshOn', @(@('Hism', $ISM), @('Path', 'string'), @('Found', 'bool', 'out'))),
-	@('LookMaterialOn', @(@('Target', 'obj:/Script/Engine.PrimitiveComponent'), @('Path', 'string'), @('Found', 'bool', 'out'))), @('StartSnowfall', @()), @('ApplyLook', @()), @('DressScene', @())) | Out-Null
+	@('LookMaterialOn', @(@('Target', 'obj:/Script/Engine.PrimitiveComponent'), @('Path', 'string'), @('Found', 'bool', 'out'))), @('StartSnowfall', @()), @('ApplyLook', @()), @('DressScene', @()),
+	@('FortLookup', @()), @('ApplyRun', @()), @('CurrentRun', @(, @('Run', 'obj:/SKIvSKI/Runs/BP_SkiRunData.BP_SkiRunData_C', 'out'))), @('ApplySky', @()), @('RunHasSky', @(, @('HasSky', 'bool', 'out'))), @('ScaledCount', @(@('Count', 'int'), @('Scaled', 'int', 'out')))) | Out-Null
 AddFunctions $C @(
 	@('SkiBeginPlay', @()), @('SetupSkiMovement', @()), @('UpdateGlide', @()), @('UpdateSlope', @()), @('SteerSkis', @(, @('DeltaSeconds', 'float'))), @('PushDownSlope', @()), @('LeanIntoTurn', @(, @('DeltaSeconds', 'float'))),
 	@('SnowPoint', @(@('Along', 'float'), @('Across', 'float'), @('Point', 'Vector', 'out'))), @('SampleSnow', @()), @('SnowHeightAt', @(@('Where', 'Vector'), @('Height', 'float', 'out'))), @('PlaceSkis', @(, @('DeltaSeconds', 'float'))), @('StopIntoWall', @(, @('Normal', 'Vector'))),
@@ -176,7 +196,9 @@ AddFunctions $D @(
 	@('PlaceOne', @(@('Player', $PS), @('bAtGate', 'bool'), @('Index', 'int'))), @('FreezeAll', @(, @('bFreeze', 'bool'))), @('CheckRacers', @()),
 	@('RescueLost', @(, @('bAtGate', 'bool'))), @('PlayerFinished', @(, @('Player', $PS))), @('AddPoints', @(@('Player', $PS), @('Points', 'int'))),
 	@('ResolvePaintHit', @(@('Shooter', $PAWN), @('Victim', $PAWN), @('Result', 'int', 'out'))), @('JudgePaintHit', @(@('Shooter', $PAWN), @('Victim', $PAWN))), @('ResetRound', @()),
-	@('ChangeDifficulty', @(@('Player', $PS), @('Step', 'int'))), @('PaySurvivors', @())) | Out-Null
+	@('ChangeDifficulty', @(@('Player', $PS), @('Step', 'int'))), @('PaySurvivors', @()),
+	@('RunCount', @(, @('Count', 'int', 'out'))), @('CurrentRun', @(, @('Run', 'obj:/SKIvSKI/Runs/BP_SkiRunData.BP_SkiRunData_C', 'out'))), @('UseRun', @()), @('StepRun', @(, @('Step', 'int'))),
+	@('NextRunAfterRound', @()), @('FindRun', @(, @('Name', 'string'))), @('RaceTime', @(, @('Seconds', 'float', 'out')))) | Out-Null
 AddFunctions $H @(
 	@('EnsureMinimap', @()), @('DrawFort', @(, @('Skier', 'obj:/SKIvSKI/Blueprints/BP_SkiCharacter.BP_SkiCharacter_C'))),
 	@('DrawRound', @(, @('Director', 'obj:/SKIvSKI/Blueprints/BP_SkiDirector.BP_SkiDirector_C'))), @('DrawSkier', @(, @('Skier', 'obj:/SKIvSKI/Blueprints/BP_SkiCharacter.BP_SkiCharacter_C'))),
@@ -268,6 +290,7 @@ Step 'defaults, guns, level, creation label'
 Py (Join-Path $Scripts 'SetupDefaults.py')
 Py (Join-Path $Scripts 'SetupGuns.py')
 Py (Join-Path $Scripts 'SetupGear.py')
+Py (Join-Path $Scripts 'SetupRuns.py')
 Py (Join-Path $Scripts 'SetupSkiMap.py')
 Py (Join-Path $Scripts 'SetupCreationLabel.py')
 

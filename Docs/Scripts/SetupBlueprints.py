@@ -78,6 +78,8 @@ def main():
     make_bp("BP_WaxData", "/Script/Engine.PrimaryDataAsset", "/SKIvSKI/Gear")
     # Paint upgrades (a bigger hopper, more spare paint): bought once, on for good, whatever gun is in hand.
     make_bp("BP_UpgradeData", "/Script/Engine.PrimaryDataAsset", "/SKIvSKI/Gear")
+    # A ski run (length, widths, steepness, its hills, forts and sky): the DA_Run* assets made by SetupRuns.py.
+    make_bp("BP_SkiRunData", "/Script/Engine.PrimaryDataAsset", "/SKIvSKI/Runs")
 
     # The paintball: a sphere that the Projectile Movement component flies; the sphere is the root so its hits stop it.
     ball = make_bp("BP_Paintball", "/Script/Engine.Actor")

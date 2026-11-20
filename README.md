@@ -13,12 +13,13 @@ questions.
   plus clients) should work: it wasn't tried in PIE, but the same setup was tested with separate processes (Tests).
 - **Standalone game from the editor build:**
   `UnrealEditor.exe Other5.uproject /SKIvSKI/Maps/L_SkiVSki -game -windowed -NoEOS`
-- **Server options:** `-SkiDifficulty=Easy|Medium|Hard` (the starting slope), `-SkiPracticeHits` (paint hits in the
-  lobby score too, to try scoring without racing).
+- **Server options:** `-SkiDifficulty=Easy|Medium|Hard` (the starting slope), `-SkiRun=2` or `-SkiRun=Glacier` (the
+  starting run: its number in the slope's Runs, or the start of its name), `-SkiPracticeHits` (paint hits in the lobby
+  score too, to try scoring without racing).
 
 A round: **Lobby** (15 s on the flat snow behind the gates; the clock waits for the first player) → **Countdown**
 (4 s, frozen behind your team's gate) → **Race** (until everyone crosses the finish, or 150 s) → **Results** (10 s)
-→ a new lobby on a **new random slope**.
+→ a new lobby on a **new random slope**, on the **next run** (see [Runs](#runs-docsskirunsmd)).
 
 ### Controls (all in Settings > Controls, so players can change them)
 
@@ -34,6 +35,7 @@ A round: **Lobby** (15 s on the flat snow behind the gates; the clock waits for 
 | B (Start) | The store (lobby and results; it opens by itself with the results). Click an item to buy it. |
 | T (X) | Switch team (lobby only). |
 | [ / ] (d-pad) | Admin: easier / harder slope (lobby or results; regenerates the slope). Without an AdminPIN on the server everyone is an admin. |
+| , / . | Admin: previous / next run (lobby or results). |
 | Space | Jump (from Other5Combat). Nearly stopped, a jump also pushes you along your skis: hop up a slope. |
 | Esc / F10 | Other5's game menu. |
 
@@ -94,7 +96,8 @@ Team Name, Team Score, Add Team Score, Request Team, Set Team Switch Allowed...)
 | Piece | What it is |
 |---|---|
 | `Blueprints/BP_SkiCharacter` | The skier: a child of Other5Combat's `BP_Other5ProjectileCharacter` (camera, health, skins, game menu) with skis, a team-coloured helmet and a paintball gun. Movement, firing, team colours. |
-| `Blueprints/BP_SkiSlope` | The random slope: builds snow, pines, start gates and the finish from `Seed` + `Difficulty`. |
+| `Blueprints/BP_SkiSlope` | The random slope: builds snow, pines, start gates and the finish from its `Run`, `Seed` + `Difficulty`. |
+| `Runs/BP_SkiRunData`, `Runs/DA_Run*`, `Runs/Skies/DA_Sky*` | The runs (length, widths, steepness, hills, forts, race time, sky) and their skies (Other5 Sky Presets): `SetupRuns.py`, `Docs/SkiRuns.md`. |
 | `Blueprints/BP_SkiDirector` | Rounds and teams: a child of Other5's **Game Coordinator** (`AOther5GameCoordinator`), placed once in the level. |
 | `Blueprints/BP_SkiPlayerState` | Each player's outs scored (`Hits`), points, finish place, whether they're out (`bOut`), coins, and gear: what they have on (`GunIndex`, `SkisIndex`, `WaxIndex`, the wax's `SnowFriction`), what they've bought (`Owned`), `BounceChance` (child of `Other5BasePlayerStateGAS`, whose `TeamId` is the team). |
 | `Blueprints/BP_Paintball` | One paintball. |
@@ -168,7 +171,9 @@ the run falling at the difficulty's angle and flattening out over the last 15% (
 narrows from `TopWidth` to `FinishWidth`, a ridge between the two start gates that fades out by 45% of the way down
 (so the teams start apart and meet), and moguls plus long rollers from sines with random phases.
 
-`Generate` builds a Procedural Mesh grid (`CellSize`) with collision from `HeightAt`, plants pines (two instanced
+`Generate` builds a Procedural Mesh grid (`CellSize`) with collision from `HeightAt` (the heights in Blueprint, the
+mesh itself with Other5's **Create Grid Section** node: the engine's Calculate Tangents For Mesh took 8.5 s every round
+on this grid, Other5 `Docs/GridMesh.md`), plants pines (two instanced
 meshes: a cone and a cylinder) at random except on each team's racing line (`ClearPathWidth`), and moves the gates and
 finish arch onto the snow. Difficulty (`SlopeDegreesByLevel`, `BumpHeightByLevel`, `TreeCountByLevel`, each Easy /
 Medium / Hard) and everything random come from `Seed`.
@@ -176,6 +181,17 @@ Medium / Hard) and everything random come from `Seed`.
 **Multiplayer:** only `Seed`, `Difficulty` and `BuildId` replicate. The server calls `Rebuild`; `BuildId`'s RepNotify
 runs `Generate` on every machine, which all build the same slope. The lobby is always flat, so nobody falls while it
 rebuilds between rounds.
+
+### Runs (`Docs/SkiRuns.md`)
+
+Each run is a `BP_SkiRunData` data asset: its length (400 m to 1.2 km so far), widths, Slope Scale and Bump Scale on
+top of the difficulty, a Shape Seed (the same hills every time), its forts' fixed spots, its race time and its **sky**,
+an Other5 Sky Preset (Other5's own sky system, for any Creation: sun, light, fog, clouds and weather; Other5
+`Docs/SkyPresets.md`). The slope's **Runs** take turns, one each round (`RoundsPerRun`), and an admin can switch with
+**,** and **.**. The pines stay random each round, by the same rules, as many per 100 m as on the first run. The server
+sets the slope's `Run` (replicated) before Rebuild; `ApplyRun` copies it into the Layout values on every machine and
+`ApplySky` eases the sky to the run's over `SkyBlendSeconds`. To add a run, copy a `DA_Run*` and add it to Runs (no
+graph work): `Docs/SkiRuns.md` lists every value.
 
 ### Paintballs (`Docs/Graphs/BP_SkiCharacter.Paint.lisp`, `BP_Paintball.lisp`)
 
@@ -257,9 +273,10 @@ a fighter picks one when they join) and **Menu Button** (a Fighter button in the
 
 ### Forts (BP_SkiFort): a reason not to just race to the bottom
 
-Each slope has **FortCount** (3) log forts down the second half of the run, on alternate sides past the racing
-lines, placed from the slope's Seed (`PlanForts`; pines keep clear of them and the bumps flatten under them) and
-spawned by the server (`SpawnForts`). A fort is open uphill: ski in from above and stop against its front wall. Its
+Each run has its own log forts, always in the same spots (the run's **FortSpots**: how far down, and across), or,
+for a run without spots, **FortCount** (3) of them down the second half of the run, on alternate sides past the racing
+lines, placed from a seed (`PlanForts`). Pines keep clear of them and the bumps flatten under them (`FortLookup`,
+`FortCalm`), and the server spawns them (`SpawnForts`). A fort is open uphill: ski in from above and stop against its front wall. Its
 walls are logs (`SM_SkiLog`, made by `Docs/Scripts/SetupFortMesh.py` with the pines' bark) four rows high, with a slit
 under the top row, a gap in the middle of the front wall and gaps at the front corners: shots get in only by luck.
 
@@ -346,9 +363,10 @@ the level):
 
 - `BP_SkiCharacter` **Ski|Tuning**: Gravity, SnowFriction, TopSpeed, FullInputAccel, TurnRate, CarveGrip, SkidBraking,
   SkidFriction, SkateInput, SkateSpeed, EdgeGrip, AcrossHoldSeconds, MaxLean. (Keep the Character Movement defaults in step: see the gotcha.)
-- `BP_SkiSlope` **Slope|Layout** and **Slope|Difficulty**.
-- `BP_SkiDirector` **Round|Settings**: LobbySeconds, CountdownSeconds, RaceSeconds, ResultsSeconds, HitPoints,
-  FinishPoints, MinPlayers, HitCoins, SurviveCoins.
+- `BP_SkiSlope` **Slope|Layout** and **Slope|Difficulty**; **Slope|Runs**: the Runs and SkyBlendSeconds.
+- The runs: `Runs/DA_Run*` (`Docs/SkiRuns.md`); their skies: `Runs/Skies/DA_Sky*` (Other5 Sky Presets).
+- `BP_SkiDirector` **Round|Settings**: LobbySeconds, CountdownSeconds, RaceSeconds (a run's own replaces it),
+  ResultsSeconds, HitPoints, FinishPoints, MinPlayers, HitCoins, SurviveCoins, RoundsPerRun.
 - `BP_SkiPlayerState` **Gear** (each player's starting gear): SnowFriction 0.02, BounceChance 0.10.
 - The store: `BP_SkiCharacter` **Store** (Skis, Waxes) and **Paint** (Guns): what it sells, in order; their prices and
   numbers in the `DA_*` assets (`SetupGuns.py`, `SetupGear.py`).
