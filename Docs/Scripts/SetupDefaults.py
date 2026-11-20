@@ -92,6 +92,10 @@ def main():
         "FortCount": 3,             # log forts down the second half of the run (BP_SkiFort)
         "FortClear": 4.5,           # pines keep as far from a fort as from a pine this big (about 5.4 m more)
         "FortCalmDistance": 1100.0, # the bumps are flat under a fort and back in full this far from its middle
+        "FortSeed": 0,              # forts from this seed (0: the round's Seed) when the run gives no FortSpots
+        "FortFrom": 0.5,            # ...evenly spaced from half way down...
+        "FortTo": 0.78,             # ...to 78% of the way down
+        "FortBin": 1000.0,          # FortCalm's lookup: the two nearest forts for each 10 m down the run
         "TopWidth": 12000.0,        # the run is 120 m wide at the top...
         "FinishWidth": 4000.0,      # ...and 40 m at the finish
         "LobbyLength": 3000.0,      # flat waiting area behind the gates
@@ -125,6 +129,9 @@ def main():
         "SlopeDegreesByLevel": [13.0, 19.0, 26.0],
         "BumpHeightByLevel": [12.0, 30.0, 50.0],
         "TreeCountByLevel": [60, 160, 320],
+        "TreeCountLength": 40000.0, # TreeCountByLevel (and the scenery counts) are for a 400 m run; longer runs get more
+        # Slope|Runs: the runs themselves (Runs) are set by SetupRuns.py
+        "SkyBlendSeconds": 4.0,     # the sky eases from one run's preset to the next over this long
         "bBuildOnBeginPlay": True,
         "StartDifficulty": 1,
     })
@@ -146,6 +153,7 @@ def main():
         "CoinsPerPoint": 0,                      # unused since the store (2026-11-16): coins come from these two
         "HitCoins": 3,                           # for each opponent you put out
         "SurviveCoins": 10,                      # for getting through a race without being put out
+        "RoundsPerRun": 1,                       # the slope's runs take turns, one round each (0: stay on one run)
     })
     di.set_editor_property("replicates", True)
     di.set_editor_property("always_relevant", True)

@@ -1,0 +1,61 @@
+# 2026-11-20 runs and skies (standalone, one player, L_SkiVSki): each of the slope's Runs in turn with . (admin, next
+# run): a high view down the run from behind the lobby (its sky, its length), then inside one of its forts.
+#   UnrealEditor Other5.uproject /SKIvSKI/Maps/L_SkiVSki -game -windowed -log -NoEOS -Other5NoFighterScreen -Other5TestScript=<this file>
+# A shot is taken at the end of the frame, so each is followed by a short wait.
+# Each run's switch logs how long the slope took to build (the frame times around "key Period").
+wait 8
+log run 1 (Pine Bowl, clear day)
+call pawn DebugReport
+view 180 3000 2500
+wait 1
+shot RunsPineBowl
+wait 0.5
+view off
+call pawn DebugGoToFort 0
+wait 1.5
+shot RunsPineBowlFort
+wait 0.5
+log run 2 (Long Glacier, golden hour)
+key Period
+wait 8
+call pawn DebugReport
+view 180 3000 2500
+wait 1
+shot RunsLongGlacier
+wait 0.5
+view off
+call pawn DebugGoToFort 2
+wait 1.5
+shot RunsLongGlacierFort
+wait 0.5
+log run 3 (Storm Chute, snowstorm)
+key Period
+wait 8
+call pawn DebugReport
+view 180 3000 2500
+wait 1
+shot RunsStormChute
+wait 0.5
+view off
+call pawn DebugGoToFort 1
+wait 1.5
+shot RunsStormChuteFort
+wait 0.5
+log run 4 (Grand Descent, overcast)
+key Period
+wait 8
+call pawn DebugReport
+view 180 3000 2500
+wait 1
+shot RunsGrandDescent
+wait 0.5
+view off
+call pawn DebugGoToFort 3
+wait 1.5
+shot RunsGrandDescentFort
+wait 0.5
+log back round to run 1
+key Period
+wait 8
+shot RunsWrap
+wait 0.5

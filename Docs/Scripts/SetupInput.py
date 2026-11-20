@@ -26,6 +26,8 @@ ACTIONS = [
     ("IA_SkiSwitchTeam", "SKIvSKI.SwitchTeam", "Switch team (lobby)", "T", "Gamepad_FaceButton_Left"),
     ("IA_SkiHarder", "SKIvSKI.Harder", "Admin: harder slope (lobby)", "RightBracket", "Gamepad_DPad_Up"),
     ("IA_SkiEasier", "SKIvSKI.Easier", "Admin: easier slope (lobby)", "LeftBracket", "Gamepad_DPad_Down"),
+    ("IA_SkiNextRun", "SKIvSKI.NextRun", "Admin: next run (lobby)", "Period", None),  # keyboard only: an admin key
+    ("IA_SkiPrevRun", "SKIvSKI.PrevRun", "Admin: previous run (lobby)", "Comma", None),
     # F: E is Other5Combat's interact and Q its grenade, both on the skier too.
     ("IA_SkiExitFort", "SKIvSKI.ExitFort", "Exit the fort (back uphill)", "F", "Gamepad_DPad_Left"),
 ]
@@ -64,7 +66,8 @@ imc = get_or_create("IMC_SkiVSki", unreal.InputMappingContext, unreal.InputMappi
 imc.unmap_all()
 for name, (ia, kbm, pad) in actions.items():
     imc.map_key(ia, key(kbm))
-    imc.map_key(ia, key(pad))
+    if pad:
+        imc.map_key(ia, key(pad))
 eal.save_loaded_asset(imc, False)
 log("mappings %d" % len(imc.get_editor_property("default_key_mappings").get_editor_property("mappings")))
 log("END")

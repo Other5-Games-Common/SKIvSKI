@@ -1,0 +1,20 @@
+# 2026-11-20 runs over the network (a dedicated server started with -SkiRun=3, this client joined): the client builds
+# the server's run and shows its sky; then . (admin: without an AdminPIN everyone is one) asks the server for the next
+# run, which every machine builds. Compare the client's "SKI| run" lines with the server's.
+#   server: UnrealEditor Other5.uproject /SKIvSKI/Maps/L_SkiVSki -server -port=7787 -NoEOS -log -Other5AllowNoTicket -SkiRun=3
+#   client: UnrealEditor Other5.uproject 127.0.0.1:7787 -game -windowed -NoEOS -log -Other5NoFighterScreen -Other5TestScript=<this file>
+wait 10
+call pawn DebugReport
+view 180 3000 2500
+wait 1
+shot RunsNetStart
+wait 0.5
+view off
+key Period
+wait 8
+call pawn DebugReport
+view 180 3000 2500
+wait 1
+shot RunsNetNext
+wait 0.5
+view off
