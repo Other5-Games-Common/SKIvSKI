@@ -12,8 +12,9 @@
               Transform (Modify) Bone nodes turn the feet to point along the skis (their idle rotation turned about
               Z until the toes point down mesh +Y: worked out from MM_Idle's foot and ball bones).
   Upper body: how the gun in hand is held, from Other5Characters' poses: a pistol (MM_Pistol_Idle_ADS through
-              AO_MM_Pistol_Idle_ADS), a rifle (MM_Rifle_Idle_Hipfire through AO_MM_Rifle_Idle_Hipfire) or a shotgun
-              (MM_Shotgun_Idle_Hipfire through the rifle's aim offset), each aim offset by X = AimYaw, Y = AimPitch so
+              AO_MM_Pistol_Idle_ADS), a rifle or a shotgun (both MF_Rifle_Idle_ADS, the steady
+              pose the rifle's aim offset AO_MM_Rifle_Idle_Hipfire is authored on; never MM_Rifle_Idle_Hipfire or
+              MM_Shotgun_Idle_Hipfire: those are 0.8 s loops that swing the hands round and round, the "wrist twist"), each aim offset by X = AimYaw, Y = AimPitch so
               the chest and arms follow the camera while the skis point elsewhere. Two Blend Poses by Bool pick one
               (bArmsPistol, else bArmsShotgun, else the rifle; set from the gun's ArmsKind in ABP_Skier.lisp), then the
               FullBodyAdditivePreAim montage slot plays the guns' fire recoil (Other5Combat's fire montages) and the
@@ -82,8 +83,8 @@ $chains = @{}
 $row = 300
 foreach ($kind in @(
 		@('Pistol', 'MM_Pistol_Idle_ADS', 'AO_MM_Pistol_Idle_ADS'),
-		@('Rifle', 'MM_Rifle_Idle_Hipfire', 'AO_MM_Rifle_Idle_Hipfire'),
-		@('Shotgun', 'MM_Shotgun_Idle_Hipfire', 'AO_MM_Rifle_Idle_Hipfire'))) {
+		@('Rifle', 'MF_Rifle_Idle_ADS', 'AO_MM_Rifle_Idle_Hipfire'),
+		@('Shotgun', 'MF_Rifle_Idle_ADS', 'AO_MM_Rifle_Idle_Hipfire'))) {
 	$pose = NewNode $g "Animation|Sequences|Play'$($kind[1])'" -1800 $row
 	$aim = NewNode $g "Animation|BlendSpaces|AimOffsetPlayer'$($kind[2])'" -1500 $row
 	$null = Link $pose 'Pose' $aim 'BasePose'

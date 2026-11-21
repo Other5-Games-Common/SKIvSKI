@@ -48,6 +48,8 @@ def main():
         "MaxLean": 25.0,             # degrees the body leans into a turn
         "EdgeGrip": 0.55,           # the edges hold skis across the slope up to about 29 degrees; steeper, they side-slip
         "SkateSpeed": 600.0,        # cm/s W skates up to on flat snow (22 km/h)
+        "AirSkid": 0.0,              # how much skis turned sideways slow you in the air (0: not at all, 1: as on snow)
+        "bSideKeysOverride": True,   # while A or D is held, W / S don't turn the skis toward / away from the fall line
         "SkiStance": 12.0,           # cm: each ski's middle either side of the skier's (SetupSkiMesh.py's STANCE)
         "BindingForward": 11.0,      # cm: the boots ahead of the capsule's middle (SetupSkiMesh.py's BINDING_FORWARD)
         "SnowProbeHalf": 55.0,       # cm: SampleSnow looks this far ahead of and behind the boots

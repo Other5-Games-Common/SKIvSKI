@@ -89,6 +89,7 @@ AddVars $C @(
 	@('FullInputAccel', 'float', 'Ski|Tuning', 'None', $true), @('TurnRate', 'float', 'Ski|Tuning', 'None', $true), @('CarveGrip', 'float', 'Ski|Tuning', 'None', $true),
 	@('SkidBraking', 'float', 'Ski|Tuning', 'None', $true), @('SkidFriction', 'float', 'Ski|Tuning', 'None', $true), @('SkateInput', 'float', 'Ski|Tuning', 'None', $true),
 	@('AcrossHoldSeconds', 'float', 'Ski|Tuning', 'None', $true), @('MaxLean', 'float', 'Ski|Tuning', 'None', $true), @('EdgeGrip', 'float', 'Ski|Tuning', 'None', $true), @('SkateSpeed', 'float', 'Ski|Tuning', 'None', $true),
+	@('AirSkid', 'float', 'Ski|Tuning', 'None', $true), @('bSideKeysOverride', 'bool', 'Ski|Tuning', 'None', $true),
 	@('bHoldDownhill', 'bool', 'Ski|Input', 'None', $false), @('bHoldSlow', 'bool', 'Ski|Input', 'None', $false), @('bHoldLeft', 'bool', 'Ski|Input', 'None', $false), @('bHoldRight', 'bool', 'Ski|Input', 'None', $false),
 	@('SkiYaw', 'float', 'Ski|State', 'None', $false), @('FallLineYaw', 'float', 'Ski|State', 'None', $false), @('SlopeDegrees', 'float', 'Ski|State', 'None', $false),
 	@('bOnSlope', 'bool', 'Ski|State', 'None', $false), @('AcrossHoldLeft', 'float', 'Ski|State', 'None', $false), @('bSkiFrozen', 'bool', 'Ski|State', 'Replicated', $false),
@@ -174,7 +175,7 @@ AddFunctions $S @(
 	@('LookMaterialOn', @(@('Target', 'obj:/Script/Engine.PrimitiveComponent'), @('Path', 'string'), @('Found', 'bool', 'out'))), @('StartSnowfall', @()), @('ApplyLook', @()), @('DressScene', @()),
 	@('FortLookup', @()), @('ApplyRun', @()), @('CurrentRun', @(, @('Run', 'obj:/SKIvSKI/Runs/BP_SkiRunData.BP_SkiRunData_C', 'out'))), @('ApplySky', @()), @('RunHasSky', @(, @('HasSky', 'bool', 'out'))), @('ScaledCount', @(@('Count', 'int'), @('Scaled', 'int', 'out')))) | Out-Null
 AddFunctions $C @(
-	@('SkiBeginPlay', @()), @('SetupSkiMovement', @()), @('UpdateGlide', @()), @('UpdateSlope', @()), @('SteerSkis', @(, @('DeltaSeconds', 'float'))), @('PushDownSlope', @()), @('LeanIntoTurn', @(, @('DeltaSeconds', 'float'))),
+	@('SkiBeginPlay', @()), @('SetupSkiMovement', @()), @('UpdateGlide', @()), @('UpdateSlope', @()), @('SteerSkis', @(, @('DeltaSeconds', 'float'))), @('PushDownSlope', @()), @('PushOnSnow', @()), @('LeanIntoTurn', @(, @('DeltaSeconds', 'float'))),
 	@('SnowPoint', @(@('Along', 'float'), @('Across', 'float'), @('Point', 'Vector', 'out'))), @('SampleSnow', @()), @('SnowHeightAt', @(@('Where', 'Vector'), @('Height', 'float', 'out'))), @('PlaceSkis', @(, @('DeltaSeconds', 'float'))), @('StopIntoWall', @(, @('Normal', 'Vector'))),
 	@('DebugReport', @()), @('PlaceAt', @(, @('Spot', 'Transform'))),
 	@('PaintedBy', @(@('Shooter', $PAWN), @('Where', 'Vector'), @('Direction', 'Vector'), @('Normal', 'Vector'), @('Color', 'LinearColor'), @('Size', 'float'))),

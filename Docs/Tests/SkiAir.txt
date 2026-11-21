@@ -1,0 +1,50 @@
+# In the air and steering, on L_SkiTest (standalone; the start is on the 20 degree ramp, skis pointing downhill):
+#   UnrealEditor Other5.uproject /SKIvSKI/Maps/L_SkiTest -game -windowed -log -NoEOS -Other5TestScript=<this file>
+# DebugReport logs "SKI| km/h ... skiYaw ... fallLine ... flatKmh ... air ...".
+# 1. Jump, then hold D in the air to turn the skis sideways: flatKmh must hold (AirSkid 0), it used to drop.
+# 2. Hold W and D together: D wins (SideKeysOverride), so skiYaw keeps turning away from fallLine; W used to cancel D
+#    out a few degrees off the fall line.
+wait 2
+keydown W
+wait 3
+keyup W
+log speed up, then jump and turn the skis sideways in the air
+call pawn DebugReport
+key SpaceBar
+wait 0.1
+call pawn DebugReport
+keydown D
+wait 0.3
+call pawn DebugReport
+keyup D
+wait 0.1
+call pawn DebugReport
+wait 2
+log on the snow again; now W and D together
+call pawn DebugReport
+keydown W
+keydown D
+wait 1.2
+call pawn DebugReport
+keyup D
+keyup W
+log W alone: back toward the fall line
+keydown W
+wait 1.5
+call pawn DebugReport
+keyup W
+log rifle-kind pose (the Snap Marker), stopped: three shots 0.25 s apart must show the same hands (no wrist twist)
+call pawn DebugBuy 0 1 50
+call pawn DebugScore
+keydown S
+wait 4
+keyup S
+wait 2
+view 150 260 40
+wait 0.5
+shot SkiAirMarkerA
+wait 0.25
+shot SkiAirMarkerB
+wait 0.25
+shot SkiAirMarkerC
+wait 0.5
