@@ -118,7 +118,8 @@ As the hips drop with SkiCrouch, the IK keeps the feet on the skis, so the knees
 ## 4. The upper body (Anim Graph)
 
 1. For each kind of gun, a pose and its aim offset: **Play MM_Pistol_Idle_ADS** into **AO_MM_Pistol_Idle_ADS**;
-   **MM_Rifle_Idle_Hipfire** into **AO_MM_Rifle_Idle_Hipfire**; **MM_Shotgun_Idle_Hipfire** into the rifle's aim offset.
+   **MF_Rifle_Idle_ADS** into **AO_MM_Rifle_Idle_Hipfire** for both the rifle and the shotgun.
+   (Not MM_Rifle_Idle_Hipfire or MM_Shotgun_Idle_Hipfire: they're 0.8 s loops, and the hands swing round and round.)
    Wire `AimYaw` into each aim offset's **X** (Yaw) and `AimPitch` into **Y** (Pitch).
 2. **Blend Poses by Bool** (`bArmsShotgun`): True = shotgun chain, False = rifle chain. A second one (`bArmsPistol`):
    True = pistol chain, False = the first blend.

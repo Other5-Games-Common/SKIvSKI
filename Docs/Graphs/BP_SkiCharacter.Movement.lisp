@@ -3,7 +3,8 @@
 ;
 ; How skiing works here (all Blueprint, and multiplayer-safe because only Add Movement Input drives the motion):
 ; - The skis point along SkiYaw. W turns them toward the fall line (straight downhill), S turns them away from it,
-;   across the slope and on round until they point uphill (you then slide backwards). A / D steer directly.
+;   across the slope and on round until they point uphill (you then slide backwards). A / D steer directly,
+;   and while either is held W / S leave the skis alone (SideKeysOverride).
 ; - Gravity pulls along the skis: Gravity * sin(slope) * cos(angle between skis and fall line), less snow friction.
 ;   That pull becomes Add Movement Input along the skis (or backwards when they point uphill). The Character
 ;   Movement component then does the rest, and it already predicts and replicates it for multiplayer:
@@ -103,7 +104,11 @@
     (Variables|Ski|State|SetSkiYaw (- (Variables|Ski|State|GetSkiYaw) step)))
   (if (Variables|Ski|Input|GetHoldRight)
     (Variables|Ski|State|SetSkiYaw (+ (Variables|Ski|State|GetSkiYaw) step)))
-  (if (Variables|Ski|State|GetOnSlope)
+  ; While A or D is held, W / S leave the skis alone (SideKeysOverride, on by default): steering by hand always wins
+  ; over W / S turning the skis toward or away from the fall line, so holding W + A carves left instead of the two
+  ; fighting each other.
+  (bind steering (or (Variables|Ski|Input|GetHoldLeft) (Variables|Ski|Input|GetHoldRight)))
+  (if (and (Variables|Ski|State|GetOnSlope) (not (and steering (Variables|Ski|Tuning|GetSideKeysOverride))))
     ; How far the skis point away from straight downhill, -180..180 (positive: turned to the right of it).
     (bind off (Math|Rotator|NormalizeAxis (- (Variables|Ski|State|GetSkiYaw) (Variables|Ski|State|GetFallLineYaw))))
     ; W: turn toward the fall line, the short way.
@@ -137,7 +142,15 @@
 ;   until the slope is steep enough that its sideways pull beats the edges: then you side-slip down.
 ; - The pull is the input's size (FullInputAccel = input 1); Min Analog Walk Speed is TopSpeed, so a small pull still
 ;   builds up speed (it used to cap the speed at TopSpeed x input, which made skiing slow).
+; In the air (Character Movement falling) there's no snow to pull along or grip, so no push at all: the skier keeps
+; the speed and direction they took off with, whichever way the skis turn. (A push along the skis mid-jump steered
+; the jump with them.)
 (fn PushDownSlope ()
+  (if (not (AI|Components|NavMovement|IsFalling :self (Variables|Character|GetCharacterMovement)))
+    (CallFunction|PushOnSnow)))
+
+; PushDownSlope's push, on the snow.
+(fn PushOnSnow ()
   (bind skis (CallFunction|CurrentSkis))
   (bind friction (CallFunction|GetSnowFriction))
   (bind yaw (Variables|Ski|State|GetSkiYaw))
@@ -184,7 +197,11 @@
   (bind yaw (Variables|Ski|State|GetSkiYaw))
   ; sin of the angle between the skis and the motion: 0 gliding straight, 1 fully sideways. (A select works out both
   ; sides, so the division never sees a speed of 0.)
-  (bind sideways (select (> speed 10.0) (Math|Float|Absolute(Float) (/ (- (* (.x vel) (Math|Trig|Sin(Degrees) yaw)) (* (.y vel) (Math|Trig|Cos(Degrees) yaw))) (Math|Float|Max(Float) speed 1.0))) 0.0))
+  ; In the air the skis touch nothing, so turning them sideways mid-jump mustn't slow you: AirSkid scales the skid
+  ; while falling (0 by default: none at all; Character Movement applies Braking Friction in the air too, whenever the
+  ; skier has no input or is over the top speed, which is what used to bleed speed off on every jump).
+  (bind air (select (AI|Components|NavMovement|IsFalling :self cmc) (Variables|Ski|Tuning|GetAirSkid) 1.0))
+  (bind sideways (* air (select (> speed 10.0) (Math|Float|Absolute(Float) (/ (- (* (.x vel) (Math|Trig|Sin(Degrees) yaw)) (* (.y vel) (Math|Trig|Cos(Degrees) yaw))) (Math|Float|Max(Float) speed 1.0))) 0.0)))
   (bind pressing (* (Variables|Ski|Tuning|GetGravity) (Math|Trig|Cos(Degrees) (Variables|Ski|State|GetSlopeDegrees))))
   (Class|CharacterMovementComponent|SetBrakingDecelerationWalking :self cmc :BrakingDecelerationWalking (+ (* friction pressing) (* (* sideways (Variables|Ski|Tuning|GetSkidBraking)) brake)))
   (Class|CharacterMovementComponent|SetBrakingFriction :self cmc :BrakingFriction (* (* sideways (Variables|Ski|Tuning|GetSkidFriction)) brake)))
@@ -246,7 +263,10 @@
   (bind c (Utilities|String|Append b (Utilities|String|Append " fallLine " (Utilities|String|ToString(Float) (Variables|Ski|State|GetFallLineYaw)))))
   (bind d (Utilities|String|Append c (Utilities|String|Append " slope " (Utilities|String|ToString(Float) (Variables|Ski|State|GetSlopeDegrees)))))
   (bind e (Utilities|String|Append d (Utilities|String|Append " at " (Utilities|String|ToString(Vector) (Transformation|GetActorLocation)))))
-  (Development|PrintString :InString e :Duration 5.0))
+  ; Speed over the snow (no up / down part) and whether Character Movement is falling (in the air).
+  (bind f (Utilities|String|Append e (Utilities|String|Append " flatKmh " (Utilities|String|ToString(Float) (* (Math|Vector|VectorLengthXY (Transformation|GetVelocity)) 0.036)))))
+  (bind g (Utilities|String|Append f (Utilities|String|Append " air " (Utilities|String|ToString(Boolean) (AI|Components|NavMovement|IsFalling :self (Variables|Character|GetCharacterMovement))))))
+  (Development|PrintString :InString g :Duration 5.0))
 
 ; The friction between this skier's skis and the snow: their wax's (BP_SkiPlayerState SnowFriction, from the store),
 ; or the character's SnowFriction before the player state arrives, times the skis' FrictionScale (downhill skis glide).
