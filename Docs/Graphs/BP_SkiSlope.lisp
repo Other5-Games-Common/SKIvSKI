@@ -542,6 +542,29 @@
   (bind ground (CallFunction|HeightAt :X (.x local) :Y (.y local)))
   (return (or (< (.z local) (- ground 1500.0)) (> (Math|Float|Absolute(Float) (.y local)) (+ (* (Variables|Slope|Layout|GetTopWidth) 0.5) (* (Variables|Slope|Layout|GetBankWidth) 2.0))))))
 
+; Is a point (in the world) off the run: further out to the side than the run's edge (it narrows from TopWidth to
+; FinishWidth on the way down) plus Banks bank widths? (BP_SkiDirector's BoundsBanks; 1 is the top of the banks.)
+(fn IsOffRun (WorldLocation Banks)
+  (bind local (Math|Transform|InverseTransformLocation (Transformation|GetActorTransform) WorldLocation))
+  (bind t (Math|Float|Clamp(Float) (/ (.x local) (Variables|Slope|Layout|GetLength)) 0.0 1.0))
+  (bind halfWidth (Math|Float|Lerp (* (Variables|Slope|Layout|GetTopWidth) 0.5) (* (Variables|Slope|Layout|GetFinishWidth) 0.5) t))
+  (return (> (Math|Float|Absolute(Float) (.y local)) (+ halfWidth (* (Variables|Slope|Layout|GetBankWidth) Banks)))))
+
+; Has a point (in the world) fallen well below the snow (15 m: off an edge, or through it)?
+(fn IsBelowSnow (WorldLocation)
+  (bind local (Math|Transform|InverseTransformLocation (Transformation|GetActorTransform) WorldLocation))
+  (bind ground (CallFunction|HeightAt :X (.x local) :Y (.y local)))
+  (return (< (.z local) (- ground 1500.0))))
+
+; Where player number Index goes when they're put out for leaving the run (BP_SkiDirector SendOutOfBounds): halfway
+; down the flat run-out past the finish line (rows of six), in the world.
+(fn GetBottomSpot (Index)
+  (bind finish (Variables|Slope|Work|GetFinishX))
+  (bind x (+ (+ finish (* (- (Variables|Slope|Layout|GetLength) finish) 0.5)) (* (Math|Conversions|ToFloat(Integer) (/ Index 6)) 220.0)))
+  (bind y (* (- (Math|Conversions|ToFloat(Integer) (Math|Integer|%(Integer) Index 6)) 2.5) 220.0))
+  (bind spot (Math|Vector|MakeVector x y (+ (CallFunction|HeightAt :X x :Y y) 110.0)))
+  (return (Math|Transform|ComposeTransforms (Math|Transform|MakeTransform spot (Math|Rotator|MakeRotator :Yaw 0.0) (Math|Vector|MakeVector 1.0 1.0 1.0)) (Transformation|GetActorTransform))))
+
 (event EventBeginPlay
   ; On its own (no director asking), the server builds a slope straight away, so the level can be tried as it is.
   (if (and (Networking|HasAuthority) (and (Variables|Slope|Difficulty|GetBuildOnBeginPlay) (== (Variables|Slope|Build|GetBuildId) 0)))
