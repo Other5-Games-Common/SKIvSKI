@@ -17,6 +17,8 @@
 ; Paint:    a paintball hit on the other team during the race puts the victim OUT for the rest of the race (grey helmet,
 ;           can't fire, no finish points) and gives HitPoints to the shooter's team, unless the ball bounces: each hit
 ;           bounces with the shooter's BounceChance (10% with standard paint).
+; Bounds:   off the run's sides during the race, a BoundsSeconds countdown; still off when it ends, OUT as if hit and
+;           moved to the bottom of the run (CheckBounds).
 ; Scoring:  HitPoints per out, FinishPoints[place - 1] for crossing the finish not out (10, 8, 6, 5, 4, 3, 2, 1).
 ;           Most points wins.
 ; Coins:    for the store between runs (each player's BP_SkiPlayerState Coins): HitCoins for each opponent you put
@@ -136,6 +138,7 @@
   (bind score (Utilities|String|Append (Utilities|String|ToString(Integer) red) (Utilities|String|Append " - " (Utilities|String|ToString(Integer) blue))))
   (bind winner (Utilities|String|ToString(Text) (Other5|Teams|GetTeamName :Team (select (> red blue) 0 1))))
   (CallFunction|PaySurvivors)
+  (CallFunction|ClearBounds)
   (Other5|Teams|SetTeamOnlyComms :bTeamOnly false)
   (Variables|Round|State|SetMessage (select (== red blue) (Utilities|String|Append "A DRAW " score) (Utilities|String|Append (Utilities|String|ToUpper winner) (Utilities|String|Append " WINS " score)))))
 
@@ -194,10 +197,44 @@
               (if (Class|BPSkiSlope|IsPastFinish :self (Variables|Round|Settings|GetSlope) :WorldLocation where)
                 (if racing
                   (CallFunction|PlayerFinished :Player ski))
-                (elif (Class|BPSkiSlope|IsOutOfBounds :self (Variables|Round|Settings|GetSlope) :WorldLocation where)
-                  (CallFunction|PlaceOne :Player ski :bAtGate true :Index 7)))))
+                (else
+                  (CallFunction|CheckBounds :Player ski :Skier skier :bRacing racing)))))
           (:CastFailed)))
       (:CastFailed))))
+
+; Out of bounds in the race (server). Off the side of the run (more than BoundsBanks bank widths past its edge) starts
+; a BoundsSeconds countdown: BoundsDeadline on the player state, which their HUD shows as a warning. Back on the run in
+; time clears it; otherwise they're out, as if hit (no finish points, no SurviveCoins, nobody scores), and moved to the
+; bottom of the run, stopped. Fallen through the snow: out at once. Someone already out who leaves the run goes
+; straight to the bottom. (It used to put lost racers back at their start gate, which a racer could use to go back
+; for a fort everyone had passed, or to escape being cornered.)
+(fn CheckBounds (Player Skier bRacing)
+  (bind slope (Variables|Round|Settings|GetSlope))
+  (bind where (Transformation|GetActorLocation :self Skier))
+  (bind deadline (Class|BPSkiPlayerState|GetBoundsDeadline :self Player))
+  (bind off (Class|BPSkiSlope|IsOffRun :self slope :WorldLocation where :Banks (Variables|Round|Settings|GetBoundsBanks)))
+  (if (Class|BPSkiSlope|IsBelowSnow :self slope :WorldLocation where)
+    (CallFunction|SendOutOfBounds :Player Player)
+    (elif off
+      (if (not bRacing)
+        (CallFunction|SendOutOfBounds :Player Player)
+        (elif (<= deadline 0.0)
+          (Class|BPSkiPlayerState|SetBoundsDeadline :self Player :BoundsDeadline (+ (CallFunction|Now) (Variables|Round|Settings|GetBoundsSeconds)))
+          (elif (>= (CallFunction|Now) deadline)
+            (CallFunction|SendOutOfBounds :Player Player))))
+      (elif (> deadline 0.0)
+        (Class|BPSkiPlayerState|SetBoundsDeadline :self Player :BoundsDeadline 0.0)))))
+
+; Out for leaving the run: out as if hit, and to the bottom of the run (BP_SkiSlope GetBottomSpot), stopped.
+(fn SendOutOfBounds (Player)
+  (Class|BPSkiPlayerState|SetBoundsDeadline :self Player :BoundsDeadline 0.0)
+  (Class|BPSkiPlayerState|SetOut :self Player :bOut true)
+  (bind skier (Utilities|Casting|CastToBP_SkiCharacter :Object (PlayerState|GetPawn :self Player))
+    (:then
+      (bind spot (Variables|Round|Work|GetBottomPlaced))
+      (Class|BPSkiCharacter|PlaceAt :self skier :Spot (Class|BPSkiSlope|GetBottomSpot :self (Variables|Round|Settings|GetSlope) :Index spot))
+      (Variables|Round|Work|SetBottomPlaced (+ spot 1)))
+    (:CastFailed)))
 
 ; Outside the race: anyone lost goes back to the lobby.
 (fn RescueLost (bAtGate)
@@ -224,6 +261,14 @@
 (fn AddPoints (Player Points)
   (Class|BPSkiPlayerState|SetPoints :self Player :Points (+ (Class|BPSkiPlayerState|GetPoints :self Player) Points))
   (Other5|Teams|AddTeamScore :Team (Other5|Teams|GetTeam :Player Player) :Points Points))
+
+; The race is over: nobody's out-of-bounds countdown carries on.
+(fn ClearBounds ()
+  (for player (Coordinator|GetTrackedPlayers)
+    (bind ski (Utilities|Casting|CastToBP_SkiPlayerState :Object player)
+      (:then
+        (Class|BPSkiPlayerState|SetBoundsDeadline :self ski :BoundsDeadline 0.0))
+      (:CastFailed))))
 
 ; The race is over: SurviveCoins for everyone who wasn't put out.
 (fn PaySurvivors ()
@@ -347,5 +392,7 @@
         (Class|BPSkiPlayerState|SetPoints :self ski :Points 0)
         (Class|BPSkiPlayerState|SetFinishPlace :self ski :FinishPlace 0)
         (Class|BPSkiPlayerState|SetFinishTime :self ski :FinishTime 0.0)
-        (Class|BPSkiPlayerState|SetOut :self ski :bOut false))
-      (:CastFailed))))
+        (Class|BPSkiPlayerState|SetOut :self ski :bOut false)
+        (Class|BPSkiPlayerState|SetBoundsDeadline :self ski :BoundsDeadline 0.0))
+      (:CastFailed)))
+  (Variables|Round|Work|SetBottomPlaced 0))

@@ -175,6 +175,12 @@
       (CallFunction|DrawLeft :Text team :X (+ sx (* 286.0 u)) :Y (- bottom (* 146.0 u)) :Color teamColor :Size 2.0 :bTitle true)
       (if out
         (CallFunction|DrawLeft :Text "OUT" :X (+ sx (* 286.0 u)) :Y (- bottom (* 112.0 u)) :Color (CallFunction|Bad) :Size 2.4 :bTitle true))
+      ; Off the run in the race: a warning and the seconds left to get back (BP_SkiDirector CheckBounds).
+      (bind deadline (Class|BPSkiPlayerState|GetBoundsDeadline :self ski))
+      (if (> deadline 0.0)
+        (bind left (Math|Float|Max(Float) (- deadline (GameState|GetServerWorldTimeSeconds :self (Game|GetGameState))) 0.0))
+        (CallFunction|DrawCentered :Text "OUT OF BOUNDS" :CenterX (* w 0.5) :Y (* bottom 0.24) :Color (CallFunction|Bad) :Size 5.0 :bTitle true)
+        (CallFunction|DrawCentered :Text (Utilities|String|Append "Back to the run, or you're out in " (Utilities|String|ToString(Integer) (Math|Float|Ceil left))) :CenterX (* w 0.5) :Y (+ (* bottom 0.24) (* 80.0 u)) :Color (CallFunction|Ink) :Size 2.4 :bTitle true))
       (bind outs (Utilities|String|Append "outs " (Utilities|String|ToString(Integer) (Class|BPSkiPlayerState|GetHits :self ski))))
       (bind status (Utilities|String|Append outs (select (> place 0) (Utilities|String|Append "      finished #" (Utilities|String|ToString(Integer) place)) "")))
       (CallFunction|DrawLeft :Text status :X (+ sx (* 20.0 u)) :Y (- bottom (* 62.0 u)) :Color (CallFunction|Ink) :Size 1.8 :bTitle false)

@@ -64,7 +64,7 @@ SKY = {
 
 # Flakes drifting round the camera (BuildSnowfall.py), per sky: the clear day stays clear, golden hour gets a gentle
 # fall, overcast light snow, the storm a heavy one.
-SNOWFALL = {"DA_SkyGoldenHour": "BP_SkiSnowLight", "DA_SkyOvercast": "BP_SkiSnowLight", "DA_SkySnowstorm": "BP_SkiSnowHeavy"}
+SNOWFALL = {"DA_SkyGoldenHour": "BP_SkiFlakesLight", "DA_SkyOvercast": "BP_SkiFlakesLight", "DA_SkySnowstorm": "BP_SkiFlakesHeavy"}
 
 # name: values (BP_SkiRunData's variables; 0 keeps the slope's own). FortSpots: (how far down 0-1, across -1 left edge
 # .. 1 right edge), the same every time the run is played. Lengths in cm; the first run is the original 400 m slope.
@@ -114,7 +114,9 @@ def main():
         da.set_editor_property("settings", settings)
         da.set_editor_property("clouds", clouds)
         da.set_editor_property("cloud_parameters", {unreal.Name(k): v for k, v in cloud_params.items()})
-        if weather:
+        # The Winter biome's particle snow only where there are no flakes of our own: its copies sit round the camera
+        # and move with it (and a copy beside you looked like a bubble of snow, 2026-11-22).
+        if weather and not SNOWFALL.get(name):
             da.set_editor_property("weather_effect_path", SNOW)
             da.set_editor_property("weather_copies", weather[0])
             da.set_editor_property("weather_speed", weather[1])

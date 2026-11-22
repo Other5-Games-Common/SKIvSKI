@@ -1,0 +1,61 @@
+# Snow, out of bounds and the reload on an empty magazine, on L_SkiVSki's Storm Chute (snowstorm), standalone:
+#   UnrealEditor Other5.uproject /SKIvSKI/Maps/L_SkiVSki -game -windowed -log -NoEOS -Other5NoFighterScreen -SkiRun=Storm -Other5TestScript=<this file>
+# Check: the shots show snowflakes; skiing, SkiSnowMoveA/B show flakes passing (fixed in the world, not on the
+# screen). The empty magazine's DebugScore shows "anim" with the gun's reload montage (not the recoil). Off the run,
+# "bounds" turns into a deadline and the HUD warns (SkiOutOfBounds); back on the run it's 0 again; staying off, after
+# 5 s the skier is "out true" at the bottom of the run (DebugReport's position, far down the run).
+wait 4
+shot SkiSnowLobby
+wait 0.5
+call pawn DebugPhase 1
+wait 1
+call pawn DebugPhase 2
+wait 1
+log ski down through the snow
+keydown W
+wait 4
+shot SkiSnowMoveA
+wait 0.15
+shot SkiSnowMoveB
+wait 0.5
+keyup W
+log empty the pistol: the last ball starts the reload, and its animation plays
+call pawn DebugFire
+wait 0.15
+call pawn DebugFire
+wait 0.15
+call pawn DebugFire
+wait 0.15
+call pawn DebugFire
+wait 0.15
+call pawn DebugFire
+wait 0.15
+call pawn DebugFire
+wait 0.15
+call pawn DebugFire
+wait 0.15
+call pawn DebugFire
+wait 0.15
+call pawn DebugFire
+wait 0.15
+call pawn DebugFire
+wait 0.15
+call pawn DebugScore
+wait 0.4
+call pawn DebugScore
+log off the side of the run, then back in time
+call pawn DebugOffRun 7000
+wait 1.5
+call pawn DebugScore
+shot SkiOutOfBounds
+wait 0.5
+call pawn DebugOffRun 0
+wait 1
+call pawn DebugScore
+log off the side again, and stay there
+call pawn DebugOffRun -7000
+wait 6.5
+call pawn DebugScore
+call pawn DebugReport
+shot SkiOutAtBottom
+wait 0.5

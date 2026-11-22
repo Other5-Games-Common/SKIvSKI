@@ -79,7 +79,7 @@ AddVars $RUN @(@('RunName', 'text', 'Run', 'None', $true), @('Blurb', 'string', 
 AddVars $WX @(@('WaxName', 'text', 'Wax', 'None', $true), @('Price', 'int', 'Store', 'None', $true), @('Blurb', 'string', 'Store', 'None', $true), @('SnowFriction', 'float', 'Wax', 'None', $true))
 AddVars $UP @(@('UpgradeName', 'text', 'Upgrade', 'None', $true), @('Price', 'int', 'Store', 'None', $true), @('Blurb', 'string', 'Store', 'None', $true), @('MagScale', 'float', 'Upgrade', 'None', $true), @('SpareMags', 'int', 'Upgrade', 'None', $true))
 # Teams are Other5's shared teams (team on Other5's player state), so the player state keeps only SKIvSKI's own state.
-AddVars $P @(@('bOut', 'bool', 'Score', 'Replicated', $false), @('SnowFriction', 'float', 'Gear', 'Replicated', $true), @('BounceChance', 'float', 'Gear', 'Replicated', $true),
+AddVars $P @(@('bOut', 'bool', 'Score', 'Replicated', $false), @('BoundsDeadline', 'float', 'Score', 'Replicated', $false), @('SnowFriction', 'float', 'Gear', 'Replicated', $true), @('BounceChance', 'float', 'Gear', 'Replicated', $true),
 	@('Hits', 'int', 'Score', 'Replicated', $false),
 	@('Points', 'int', 'Score', 'Replicated', $false), @('FinishPlace', 'int', 'Score', 'Replicated', $false), @('FinishTime', 'float', 'Score', 'Replicated', $false),
 	@('Coins', 'int', 'Gear', 'Replicated', $false), @('GunIndex', 'int', 'Gear', 'Replicated', $false), @('SkisIndex', 'int', 'Gear', 'Replicated', $false), @('WaxIndex', 'int', 'Gear', 'Replicated', $false),
@@ -148,7 +148,8 @@ AddVars $D @(
 	@('RoundNumber', 'int', 'Round|State', 'Replicated', $false), @('Message', 'string', 'Round|State', 'Replicated', $false),
 	@('RunIndex', 'int', 'Round|State', 'Replicated', $false), @('RunName', 'string', 'Round|State', 'Replicated', $false), @('RoundsPerRun', 'int', 'Round|Settings', 'None', $true), @('RoundsOnRun', 'int', 'Round|Work', 'None', $false),
 	@('RaceStartedAt', 'float', 'Round|Work', 'None', $false), @('NextPlace', 'int', 'Round|Work', 'None', $false), @('bAllFinished', 'bool', 'Round|Work', 'None', $false),
-	@('RedPlaced', 'int', 'Round|Work', 'None', $false), @('BluePlaced', 'int', 'Round|Work', 'None', $false), @('LobbyPlaced', 'int', 'Round|Work', 'None', $false), @('HitResult', 'int', 'Round|Work', 'None', $false))
+	@('RedPlaced', 'int', 'Round|Work', 'None', $false), @('BluePlaced', 'int', 'Round|Work', 'None', $false), @('LobbyPlaced', 'int', 'Round|Work', 'None', $false), @('HitResult', 'int', 'Round|Work', 'None', $false),
+	@('BottomPlaced', 'int', 'Round|Work', 'None', $false), @('BoundsSeconds', 'float', 'Round|Settings', 'None', $true), @('BoundsBanks', 'float', 'Round|Settings', 'None', $true))
 AddVars $B @(@('Shooter', '/Script/Engine.Pawn', 'Paintball', 'None', $false), @('bScores', 'bool', 'Paintball', 'None', $false), @('BallColor', 'LinearColor', 'Paintball', 'None', $false))
 AddVars $H @(@('Minimap', '/Script/Other5Compass.Other5MinimapWidget', 'Map', 'None', $false), @('MapRange', 'float', 'Map', 'None', $true), @('PopupTexts', 'string:Array', 'Popups', 'None', $false), @('PopupPlaces', 'Vector:Array', 'Popups', 'None', $false), @('PopupColors', 'LinearColor:Array', 'Popups', 'None', $false),
 	@('PopupStarts', 'float:Array', 'Popups', 'None', $false), @('PopupSizes', 'float:Array', 'Popups', 'None', $false), @('PopupTargets', '/Script/Engine.Actor:Array', 'Popups', 'None', $false), @('PopupSeconds', 'float', 'Popups', 'None', $true),
@@ -169,6 +170,8 @@ AddFunctions $S @(
 	@('Rebuild', @(@('NewSeed', 'int'), @('NewDifficulty', 'int'))), @('GetStartSpot', @(@('Team', 'int'), @('Index', 'int'), @('Spot', 'Transform', 'out'))),
 	@('GetLobbySpot', @(@('Index', 'int'), @('Spot', 'Transform', 'out'))), @('IsPastFinish', @(@('WorldLocation', 'Vector'), @('Result', 'bool', 'out'))),
 	@('IsOutOfBounds', @(@('WorldLocation', 'Vector'), @('Result', 'bool', 'out'))),
+	@('IsOffRun', @(@('WorldLocation', 'Vector'), @('Banks', 'float'), @('Result', 'bool', 'out'))), @('IsBelowSnow', @(@('WorldLocation', 'Vector'), @('Result', 'bool', 'out'))),
+	@('GetBottomSpot', @(@('Index', 'int'), @('Spot', 'Transform', 'out'))),
 	@('OuterHeightAt', @(@('X', 'float'), @('Y', 'float'), @('Height', 'float', 'out'))), @('OuterSteps', @()), @('Draw', @(@('Min', 'float'), @('Max', 'float'), @('Value', 'float', 'out'))),
 	@('PlantArt', @(@('Hism', $ISM), @('X', 'float'), @('Y', 'float'), @('Scale', 'float'), @('Spin', 'float'), @('Sink', 'float'))),
 	@('LoadLook', @(@('Path', 'string'), @('Asset', 'obj:/Script/CoreUObject.Object', 'out'))), @('LookMeshOn', @(@('Hism', $ISM), @('Path', 'string'), @('Found', 'bool', 'out'))),
@@ -190,11 +193,12 @@ AddFunctions $C @(
 	@('IsStoreOpen', @(, @('Open', 'bool', 'out'))), @('ToggleMyStore', @()), @('DebugBuy', @(@('Kind', 'int'), @('Index', 'int'), @('Coins', 'int'))), @('DebugEmpty', @()),
 	@('HopperScale', @(, @('Scale', 'float', 'out'))), @('ExtraMags', @(, @('Mags', 'int', 'out'))), @('MagSizeFor', @(@('Gun', 'obj:/SKIvSKI/Guns/BP_PaintGunData.BP_PaintGunData_C'), @('Size', 'int', 'out'))),
 	@('SpareMax', @(@('Gun', 'obj:/SKIvSKI/Guns/BP_PaintGunData.BP_PaintGunData_C'), @('Balls', 'int', 'out'))), @('GearBlurb', @(@('Kind', 'int'), @('Index', 'int'), @('Blurb', 'string', 'out'))), @('DebugDrain', @()),
-	@('FitToSkin', @()), @('CurrentFort', @(, @('Fort', $FORT, 'out'))), @('DebugGoToFort', @(, @('Index', 'int'))), @('UpdateMapMarker', @()), @('DebugAimAt', @(@('Yaw', 'float'), @('Pitch', 'float'))), @('DebugGunAim', @()), @('DebugSkin', @(, @('Index', 'int'))), @('SkinOf', @(@('Component', 'obj:/Script/Engine.ActorComponent'), @('Skin', 'obj:/Script/Engine.SkeletalMeshComponent', 'out')))) | Out-Null
+	@('FitToSkin', @()), @('CurrentFort', @(, @('Fort', $FORT, 'out'))), @('DebugGoToFort', @(, @('Index', 'int'))), @('UpdateMapMarker', @()), @('DebugAimAt', @(@('Yaw', 'float'), @('Pitch', 'float'))), @('DebugGunAim', @()), @('DebugSkin', @(, @('Index', 'int'))), @('DebugOffRun', @(, @('Across', 'float'))), @('SkinOf', @(@('Component', 'obj:/Script/Engine.ActorComponent'), @('Skin', 'obj:/Script/Engine.SkeletalMeshComponent', 'out')))) | Out-Null
 AddFunctions $D @(
 	@('Now', @(, @('Time', 'float', 'out'))), @('FindSlope', @(, @('Found', 'bool', 'out'))), @('SetupRounds', @()), @('ServerStep', @()), @('StartLobby', @()),
 	@('StartCountdown', @()), @('StartRace', @()), @('EndRace', @()), @('PlaceAll', @(@('bAtGate', 'bool'), @('bFreeze', 'bool'))),
 	@('PlaceOne', @(@('Player', $PS), @('bAtGate', 'bool'), @('Index', 'int'))), @('FreezeAll', @(, @('bFreeze', 'bool'))), @('CheckRacers', @()),
+	@('CheckBounds', @(@('Player', $PS), @('Skier', 'obj:/SKIvSKI/Blueprints/BP_SkiCharacter.BP_SkiCharacter_C'), @('bRacing', 'bool'))), @('SendOutOfBounds', @(, @('Player', $PS))), @('ClearBounds', @()),
 	@('RescueLost', @(, @('bAtGate', 'bool'))), @('PlayerFinished', @(, @('Player', $PS))), @('AddPoints', @(@('Player', $PS), @('Points', 'int'))),
 	@('ResolvePaintHit', @(@('Shooter', $PAWN), @('Victim', $PAWN), @('Result', 'int', 'out'))), @('JudgePaintHit', @(@('Shooter', $PAWN), @('Victim', $PAWN))), @('ResetRound', @()),
 	@('ChangeDifficulty', @(@('Player', $PS), @('Step', 'int'))), @('PaySurvivors', @()),

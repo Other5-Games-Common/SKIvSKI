@@ -249,8 +249,10 @@ The director is a Game Coordinator child: `On Player Pawn Changed` places a new 
 join the smaller team; T calls **Request Team**, allowed only while the director has switching on: the lobby). It
 moves skiers with the character's `PlaceAt` (teleport, stop, and a RepNotify that turns the owning player's skis and
 camera), freezes them for the countdown (`bSkiFrozen`), resets outs, hits and team scores (`ResetRound`) at the
-countdown, checks who crossed the finish (`IsPastFinish`) or got lost (`IsOutOfBounds`: back to the gate, or the lobby),
-ends the race when everyone has finished or is out, and adds points (team score with **Add Team Score**, coins with
+countdown, checks who crossed the finish (`IsPastFinish`) or left the run in the race (`CheckBounds`: off its sides by more
+than **Bounds Banks** bank widths starts a **Bounds Seconds** countdown, 5 s, shown on that player's HUD; still off when it
+ends, or fallen through the snow, they're out as if hit and moved to the bottom of the run), sends anyone lost outside
+the race back to the lobby (`IsOutOfBounds`), ends the race when everyone has finished or is out, and adds points (team score with **Add Team Score**, coins with
 the character's `AddCoins`, Other5's inventory currency). It replicates the phase, when it ends (server time), the
 difficulty and a message for the HUD.
 

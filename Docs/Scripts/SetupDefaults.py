@@ -155,6 +155,8 @@ def main():
         "CoinsPerPoint": 0,                      # unused since the store (2026-11-16): coins come from these two
         "HitCoins": 3,                           # for each opponent you put out
         "SurviveCoins": 10,                      # for getting through a race without being put out
+        "BoundsSeconds": 5.0,                    # off the run's sides in a race: this long to get back before you're out
+        "BoundsBanks": 1.0,                      # how far past the run's edge is still on it, in bank widths (1: the banks' tops)
         "RoundsPerRun": 1,                       # the slope's runs take turns, one round each (0: stay on one run)
     })
     di.set_editor_property("replicates", True)

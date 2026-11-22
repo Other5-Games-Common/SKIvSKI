@@ -446,7 +446,10 @@
   (bind sounds (Class|BPPaintGunData|GetFireSounds :self gun))
   (if (> (Utilities|Array|Length sounds) 0)
     (Audio|PlaySoundatLocation :Sound (Utilities|Array|Get(acopy) sounds (Math|Random|RandomIntegerinRange 0 (- (Utilities|Array|Length sounds) 1))) :Location Muzzle :AttenuationSettings "/Other5Combat/Audio/AttenuationPresets/ATT_Rifle.ATT_Rifle"))
-  (Animation|PlayAnimMontage :AnimMontage (Class|BPPaintGunData|GetFireMontage :self gun))
+  ; Not while reloading: the last ball out starts the reload just before this, and the recoil would cut its animation
+  ; short (both montages share a slot group), so an empty magazine showed RELOADING with no reload played.
+  (if (not (Variables|Paint|GetReloading))
+    (Animation|PlayAnimMontage :AnimMontage (Class|BPPaintGunData|GetFireMontage :self gun)))
   (Variables|Paint|SetShotStream (Math|Random|MakeRandomStream Seed))
   (for i (range (Class|BPPaintGunData|GetPelletsPerShot :self gun))
     (Variables|Paint|SetShotDir (Math|Random|RandomUnitVectorinConeinDegreesfromStream :Stream (Variables|Paint|GetShotStream) :ConeDir Direction :ConeHalfAngleInDegrees (Class|BPPaintGunData|GetSpreadDegrees :self gun)))
@@ -560,7 +563,10 @@
   (bind e5 (Utilities|String|Append e4 (Utilities|String|Append " skis " (Utilities|String|ToString(Text) (Class|BPSkiData|GetSkiName :self skis)))))
   (bind e (Utilities|String|Append e5 (Utilities|String|Append " friction " (Utilities|String|ToString(Float) (CallFunction|GetSnowFriction)))))
   (bind f (Utilities|String|Append e (Utilities|String|Append " balls " (Utilities|String|ToString(Integer) (Utilities|Array|Length (Actor|GetAllActorsOfClass :ActorClass "/SKIvSKI/Blueprints/BP_Paintball.BP_Paintball_C"))))))
-  (Development|PrintString :InString f :Duration 3.0))
+  ; The montage playing (reload or recoil), and how long the player has left to get back on the run.
+  (bind g (Utilities|String|Append f (Utilities|String|Append " anim " (Utilities|GetDisplayName :Object (Animation|GetCurrentMontage)))))
+  (bind h (Utilities|String|Append g (Utilities|String|Append " bounds " (Utilities|String|ToString(Float) (Class|BPSkiPlayerState|GetBoundsDeadline :self ski)))))
+  (Development|PrintString :InString h :Duration 3.0))
 
 ; For tests: move the round on now, without waiting for its timers: 1 the countdown, 2 the race, 3 the results
 ; ("call pawn DebugPhase 3"). Only where the round is run (the server, or a standalone game).
@@ -620,6 +626,16 @@
 
 ; For tests: put this skier in fort number Index of the slope, just inside its open side, facing its front wall
 ; ("call pawn DebugGoToFort 0"). Only where the round is run (the server, or a standalone game).
+; For tests: move this skier (server) Across cm from the run's middle line, level with where they are ("call pawn
+; DebugOffRun 7000" puts them 70 m to the side: off the run, for BP_SkiDirector's out-of-bounds countdown).
+(fn DebugOffRun (Across)
+  (bind slope (Actor|GetActorOfClass :ActorClass "/SKIvSKI/Blueprints/BP_SkiSlope.BP_SkiSlope_C"))
+  (if (Networking|HasAuthority)
+    (bind local (Math|Transform|InverseTransformLocation (Transformation|GetActorTransform :self slope) (Transformation|GetActorLocation)))
+    (bind x (.x local))
+    (bind ground (Class|BPSkiSlope|HeightAt :self slope :X x :Y Across))
+    (CallFunction|PlaceAt :Spot (Math|Transform|ComposeTransforms (Math|Transform|MakeTransform (Math|Vector|MakeVector x Across (+ ground 150.0)) (Math|Rotator|MakeRotator :Yaw 0.0) (Math|Vector|MakeVector 1.0 1.0 1.0)) (Transformation|GetActorTransform :self slope)))))
+
 (fn DebugGoToFort (Index)
   (bind slope (Actor|GetActorOfClass :ActorClass "/SKIvSKI/Blueprints/BP_SkiSlope.BP_SkiSlope_C"))
   (bind forts (Class|BPSkiSlope|GetForts :self slope))
