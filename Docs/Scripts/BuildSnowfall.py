@@ -3,7 +3,7 @@
 #  - /SKIvSKI/Runs/Skies/FX/M_SkiStreaks: translucent streaks from Docs/Materials/M_SkiStreaks.hlsl, as bright as the
 #    sky's light, never below a minimum on-screen brightness;
 #  - MI_SkiSnowLight + BP_SkiSnowLight: gentle drifting flakes; MI_SkiSnowHeavy + BP_SkiSnowHeavy: a thick, fast,
-#    windblown fall. Each BP has two cylinders of flakes round the camera (Near 6 m, Far 15 m).
+#    windblown fall. Each BP has three cylinders of flakes round the camera (Close 2.5 m, Near 6 m, Far 15 m).
 # A sky preset's Weather Actor (Other5 Sky Preset) spawns one on each machine and keeps it on the camera.
 # Safe to rerun. Run in the editor: py "<plugin>/Docs/Scripts/BuildSnowfall.py"
 import os
@@ -19,12 +19,12 @@ sub = unreal.get_engine_subsystem(unreal.SubobjectDataSubsystem)
 lib = unreal.SubobjectDataBlueprintFunctionLibrary
 
 # name: default (cm, cm/s or 0-1); every one is a material parameter, so a material instance can retune a layer.
-PARAMS = [("Spacing", 14.0), ("Width", 1.6), ("Rows", 160.0), ("Length", 0.3), ("Speed", 1100.0), ("Density", 0.7), ("Sway", 0.0)]
+PARAMS = [("Spacing", 14.0), ("Width", 1.6), ("Rows", 160.0), ("Length", 0.3), ("Speed", 1100.0), ("Density", 0.7), ("Sway", 0.0), ("Jitter", 0.25), ("Round", 0.0)]
 SNOWS = {}
 # Light snow: short wide dashes falling slowly and drifting side to side.
-SNOWS["Light"] = {"Spacing": 40.0, "Width": 3.5, "Rows": 80.0, "Length": 0.045, "Speed": 110.0, "Density": 0.8, "Sway": 12.0, "Opacity": 1.0, "Glow": 2.4, "MinScreen": 0.6}
+SNOWS["Light"] = {"Spacing": 40.0, "Width": 2.2, "Rows": 80.0, "Length": 0.06, "Round": 1.0, "Speed": 110.0, "Density": 0.8, "Sway": 12.0, "Jitter": 0.45, "Opacity": 1.0, "Glow": 2.4, "MinScreen": 0.85}
 # A snowstorm: denser, faster, swaying more.
-SNOWS["Heavy"] = {"Spacing": 22.0, "Width": 3.0, "Rows": 60.0, "Length": 0.06, "Speed": 260.0, "Density": 0.9, "Sway": 30.0, "Opacity": 1.0, "Glow": 2.4, "MinScreen": 0.6}
+SNOWS["Heavy"] = {"Spacing": 24.0, "Width": 2.0, "Rows": 60.0, "Length": 0.07, "Round": 1.0, "Speed": 260.0, "Density": 0.9, "Sway": 30.0, "Jitter": 0.45, "Opacity": 1.0, "Glow": 2.4, "MinScreen": 0.85}
 
 
 def log(s):
@@ -138,7 +138,7 @@ def snow_instance(mat, kind):
     return mi
 
 
-def actor(name, mat):
+def actor(name, mat, close=False):
     path = FOLDER + "/" + name
     bp = unreal.load_asset(path) if EAL.does_asset_exist(path) else None
     if bp is None:
@@ -148,7 +148,11 @@ def actor(name, mat):
         log("created " + path)
     cylinder = unreal.load_asset("/Engine/BasicShapes/Cylinder")
     # The engine cylinder is 100 cm across and 100 cm tall: Near 6 m round, Far 15 m, both 30 m tall.
-    for name, scale in (("Near", unreal.Vector(12, 12, 30)), ("Far", unreal.Vector(30, 30, 30))):
+    # Snow gets a Close layer too (2.5 m), whose bigger flakes sell it.
+    layers = [("Near", unreal.Vector(12, 12, 30)), ("Far", unreal.Vector(30, 30, 30))]
+    if close:
+        layers.insert(0, ("Close", unreal.Vector(5, 5, 30)))
+    for name, scale in layers:
         c = component(bp, name, unreal.StaticMeshComponent)
         c.set_editor_property("static_mesh", cylinder)
         c.set_editor_property("override_materials", [mat])
@@ -164,5 +168,5 @@ def actor(name, mat):
 
 mat = material()
 for kind in SNOWS:
-    actor("BP_SkiSnow" + kind, snow_instance(mat, kind))
+    actor("BP_SkiSnow" + kind, snow_instance(mat, kind), close=True)
 log("done")
