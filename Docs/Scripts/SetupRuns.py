@@ -38,14 +38,14 @@ SKY = {
         "cloud_bottom": 5.0, "cloud_height": 10.0,
         "exposure_bias": 0.0, "white_temp": 6500.0, "saturation": 1.05, "bloom": 0.675}, False, None, {}),
     "DA_SkyGoldenHour": ("Golden hour", {
-        "sun_elevation": 9.0, "sun_yaw": 245.0, "sun_intensity": 6.0, "sun_color": color(1.0, 0.9, 0.8), "sun_temperature": 4300.0,
+        "sun_elevation": 9.0, "sun_yaw": 245.0, "sun_intensity": 6.0, "sun_color": color(1.0, 0.9, 0.8), "sun_temperature": 4300.0, "sun_shadow_amount": 0.85,
         "sky_light_intensity": 0.9, "sky_light_color": color(1.0, 0.95, 0.92),
         "rayleigh_scale": 0.0331, "mie_scale": 0.008, "sky_tint": color(1, 1, 1),
         "fog_density": 0.015, "fog_height_falloff": 0.25, "fog_color": color(0.02, 0.012, 0.006), "fog_start_distance": 0.0, "fog_max_opacity": 1.0,
         "cloud_bottom": 4.0, "cloud_height": 6.0,
         "exposure_bias": 0.0, "white_temp": 6500.0, "saturation": 1.0, "bloom": 0.8}, True, None, {"Cloud_GlobalCoverage": -0.25}),
     "DA_SkyOvercast": ("Overcast, light snow", {
-        "sun_elevation": 35.0, "sun_yaw": 120.0, "sun_intensity": 2.5, "sun_color": color(0.9, 0.93, 1.0), "sun_temperature": 7000.0,
+        "sun_elevation": 35.0, "sun_yaw": 120.0, "sun_intensity": 2.5, "sun_color": color(0.9, 0.93, 1.0), "sun_temperature": 7000.0, "sun_shadow_amount": 0.35,
         "sky_light_intensity": 1.6, "sky_light_color": color(0.95, 0.97, 1.0),
         "rayleigh_scale": 0.006, "mie_scale": 0.02, "sky_tint": color(0.8, 0.82, 0.86),
         "fog_density": 0.06, "fog_height_falloff": 0.12, "fog_color": color(0.05, 0.055, 0.06), "fog_start_distance": 0.0, "fog_max_opacity": 1.0,
@@ -53,7 +53,7 @@ SKY = {
         "exposure_bias": 0.5, "white_temp": 6300.0, "saturation": 0.8, "bloom": 0.4}, True, (1, 1.0),
         {"Cloud_GlobalCoverage": 0.35, "Cloud_GlobalDensity": 0.02}),
     "DA_SkySnowstorm": ("Snowstorm", {
-        "sun_elevation": 30.0, "sun_yaw": 160.0, "sun_intensity": 1.2, "sun_color": color(0.88, 0.92, 1.0), "sun_temperature": 7500.0,
+        "sun_elevation": 30.0, "sun_yaw": 160.0, "sun_intensity": 1.2, "sun_color": color(0.88, 0.92, 1.0), "sun_temperature": 7500.0, "sun_shadow_amount": 0.15,
         "sky_light_intensity": 1.8, "sky_light_color": color(0.92, 0.95, 1.0),
         "rayleigh_scale": 0.008, "mie_scale": 0.03, "sky_tint": color(0.75, 0.78, 0.82),
         "fog_density": 0.2, "fog_height_falloff": 0.05, "fog_color": color(0.12, 0.13, 0.14), "fog_start_distance": 0.0, "fog_max_opacity": 0.97,
@@ -61,6 +61,10 @@ SKY = {
         "exposure_bias": 0.7, "white_temp": 6200.0, "saturation": 0.6, "bloom": 0.3}, True, (4, 1.8),
         {"Cloud_GlobalCoverage": 0.6, "Cloud_GlobalDensity": 0.03}),
 }
+
+# Flakes drifting round the camera (BuildSnowfall.py), per sky: the clear day stays clear, golden hour gets a gentle
+# fall, overcast light snow, the storm a heavy one.
+SNOWFALL = {"DA_SkyGoldenHour": "BP_SkiSnowLight", "DA_SkyOvercast": "BP_SkiSnowLight", "DA_SkySnowstorm": "BP_SkiSnowHeavy"}
 
 # name: values (BP_SkiRunData's variables; 0 keeps the slope's own). FortSpots: (how far down 0-1, across -1 left edge
 # .. 1 right edge), the same every time the run is played. Lengths in cm; the first run is the original 400 m slope.
@@ -116,6 +120,8 @@ def main():
             da.set_editor_property("weather_speed", weather[1])
         else:
             da.set_editor_property("weather_effect_path", "")
+        fall = SNOWFALL.get(name)
+        da.set_editor_property("weather_actor", unreal.load_asset(SKIES + "/FX/" + fall).generated_class() if fall and eal.does_asset_exist(SKIES + "/FX/" + fall) else None)
         eal.save_loaded_asset(da, False)
         skies[name] = da
         log("sky " + name)
